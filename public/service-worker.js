@@ -73,8 +73,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Skip Netlify functions - let them handle directly
-  if (url.pathname.startsWith('/.netlify/functions/')) {
+  // Skip Vercel API routes - let them handle directly
+  if (url.pathname.startsWith('/api/')) {
     return;
   }
 

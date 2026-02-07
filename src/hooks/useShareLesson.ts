@@ -520,7 +520,7 @@ export function useShareLesson() {
       const timestamp = Date.now();
       const fileName = `shared-pdfs/${timestamp}_${currentSheetInfo.sheet}_Lesson_${lessonDisplayNumber}.pdf`;
 
-      // Use Vercel API when on Vercel, otherwise Netlify function (bypasses CORS)
+      // Use Vercel API (bypasses CORS)
       const { getPdfApiUrl } = await import('../utils/pdfApi');
       const pdfApiUrl = getPdfApiUrl();
       
@@ -569,9 +569,9 @@ export function useShareLesson() {
           );
         }
         
-        // If function/API not found
+        // If API not found
         if (uploadResponse.status === 404) {
-          throw new Error('PDF API not found. On Vercel ensure api/generate-pdf is deployed; on Netlify ensure the function is deployed.');
+          throw new Error('PDF API not found. Please ensure api/generate-pdf is deployed on Vercel.');
         }
         
         throw new Error(errorData.error || `Upload failed: ${uploadResponse.status}`);
@@ -651,7 +651,7 @@ export function useShareLesson() {
         let errData: { error?: string } = {};
         try { errData = JSON.parse(errorText); } catch { errData = { error: errorText }; }
         if (uploadResponse.status === 404) {
-          throw new Error('PDF service not found. On Netlify deploy the generate-pdf function; on custom domain set VITE_NETLIFY_SUBDOMAIN.');
+          throw new Error('PDF service not found. Please ensure api/generate-pdf is deployed on Vercel.');
         }
         throw new Error(errData.error || `PDF service error: ${uploadResponse.status}`);
       }

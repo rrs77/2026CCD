@@ -159,8 +159,8 @@ export const StandaloneLessonCreator: React.FC<StandaloneLessonCreatorProps> = (
       lessonName: 'Introduction to Musical Patterns',
       duration: 45,
       assessmentObjectives: [] as string[],
-      learningOutcome: '<p>Children will be able to:</p><ul><li>Maintain a steady beat when clapping or playing instruments</li><li>Identify the difference between rhythm and beat</li><li>Create simple 4-beat rhythm patterns</li></ul>',
-      successCriteria: '<p>I can:</p><ul><li>Keep a steady beat for at least 8 counts</li><li>Copy a simple rhythm pattern</li><li>Create my own rhythm using body percussion</li></ul>',
+      learningOutcome: '<p>Children will be able to:</p><p>Maintain a steady beat when clapping or playing instruments<br/>Identify the difference between rhythm and beat<br/>Create simple 4-beat rhythm patterns</p>',
+      successCriteria: '<p>I can:</p><p>Keep a steady beat for at least 8 counts<br/>Copy a simple rhythm pattern<br/>Create my own rhythm using body percussion</p>',
       introduction: '<p>Begin by playing a familiar song and ask children to clap along. Discuss: "What are we clapping? Is it the same all the way through?"</p><p>Introduce the concept of a steady beat like a heartbeat - always the same speed.</p>',
       mainActivity: '<p><strong>Activity 1: Beat vs Rhythm</strong></p><p>Play "We Will Rock You" - demonstrate the steady beat (stomp stomp clap) vs the rhythm of the words.</p><p><strong>Activity 2: Rhythm Patterns</strong></p><p>Using rhythm cards, children practice 4-beat patterns in pairs. Progress from copying to creating.</p>',
       plenary: '<p>Performance circle: Each pair shares their created rhythm pattern. Class tries to copy it back.</p><p>Exit question: "What is the difference between beat and rhythm?"</p>',
@@ -1165,7 +1165,8 @@ export const StandaloneLessonCreator: React.FC<StandaloneLessonCreatorProps> = (
                     <span>Learning Outcome</span>
                   </h4>
                   <div 
-                    className="prose prose-sm max-w-none text-gray-700 bg-gray-50 rounded-lg p-4 border border-gray-200"
+                    className="prose prose-sm max-w-none text-gray-700 bg-gray-50 rounded-lg p-4 border border-gray-200 overflow-hidden [&_ul]:list-none [&_ul]:pl-0 [&_ul]:ml-0 [&_ul]:my-0 [&_li]:list-none [&_li]:pl-0 [&_li]:ml-0 [&_li]:before:content-none [&_li]:before:hidden [&_ul_li]:pl-0 [&_ul_li]:ml-0"
+                    style={{ listStyle: 'none', paddingLeft: '16px', paddingRight: '16px', overflow: 'hidden' }}
                     dangerouslySetInnerHTML={{ __html: lesson.learningOutcome }}
                   />
                 </div>
@@ -1179,7 +1180,8 @@ export const StandaloneLessonCreator: React.FC<StandaloneLessonCreatorProps> = (
                     <span>Success Criteria</span>
                   </h4>
                   <div 
-                    className="prose prose-sm max-w-none text-gray-700 bg-gray-50 rounded-lg p-4 border border-gray-200"
+                    className="prose prose-sm max-w-none text-gray-700 bg-gray-50 rounded-lg p-4 border border-gray-200 overflow-hidden [&_ul]:list-none [&_ul]:pl-0 [&_ul]:ml-0 [&_ul]:my-0 [&_li]:list-none [&_li]:pl-0 [&_li]:ml-0 [&_li]:before:content-none [&_li]:before:hidden [&_ul_li]:pl-0 [&_ul_li]:ml-0"
+                    style={{ listStyle: 'none', paddingLeft: '16px', paddingRight: '16px', overflow: 'hidden' }}
                     dangerouslySetInnerHTML={{ __html: lesson.successCriteria }}
                   />
                 </div>

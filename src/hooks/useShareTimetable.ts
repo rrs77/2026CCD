@@ -267,16 +267,14 @@ export function useShareTimetable() {
       const sanitizedClassName = className.replace(/[^a-zA-Z0-9]/g, '_');
       const fileName = `shared-pdfs/${timestamp}_${sanitizedClassName}_Timetable.pdf`;
 
-      // Use Netlify function to generate PDF and upload (bypasses CORS)
-      // Use helper to route through Netlify subdomain on custom domains (fixes SSL issues)
-      const { getNetlifyFunctionUrl } = await import('../utils/netlifyFunctions');
-      const netlifyFunctionUrl = getNetlifyFunctionUrl('/.netlify/functions/generate-pdf');
+      // Use Vercel API to generate PDF and upload (bypasses CORS)
+      const pdfApiUrl = '/api/generate-pdf';
       
-      console.log('Generating timetable PDF via Netlify function:', netlifyFunctionUrl);
+      console.log('Generating timetable PDF via Vercel API:', pdfApiUrl);
       
       let uploadResponse;
       try {
-        uploadResponse = await fetch(netlifyFunctionUrl, {
+        uploadResponse = await fetch(pdfApiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -288,7 +286,7 @@ export function useShareTimetable() {
           })
         });
       } catch (fetchError: any) {
-        console.error('Network error calling Netlify function:', fetchError);
+        console.error('Network error calling Vercel API:', fetchError);
         throw new Error(`Failed to connect to PDF generation service. Error: ${fetchError.message || 'Network error'}`);
       }
 
@@ -308,11 +306,11 @@ export function useShareTimetable() {
         }
         
         if (errorData.error === 'Server configuration error' || uploadResponse.status === 500) {
-          throw new Error('Server configuration error: Please ensure SUPABASE_SERVICE_ROLE_KEY is set in Netlify environment variables.');
+          throw new Error('Server configuration error: Please ensure SUPABASE_SERVICE_ROLE_KEY is set in Vercel environment variables.');
         }
         
         if (uploadResponse.status === 404) {
-          throw new Error('Upload function not found. Please ensure the Netlify function is deployed correctly.');
+          throw new Error('Upload function not found. Please ensure the Vercel API route is deployed correctly.');
         }
         
         throw new Error(errorData.error || `Upload failed: ${uploadResponse.status}`);

@@ -157,9 +157,9 @@ export function LessonLibraryCard({
       <div className="relative group">
         <div 
           className={`bg-white rounded-card shadow-soft border-l-4 p-3 transition-all duration-200 hover:shadow-hover cursor-pointer h-full ${
-            isUserCreated ? 'border-teal-500' : ''
+            isUserCreated ? 'border-blue-400' : ''
           }`}
-          style={isUserCreated ? {} : { borderLeftColor: theme.primary }}
+          style={isUserCreated ? { borderLeftColor: '#60A5FA' } : { borderLeftColor: theme.primary }}
           onClick={onClick}
         >
           <div className="flex items-center justify-between h-full">
@@ -167,7 +167,7 @@ export function LessonLibraryCard({
               <div className="flex items-center space-x-2">
                 <h4 className="font-medium text-gray-900 text-sm truncate" dir="ltr">{safeLessonData.title}</h4>
                 {isUserCreated && (
-                  <span className="px-1.5 py-0.5 bg-teal-100 text-teal-700 rounded text-xs font-medium whitespace-nowrap flex-shrink-0">
+                  <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium whitespace-nowrap flex-shrink-0">
                     Custom
                   </span>
                 )}
@@ -286,9 +286,10 @@ export function LessonLibraryCard({
         <div 
           className={`bg-white rounded-card shadow-soft border p-4 transition-all duration-200 hover:shadow-hover cursor-pointer ${
             isUserCreated 
-              ? 'border-teal-300 hover:border-teal-400 border-l-4' 
+              ? 'border-blue-300 hover:border-blue-400 border-l-4' 
               : 'border-gray-200 hover:border-blue-300'
           }`}
+          style={isUserCreated ? { borderLeftColor: '#60A5FA' } : {}}
           onClick={onClick}
         >
           <div className="flex items-start">
@@ -304,7 +305,7 @@ export function LessonLibraryCard({
                 <div className="flex items-center space-x-2">
                   <h4 className="font-semibold text-gray-900 text-base truncate" dir="ltr">{safeLessonData.title}</h4>
                   {isUserCreated && (
-                    <span className="px-2 py-0.5 bg-teal-100 text-teal-700 rounded-full text-xs font-medium whitespace-nowrap">
+                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium whitespace-nowrap">
                       Custom
                     </span>
                   )}
@@ -376,7 +377,7 @@ export function LessonLibraryCard({
                 onClick={handleAssignClick}
                 className={`p-2 text-white rounded-lg shadow-sm flex items-center space-x-1 ${
                   isAssigned 
-                    ? 'bg-teal-600 hover:bg-teal-700' 
+                    ? 'bg-blue-500 hover:bg-blue-600' 
                     : 'bg-blue-600 hover:bg-blue-700'
                 }`}
                 title={isAssigned ? "Reassign to Different Half-Term" : "Assign to Half-Term"}
@@ -438,23 +439,25 @@ export function LessonLibraryCard({
         className="bg-white rounded-card shadow-soft border border-gray-300 transition-all duration-300 hover:shadow-hover cursor-pointer overflow-hidden hover:scale-[1.02] h-full flex flex-col"
         onClick={onClick}
       >
-        {/* Header with blue color - teal for user-created lessons */}
+        {/* Header with blue color - light blue for lessons created from scratch */}
         <div 
           className="p-4 text-white relative overflow-hidden"
-          style={{ backgroundColor: isUserCreated ? '#14B8A6' : '#4580ED' }}
+          style={{ backgroundColor: isUserCreated ? '#60A5FA' : '#4580ED' }}
         >
           <div className="absolute top-0 right-0 w-20 h-20 bg-white bg-opacity-10 rounded-full -translate-y-10 translate-x-10"></div>
           
           <div className="relative z-10">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-bold">
-                Lesson {displayNumber}
-              </h3>
-              {isUserCreated && (
-                <span className="px-2 py-0.5 bg-white bg-opacity-20 rounded-full text-xs font-medium">
-                  Custom
-                </span>
-              )}
+            <div className="flex items-start justify-between mb-2 pr-12">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg font-bold">
+                  Lesson {displayNumber}
+                </h3>
+                {isUserCreated && (
+                  <span className="inline-block mt-1 px-2 py-0.5 bg-white bg-opacity-20 rounded-full text-xs font-medium">
+                    Custom
+                  </span>
+                )}
+              </div>
             </div>
             <p className="text-gray-100 text-sm font-medium" dir="ltr">
               {safeLessonData.title}
@@ -508,13 +511,13 @@ export function LessonLibraryCard({
 
         {/* Action buttons - Assign, Duplicate, and Edit buttons */}
         {((onAssignToUnit && halfTerms.length > 0) || onEdit || onDuplicate) && (
-          <div className="absolute top-2 right-2 z-10 flex items-center space-x-2">
+          <div className="absolute top-2 right-2 z-20 flex items-center space-x-2">
             {onAssignToUnit && halfTerms.length > 0 && (
               <button
                 onClick={handleAssignClick}
                 className={`p-2 bg-white bg-opacity-80 hover:bg-opacity-100 rounded-lg shadow-sm transition-colors ${
                   isAssigned 
-                    ? 'text-teal-600 hover:text-teal-800' 
+                    ? 'text-blue-500 hover:text-blue-700' 
                     : 'text-blue-600 hover:text-blue-800'
                 }`}
                 title={isAssigned ? "Reassign to Different Half-Term" : "Assign to Half-Term"}
@@ -542,7 +545,7 @@ export function LessonLibraryCard({
                   e.stopPropagation();
                   onEdit();
                 }}
-                className="p-2 bg-white bg-opacity-80 hover:bg-opacity-100 rounded-lg shadow-sm text-teal-600 hover:text-teal-800 transition-colors"
+                className="p-2 bg-white bg-opacity-80 hover:bg-opacity-100 rounded-lg shadow-sm text-blue-500 hover:text-blue-700 transition-colors"
                 title="Edit Lesson"
               >
                 <Edit3 className="h-4 w-4" />

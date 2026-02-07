@@ -61,7 +61,7 @@ export function LessonExporter({ lessonNumber, onClose }: LessonExporterProps) {
     setShowPrintModal(true);
   };
 
-  // Copy Link uses external PDF service via useShareLesson (Netlify generate-pdf + upload)
+  // Copy Link uses external PDF service via useShareLesson (Vercel generate-pdf + upload)
   const handleShare = async (e?: React.MouseEvent<HTMLButtonElement>) => {
     if (e) {
       e.preventDefault();

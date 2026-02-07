@@ -1,7 +1,7 @@
 import { supabase } from '../config/supabase';
 import { useData } from '../contexts/DataContext';
 
-const PDFBOLT_API_URL = 'https://api.pdfbolt.com/api/v1/generate';
+const PDFBOLT_API_URL = 'https://api.pdfbolt.com/v1/direct';
 const PDFBOLT_API_KEY = import.meta.env.VITE_PDFBOLT_API_KEY;
 
 // DreamHost PDF upload configuration (optional - falls back to Supabase if not set)
@@ -139,7 +139,8 @@ export async function shareLesson(options: ShareLessonOptions): Promise<string> 
       },
       displayHeaderFooter: true,
       footerTemplate: footerContent,
-      headerTemplate: encodeUnicodeBase64(`<div></div>`)
+      headerTemplate: encodeUnicodeBase64(`<div></div>`),
+      emulateMediaType: 'screen'
     })
   });
 

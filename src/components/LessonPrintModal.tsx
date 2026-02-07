@@ -77,14 +77,49 @@ export function LessonPrintModal({
   const [customAreas, setCustomAreas] = useState<CustomObjectiveArea[]>([]);
   const [customYearGroups, setCustomYearGroups] = useState<CustomObjectiveYearGroup[]>([]);
   const [showEyfs, setShowEyfs] = useState(true);
+  // exportMode: 'single' if lessonNumber is provided (takes priority), otherwise 'unit' if unitId/halfTermId/isUnitPrint
   const [exportMode, setExportMode] = useState<'single' | 'unit'>(
-      isUnitPrint || unitId || halfTermId ? 'unit' : 'single'
+      lessonNumber ? 'single' : (isUnitPrint || unitId || halfTermId ? 'unit' : 'single')
   );
   // Custom header/footer for export (restored from previous behaviour)
   const [exportUseCustomHeaderFooter, setExportUseCustomHeaderFooter] = useState(false);
   const [exportCustomHeader, setExportCustomHeader] = useState('');
   const [exportCustomFooter, setExportCustomFooter] = useState('');
-  // Sync from first lesson when lessons change
+  
+  // Determine which lessons to print (MUST be declared before useEffect that uses it)
+  const lessonsToRender = React.useMemo(() => {
+    let lessons: string[] = [];
+
+    // Priority 1: If lessonNumber is explicitly provided, use only that lesson (single lesson view)
+    // This takes precedence even if unitId or halfTermId are also passed
+    if (lessonNumber) {
+      lessons = [lessonNumber];
+    } 
+    // Priority 2: If lessonNumbers array is provided, use those
+    else if (lessonNumbers && lessonNumbers.length > 0) {
+      lessons = [...lessonNumbers];
+    } 
+    // Priority 3: If unitId is provided and no specific lesson, get all lessons from unit
+    else if (unitId) {
+      const units = JSON.parse(localStorage.getItem(`units-${currentSheetInfo.sheet}`) || '[]');
+      const unit = units.find((u: any) => u.id === unitId);
+      lessons = unit?.lessonNumbers || [];
+    } 
+    // Priority 4: If halfTermId is provided and no specific lesson, get all lessons from half-term
+    else if (halfTermId) {
+      const halfTerm = halfTerms.find(term => term.id === halfTermId);
+      lessons = halfTerm?.lessons || [];
+    }
+
+    // Sort lessons numerically
+    return lessons.sort((a, b) => {
+      const numA = parseInt(a, 10);
+      const numB = parseInt(b, 10);
+      return numA - numB;
+    });
+  }, [lessonNumber, lessonNumbers, unitId, halfTermId, halfTerms, currentSheetInfo.sheet]);
+  
+  // Sync from first lesson when lessons change (uses lessonsToRender, so must come after its declaration)
   React.useEffect(() => {
     if (lessonsToRender.length === 0) return;
     const first = allLessonsData[lessonsToRender[0]];
@@ -94,34 +129,6 @@ export function LessonPrintModal({
       setExportUseCustomHeaderFooter(!!(first.customHeader || first.customFooter));
     }
   }, [lessonsToRender.join(','), allLessonsData]);
-  // Determine which lessons to print
-  const lessonsToRender = React.useMemo(() => {
-    let lessons: string[] = [];
-
-    if (exportMode === 'single' && lessonNumber) {
-      lessons = [lessonNumber];
-    } else if (lessonNumbers && lessonNumbers.length > 0) {
-      lessons = [...lessonNumbers];
-    } else if (unitId) {
-      // Find the unit and get its lessons
-      const units = JSON.parse(localStorage.getItem(`units-${currentSheetInfo.sheet}`) || '[]');
-      const unit = units.find((u: any) => u.id === unitId);
-      lessons = unit?.lessonNumbers || [];
-    } else if (halfTermId) {
-      // Get lessons for half-term
-      const halfTerm = halfTerms.find(term => term.id === halfTermId);
-      lessons = halfTerm?.lessons || [];
-    } else if (lessonNumber) {
-      lessons = [lessonNumber];
-    }
-
-    // Sort lessons numerically
-    return lessons.sort((a, b) => {
-      const numA = parseInt(a, 10);
-      const numB = parseInt(b, 10);
-      return numA - numB;
-    });
-  }, [exportMode, lessonNumber, lessonNumbers, unitId, halfTermId, halfTerms, currentSheetInfo.sheet]);
 
   // Load custom objectives data
   useEffect(() => {
@@ -153,21 +160,49 @@ export function LessonPrintModal({
     console.log('🔍 Getting custom objectives for lesson:', lessonNum);
     console.log('🔍 Lesson customObjectives:', lessonData.customObjectives);
     console.log('🔍 Lesson curriculumType:', lessonData.curriculumType);
+    console.log('🔍 Available customObjectives count:', customObjectives.length);
+    if (customObjectives.length > 0) {
+      console.log('🔍 Available customObjectives IDs (first 10):', customObjectives.slice(0, 10).map(obj => obj.id));
+      console.log('🔍 Available customObjectives codes (first 10):', customObjectives.slice(0, 10).map(obj => obj.objective_code));
+    }
     
     // Get custom objectives stored at lesson level
     const lessonCustomObjectives: CustomObjective[] = [];
     
     if (lessonData.customObjectives && lessonData.customObjectives.length > 0) {
-      // Find the custom objectives by their IDs
-      lessonData.customObjectives.forEach(objectiveId => {
-        const objective = customObjectives.find(obj => obj.id === objectiveId);
+      // Find the custom objectives by their IDs or codes
+      // Lesson might store either database IDs or objective codes (e.g., 'eyfs-psed-sr-3')
+      lessonData.customObjectives.forEach(objectiveIdOrCode => {
+        // Try to find by objective_code first (most common case)
+        let objective = customObjectives.find(obj => obj.objective_code === objectiveIdOrCode);
+        
+        // If not found by code, try to find by ID
+        if (!objective) {
+          objective = customObjectives.find(obj => obj.id === objectiveIdOrCode);
+        }
+        
         if (objective) {
           lessonCustomObjectives.push(objective);
+        } else {
+          console.warn('⚠️ Objective not found:', objectiveIdOrCode);
+          if (customObjectives.length > 0) {
+            console.warn('   Available IDs (first 5):', customObjectives.slice(0, 5).map(obj => obj.id));
+            console.warn('   Available codes (first 5):', customObjectives.slice(0, 5).map(obj => obj.objective_code));
+          } else {
+            console.warn('   ⚠️ Custom objectives array is empty - they may not be loaded yet');
+          }
         }
       });
     }
 
-    console.log('🔍 Total custom objectives for lesson:', lessonCustomObjectives);
+    console.log('🔍 Total custom objectives found for lesson:', lessonCustomObjectives.length);
+    if (lessonCustomObjectives.length > 0) {
+      console.log('🔍 Found objectives:', lessonCustomObjectives.map(obj => ({ 
+        id: obj.id, 
+        code: obj.objective_code,
+        text: obj.objective_text?.substring(0, 50) 
+      })));
+    }
     return lessonCustomObjectives;
   };
 
@@ -189,7 +224,35 @@ export function LessonPrintModal({
   }, [exportMode, lessonNumber, unitName, halfTermName, allLessonsData]);
 
   // Generate HTML content for PDFBolt with custom styling (no Tailwind dependency)
-  const generateHTMLContent = () => {
+  const generateHTMLContent = async () => {
+    // Ensure custom objectives are loaded before generating PDF
+    // Use local variables to avoid closure issues with state
+    let objectivesToUse = customObjectives;
+    let areasToUse = customAreas;
+    let yearGroupsToUse = customYearGroups;
+    
+    if (objectivesToUse.length === 0 || areasToUse.length === 0) {
+      console.log('⏳ Custom objectives not loaded yet, loading now...');
+      try {
+        const [objectives, areas, yearGroups] = await Promise.all([
+          customObjectivesApi.objectives.getAll(),
+          customObjectivesApi.areas.getAll(),
+          customObjectivesApi.yearGroups.getAll()
+        ]);
+        objectivesToUse = objectives;
+        areasToUse = areas;
+        yearGroupsToUse = yearGroups;
+        // Also update state for future use
+        setCustomObjectives(objectives);
+        setCustomAreas(areas);
+        setCustomYearGroups(yearGroups);
+        console.log('✅ Custom objectives loaded:', { objectives: objectives.length, areas: areas.length });
+      } catch (error) {
+        console.warn('⚠️ Failed to load custom objectives during PDF generation:', error);
+        // Continue anyway - PDF will be generated without custom objectives
+      }
+    }
+    
     let htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -215,12 +278,6 @@ export function LessonPrintModal({
           @page {
             size: A4;
             margin: 12mm 15mm 25mm 15mm;
-            @bottom-center {
-              content: counter(page) " of " counter(pages);
-              font-family: 'Inter', sans-serif;
-              font-size: 9px;
-              color: #6b7280;
-            }
           }
           
           .lesson-page {
@@ -448,41 +505,102 @@ export function LessonPrintModal({
           
           .resource-tag {
             font-size: 10px;
-            padding: 2px 0;
+            padding: 4px 10px;
             font-weight: 500;
+            text-decoration: none;
+            border-radius: 50px;
+            display: inline-block;
+            transition: all 0.2s;
+          }
+          
+          /* Video - Red */
+          .resource-tag.resource-video {
+            color: #dc2626;
+            border: 2px solid #dc2626;
+            background: #fef2f2;
+          }
+          
+          /* Music - Green */
+          .resource-tag.resource-music {
+            color: #16a34a;
+            border: 2px solid #16a34a;
+            background: #f0fdf4;
+          }
+          
+          /* Backing - Blue */
+          .resource-tag.resource-backing {
+            color: #2563eb;
+            border: 2px solid #2563eb;
+            background: #eff6ff;
+          }
+          
+          /* Resource - Purple */
+          .resource-tag.resource-resource {
+            color: #9333ea;
+            border: 2px solid #9333ea;
+            background: #faf5ff;
+          }
+          
+          /* Link - Gray */
+          .resource-tag.resource-link {
             color: #6b7280;
-            text-decoration: underline;
+            border: 2px solid #6b7280;
+            background: #f9fafb;
+          }
+          
+          /* Vocals - Orange */
+          .resource-tag.resource-vocals {
+            color: #ea580c;
+            border: 2px solid #ea580c;
+            background: #fff7ed;
+          }
+          
+          /* Image - Pink */
+          .resource-tag.resource-image {
+            color: #db2777;
+            border: 2px solid #db2777;
+            background: #fdf2f8;
+          }
+          
+          /* Canva - Indigo */
+          .resource-tag.resource-canva {
+            color: #4f46e5;
+            border: 2px solid #4f46e5;
+            background: #eef2ff;
           }
           
           .resource-tag:hover {
-            color: #0f766e;
+            opacity: 0.8;
           }
           
-          /* Footer */
-          .lesson-footer {
-            margin-top: 16px;
-            padding: 12px 16px;
-            background: #f8fafc;
-            border-top: 1px solid #e2e8f0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 9px;
-            color: #64748b;
-            border-radius: 0 0 8px 8px;
+          /* Learning Goals boxes - ensure bullets stay inside */
+          .learning-outcome-content,
+          .success-criteria-content {
+            overflow: hidden;
+            box-sizing: border-box;
           }
           
-          .footer-left {
-            font-weight: 500;
+          .learning-outcome-content ul,
+          .learning-outcome-content ol,
+          .success-criteria-content ul,
+          .success-criteria-content ol {
+            list-style: none !important;
+            padding-left: 0 !important;
+            margin-left: 0 !important;
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
           }
           
-          .footer-center {
-            text-align: center;
+          .learning-outcome-content li,
+          .success-criteria-content li {
+            list-style: none !important;
+            padding-left: 0 !important;
+            margin-left: 0 !important;
           }
           
-          .footer-right {
-            font-weight: 600;
-            color: #0f766e;
+          .learning-outcome-content li::before,
+          .success-criteria-content li::before {
+            content: none !important;
           }
           
           /* Print styles */
@@ -511,16 +629,25 @@ export function LessonPrintModal({
       const termSpecificNumber = halfTermId ? getTermSpecificLessonNumber(lessonNum, halfTermId) : lessonDisplayNumber;
 
 
-      const lessonStandardsList = lessonStandards[lessonNum] || lessonStandards[lessonIndex + 1] || lessonStandards[(lessonIndex + 1).toString()] || [];
+      // Get standards from multiple possible locations
+      const lessonStandardsList = lessonData.lessonStandards || 
+                                  lessonStandards[lessonNum] || 
+                                  lessonStandards[lessonIndex + 1] || 
+                                  lessonStandards[(lessonIndex + 1).toString()] || 
+                                  [];
 
       // Group EYFS statements by area
       const groupedEyfs: Record<string, string[]> = {};
       lessonStandardsList.forEach(statement => {
-        const parts = statement.split(':');
-        const area = parts[0].trim();
-        const detail = parts.length > 1 ? parts[1].trim() : statement;
-        if (!groupedEyfs[area]) groupedEyfs[area] = [];
-        groupedEyfs[area].push(detail);
+        if (statement && typeof statement === 'string') {
+          const parts = statement.split(':');
+          const area = parts[0].trim();
+          const detail = parts.length > 1 ? parts.slice(1).join(':').trim() : statement;
+          if (area && detail) {
+            if (!groupedEyfs[area]) groupedEyfs[area] = [];
+            groupedEyfs[area].push(detail);
+          }
+        }
       });
 
       // Lesson title
@@ -542,13 +669,35 @@ export function LessonPrintModal({
           <div class="content-wrapper">
       `;
 
-      // Get custom objectives for this lesson
-      const lessonCustomObjectives = getCustomObjectivesForLesson(lessonNum);
+      // Get custom objectives for this lesson (needed for Learning Goals)
+      // Use a local version that uses the loaded objectives
+      const getCustomObjectivesForLessonLocal = (lessonNum: string) => {
+        const lessonData = allLessonsData[lessonNum];
+        if (!lessonData) return [];
+        
+        const lessonCustomObjectives: CustomObjective[] = [];
+        if (lessonData.customObjectives && lessonData.customObjectives.length > 0) {
+          lessonData.customObjectives.forEach(objectiveIdOrCode => {
+            // Try to find by objective_code first (most common case)
+            let objective = objectivesToUse.find(obj => obj.objective_code === objectiveIdOrCode);
+            // If not found by code, try to find by ID
+            if (!objective) {
+              objective = objectivesToUse.find(obj => obj.id === objectiveIdOrCode);
+            }
+            if (objective) {
+              lessonCustomObjectives.push(objective);
+            }
+          });
+        }
+        return lessonCustomObjectives;
+      };
+      
+      const lessonCustomObjectives = getCustomObjectivesForLessonLocal(lessonNum);
       
       // Group custom objectives by section, then by area
       const groupedCustomObjectives: Record<string, Record<string, CustomObjective[]>> = {};
       lessonCustomObjectives.forEach(objective => {
-        const area = customAreas.find(a => a.id === objective.area_id);
+        const area = areasToUse.find(a => a.id === objective.area_id);
         if (area) {
           const sectionName = area.section || 'Other';
           const areaName = area.name;
@@ -563,94 +712,181 @@ export function LessonPrintModal({
         }
       });
 
-      // Add Learning Goals section if enabled and has objectives
-      // Prioritize based on what was actually edited
-      // If lesson has custom objectives, show those. If lesson has EYFS, show those.
-      const hasCustomObjectives = Object.keys(groupedCustomObjectives).length > 0;
-      const hasEyfsObjectives = lessonStandardsList.length > 0;
-      
-      // Show custom objectives if they exist, otherwise show EYFS if they exist
-      const shouldShowCustom = showEyfs && hasCustomObjectives;
-      const shouldShowEyfs = showEyfs && hasEyfsObjectives && !hasCustomObjectives;
-      
-      console.log('🔍 PDF Generation Debug for lesson', lessonNum, {
-        showEyfs,
-        lessonStandardsList: lessonStandardsList.length,
-        lessonCustomObjectives: lessonCustomObjectives.length,
-        groupedCustomObjectives: Object.keys(groupedCustomObjectives).length,
-        hasCustomObjectives,
-        shouldShowEyfs,
-        shouldShowCustom
+      // Add Learning Goals at the very top (EYFS or Custom Objectives, grouped by area like example)
+      console.log('🔍 Learning Goals Debug:', {
+        lessonNum,
+        lessonDataLessonStandards: lessonData.lessonStandards,
+        lessonStandardsFromContext: lessonStandards[lessonNum],
+        lessonStandardsListLength: lessonStandardsList.length,
+        lessonStandardsList,
+        groupedEyfsKeys: Object.keys(groupedEyfs).length,
+        groupedEyfs,
+        customObjectivesCount: lessonCustomObjectives.length,
+        groupedCustomObjectivesKeys: Object.keys(groupedCustomObjectives).length,
+        groupedCustomObjectives
       });
       
-      if (shouldShowEyfs || shouldShowCustom) {
+      // Show Learning Goals if there are EYFS standards OR custom objectives
+      const hasEyfsStandards = lessonStandardsList.length > 0 && Object.keys(groupedEyfs).length > 0;
+      const hasCustomObjectives = Object.keys(groupedCustomObjectives).length > 0;
+      
+      if (hasEyfsStandards || hasCustomObjectives) {
         htmlContent += `
-          <div class="mb-4">
-            <h3 class="text-base font-bold text-black mb-2 flex items-center space-x-2">
-              <svg class="h-4 w-4 text-blue-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div style="margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;">
+              <svg style="width: 18px; height: 18px; color: #0f766e; margin-right: 8px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
               </svg>
-              <span>Learning Goals</span>
-            </h3>
-            <div class="grid grid-cols-2 gap-2">
+              <h3 style="font-size: 16px; font-weight: 700; color: #111827; margin: 0;">Learning Goals</h3>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
         `;
-
-        // Add EYFS objectives only if no custom objectives exist
-        if (shouldShowEyfs) {
-          console.log('🔍 Rendering EYFS objectives for lesson', lessonNum);
-          Object.entries(groupedEyfs).forEach(([area, statements]) => {
-            htmlContent += `
-              <div class="rounded-lg p-2 border border-gray-800" style="background-color: #fffbeb;">
-                <h4 class="font-bold text-black text-xs mb-1">${area}</h4>
-                <ul class="space-y-0.5">
-            `;
-            statements.forEach(statement => {
-              htmlContent += `
-                <li class="flex items-start space-x-2 text-xs text-black">
-                  <span class="text-green-600 font-bold">✓</span>
-                  <span>${statement}</span>
-                </li>
-              `;
+        
+        // Show EYFS Learning Goals if they exist
+        if (hasEyfsStandards) {
+          // If grouping failed, use raw standards
+          if (Object.keys(groupedEyfs).length === 0) {
+            groupedEyfs['Learning Goals'] = lessonStandardsList.map(s => {
+              const parts = s.split(':');
+              return parts.length > 1 ? parts.slice(1).join(':').trim() : s;
             });
-            htmlContent += `</ul></div>`;
+          }
+          
+          Object.entries(groupedEyfs).forEach(([area, statements]) => {
+            if (statements && statements.length > 0) {
+              htmlContent += `
+                <div style="background-color: #fffbeb; border: 1px solid #1f2937; border-radius: 8px; padding: 12px;">
+                  <h4 style="font-size: 12px; font-weight: 700; color: #1f2937; margin: 0 0 8px 0;">${area}</h4>
+                  <ul style="list-style: none; padding: 0; margin: 0;">
+              `;
+              statements.forEach(statement => {
+                if (statement && statement.trim()) {
+                  htmlContent += `
+                    <li style="display: flex; align-items: flex-start; margin-bottom: 6px; font-size: 11px; color: #1f2937; line-height: 1.4;">
+                      <span style="color: #16a34a; font-weight: 700; margin-right: 6px; flex-shrink: 0;">✓</span>
+                      <span>${statement}</span>
+                    </li>
+                  `;
+                }
+              });
+              htmlContent += `</ul></div>`;
+            }
           });
         }
-
-        // Add Custom objectives (prioritized over EYFS) - displaying by area with section context
-        if (shouldShowCustom) {
-          console.log('🔍 Rendering Custom objectives for lesson', lessonNum);
-          // Iterate through sections and their areas
+        
+        // Show Custom Objectives Learning Goals if they exist (and no EYFS)
+        if (hasCustomObjectives && !hasEyfsStandards) {
           Object.entries(groupedCustomObjectives).forEach(([sectionName, areas]) => {
             Object.entries(areas).forEach(([areaName, objectives]) => {
-              // Display title: If section exists and differs from area, show both; otherwise just area
               let displayTitle = areaName;
               if (sectionName && sectionName !== 'Other' && sectionName !== areaName) {
-                // Check if the area name already contains the section (e.g., "Communication and Language - Speaking")
                 if (!areaName.includes(sectionName)) {
                   displayTitle = `${sectionName}, ${areaName}`;
                 }
               }
               
               htmlContent += `
-                <div class="rounded-lg p-2 border border-gray-800" style="background-color: #f3e8ff;">
-                  <h4 class="font-bold text-black text-xs mb-1">${displayTitle}</h4>
-                  <ul class="space-y-0.5">
+                <div style="background-color: #fffbeb; border: 1px solid #1f2937; border-radius: 8px; padding: 12px;">
+                  <h4 style="font-size: 12px; font-weight: 700; color: #1f2937; margin: 0 0 8px 0;">${displayTitle}</h4>
+                  <ul style="list-style: none; padding: 0; margin: 0;">
               `;
               objectives.forEach(objective => {
-                htmlContent += `
-                  <li class="flex items-start space-x-2 text-xs text-black">
-                    <span class="text-purple-600 font-bold">✓</span>
-                    <span>${objective.objective_text}</span>
-                  </li>
-                `;
+                if (objective.objective_text && objective.objective_text.trim()) {
+                  htmlContent += `
+                    <li style="display: flex; align-items: flex-start; margin-bottom: 6px; font-size: 11px; color: #1f2937; line-height: 1.4;">
+                      <span style="color: #16a34a; font-weight: 700; margin-right: 6px; flex-shrink: 0;">✓</span>
+                      <span>${objective.objective_text}</span>
+                    </li>
+                  `;
+                }
               });
               htmlContent += `</ul></div>`;
             });
           });
         }
-
+        
         htmlContent += `</div></div>`;
       }
+
+      // Add Learning Goals from lesson builder (learningOutcome and successCriteria)
+      if (lessonData.learningOutcome || lessonData.successCriteria) {
+        htmlContent += `
+          <div style="margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; margin-bottom: 12px;">
+              <svg style="width: 18px; height: 18px; color: #0f766e; margin-right: 8px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <h3 style="font-size: 16px; font-weight: 700; color: #111827; margin: 0;">Learning Goals</h3>
+            </div>
+        `;
+        
+        // Helper function to remove bullet points from HTML (convert <ul><li> to line breaks)
+        const removeBulletPoints = (html: string): string => {
+          // Replace <li> tags with line breaks, then remove <ul> and </ul> tags
+          return html
+            .replace(/<li[^>]*>/gi, '<br/>')
+            .replace(/<\/li>/gi, '')
+            .replace(/<ul[^>]*>/gi, '')
+            .replace(/<\/ul>/gi, '')
+            .replace(/\n/g, '<br>');
+        };
+        
+        if (lessonData.learningOutcome) {
+          htmlContent += `
+            <div style="background: #fffbeb; border: 1px solid #fbbf24; border-radius: 8px; padding: 12px; margin-bottom: 10px; overflow: hidden; box-sizing: border-box;">
+              <h4 style="font-size: 12px; font-weight: 600; color: #92400e; margin: 0 0 6px 0; display: flex; align-items: center;">
+                <span style="margin-right: 6px;">🎯</span>
+                Learning Outcome
+              </h4>
+              <div class="learning-outcome-content" style="font-size: 11px; color: #1f2937; line-height: 1.5; overflow: hidden; box-sizing: border-box;">
+                ${removeBulletPoints(lessonData.learningOutcome)}
+              </div>
+            </div>
+          `;
+        }
+        
+        if (lessonData.successCriteria) {
+          htmlContent += `
+            <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 12px; overflow: hidden; box-sizing: border-box;">
+              <h4 style="font-size: 12px; font-weight: 600; color: #166534; margin: 0 0 6px 0; display: flex; align-items: center;">
+                <span style="margin-right: 6px;">✓</span>
+                Success Criteria
+              </h4>
+              <div class="success-criteria-content" style="font-size: 11px; color: #1f2937; line-height: 1.5; overflow: hidden; box-sizing: border-box;">
+                ${removeBulletPoints(lessonData.successCriteria)}
+              </div>
+            </div>
+          `;
+        }
+        
+        htmlContent += `</div>`;
+      }
+
+      // Add Standards section at the top (as tags/pills like in UI)
+      if (lessonStandardsList.length > 0) {
+        htmlContent += `
+          <div style="margin-bottom: 16px;">
+            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+              <svg style="width: 16px; height: 16px; color: #0f766e; margin-right: 8px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+              </svg>
+              <h3 style="font-size: 14px; font-weight: 600; color: #111827; margin: 0;">Standards (${lessonStandardsList.length})</h3>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px; background: #f0fdfa; border: 1px solid #0f766e; border-radius: 8px; padding: 10px;">
+        `;
+        lessonStandardsList.forEach((standard, index) => {
+          // Extract the text after the colon if present, otherwise use full text
+          const standardText = standard.includes(':') ? standard.split(':').slice(1).join(':').trim() : standard;
+          htmlContent += `
+            <span style="display: inline-block; padding: 4px 10px; background: white; border: 1px solid #0f766e; border-radius: 50px; font-size: 10px; color: #0f766e; font-weight: 500;">
+              ${standardText.length > 50 ? standardText.substring(0, 47) + '...' : standardText}
+            </span>
+          `;
+        });
+        htmlContent += `</div></div>`;
+      }
+
+      // Note: Learning Goals (EYFS or Custom Objectives) are now shown at the very top (above)
 
       // CLEAN LESSON PLAN LAYOUT - Matching preview style
       // Simple headers with rounded content boxes
@@ -680,15 +916,8 @@ export function LessonPrintModal({
         // Target icon SVG (matching Full Lesson Preview)
         const targetIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>';
 
-        // Learning Outcome
-        if (lessonData.learningOutcome) {
-          htmlContent += renderCleanSection('Learning Outcome', lessonData.learningOutcome, targetIcon);
-        }
-
-        // Success Criteria
-        if (lessonData.successCriteria) {
-          htmlContent += renderCleanSection('Success Criteria', lessonData.successCriteria, targetIcon);
-        }
+        // Note: Learning Outcome and Success Criteria are now shown at the top as "Learning Goals"
+        // They are not repeated here in the lesson plan details section
 
         // Assessment Objectives (if any)
         if (lessonData.assessmentObjectives && lessonData.assessmentObjectives.length > 0) {
@@ -814,11 +1043,12 @@ export function LessonPrintModal({
             if (activity.link) resources.push({ label: 'Link', url: activity.link, class: 'resource-link' });
             if (activity.vocalsLink) resources.push({ label: 'Vocals', url: activity.vocalsLink, class: 'resource-vocals' });
             if (activity.imageLink) resources.push({ label: 'Image', url: activity.imageLink, class: 'resource-image' });
+            if (activity.canvaLink) resources.push({ label: 'Canva', url: activity.canvaLink, class: 'resource-canva' });
 
             if (resources.length > 0) {
               htmlContent += `<div class="activity-resources">`;
               resources.forEach(r => {
-                htmlContent += `<a href="${r.url}" target="_blank" rel="noopener noreferrer" class="resource-tag ${r.class}" style="color: inherit; text-decoration: none;">${r.label}</a>`;
+                htmlContent += `<a href="${r.url}" target="_blank" rel="noopener noreferrer" class="resource-tag ${r.class}">${r.label}</a>`;
               });
               htmlContent += `</div>`;
             }
@@ -844,21 +1074,6 @@ export function LessonPrintModal({
 
       // Close content wrapper
       htmlContent += `</div>`;
-      
-      // Build footer text (export custom overrides lesson-level when set)
-      const footerText = (exportUseCustomHeaderFooter && exportCustomFooter) ? exportCustomFooter : (lessonData.customFooter || 
-        [currentSheetInfo.display, halfTermName || unitName, '© Forward Thinking 2026']
-          .filter(Boolean)
-          .join(' • '));
-      
-      // Footer with page number
-      htmlContent += `
-        <div class="lesson-footer">
-          <div class="footer-left">Creative Curriculum Designer</div>
-          <div class="footer-center">${footerText}</div>
-          <div class="footer-right">Lesson ${termSpecificNumber} • Page ${lessonIndex + 1} of ${lessonsToRender.length}</div>
-        </div>
-      `;
     });
 
     htmlContent += `
@@ -867,19 +1082,33 @@ export function LessonPrintModal({
       </html>
     `;
 
+    // Header template - empty to avoid header on first page
+    // PDFBolt doesn't support hiding header on first page, so we use empty header
+    const headerContent = '<div></div>';
+
     // Create footer template for PDFBolt (use custom footer when set)
+    // Match design: Left (Creative Curriculum Designer), Center (Curriculum • Copyright), Right (Lesson • Page in pill)
     const footerCenterText = (exportUseCustomHeaderFooter && exportCustomFooter)
       ? exportCustomFooter
-      : [currentSheetInfo.display || '', halfTermName || unitName ? '• ' + (halfTermName || unitName) : '', '© Forward Thinking 2026'].filter(Boolean).join(' ');
+      : [currentSheetInfo.display || '', '© Forward Thinking 2026'].filter(Boolean).join(' • ');
+    
+    // Get lesson number for footer (first lesson if multiple)
+    const firstLessonNum = lessonsToRender[0];
+    const getLessonDisplayNumber = (num: string): string => {
+      const numericPart = num.replace(/^lesson/i, '').replace(/[^0-9]/g, '');
+      return numericPart || num;
+    };
+    const lessonDisplayNum = firstLessonNum ? (halfTermId ? getTermSpecificLessonNumber(firstLessonNum, halfTermId) : getLessonDisplayNumber(firstLessonNum)) : '1';
+    
     const footerContent = `
-      <div style="width: 100%; font-size: 9px; padding: 5px 20px; display: flex; justify-content: space-between; align-items: center; color: #666; font-family: 'Inter', sans-serif;">
-        <span>Creative Curriculum Designer</span>
-        <span>${footerCenterText}</span>
-        <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
+      <div style="width: 100%; font-size: 9px; padding: 8px 20px; display: flex; justify-content: space-between; align-items: center; color: #5F6368; font-family: 'Inter', sans-serif;">
+        <span style="color: #5F6368;">Creative Curriculum Designer</span>
+        <span style="color: #5F6368;">${footerCenterText}</span>
+        <span style="background: #E8EAEF; color: #0f766e; padding: 4px 12px; border-radius: 50px; font-weight: 500;">Lesson ${lessonDisplayNum} • Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
       </div>
     `;
 
-    return [htmlContent, footerContent];
+    return [htmlContent, footerContent, headerContent];
   };
 
   if (lessonsToRender.length === 0) {
@@ -913,7 +1142,7 @@ export function LessonPrintModal({
     return btoa(binaryString);
   };
 
-  // Export PDF: use direct PDFBolt API (same as working cursorchanges repo) so it works without Netlify function
+  // Export PDF: use direct PDFBolt API (client-side generation)
   const handleExport = async () => {
     if (!PDFBOLT_API_KEY || PDFBOLT_API_KEY === 'd089165b-e1da-43bb-a7dc-625ce514ed1b') {
       toast.error('Set VITE_PDFBOLT_API_KEY in environment (or use default key).', { duration: 5000 });
@@ -921,9 +1150,10 @@ export function LessonPrintModal({
     }
     setIsExporting(true);
     try {
-      const [htmlRaw, footerRaw] = generateHTMLContent();
+      const [htmlRaw, footerRaw, headerRaw] = await generateHTMLContent();
       const htmlContent = encodeUnicodeBase64(htmlRaw);
       const footerContent = encodeUnicodeBase64(footerRaw);
+      const headerContent = encodeUnicodeBase64(headerRaw);
 
       const response = await fetch(PDFBOLT_API_URL, {
         method: 'POST',
@@ -939,7 +1169,7 @@ export function LessonPrintModal({
           margin: { top: '15px', right: '20px', left: '20px', bottom: '55px' },
           displayHeaderFooter: true,
           footerTemplate: footerContent,
-          headerTemplate: encodeUnicodeBase64('<div></div>'),
+          headerTemplate: headerContent,
           emulateMediaType: 'screen'
         })
       });
@@ -968,7 +1198,7 @@ export function LessonPrintModal({
       window.URL.revokeObjectURL(url);
 
       setExportSuccess(true);
-      toast.success('PDF exported. Links are clickable.', { duration: 3000, icon: '📄' });
+      toast.success('PDF exported.', { duration: 3000, icon: '📄' });
       setTimeout(() => setExportSuccess(false), 3000);
     } catch (error: any) {
       console.error('Export failed:', error);
@@ -1110,7 +1340,7 @@ export function LessonPrintModal({
         if (error.message?.includes('bucket')) {
           errorMessage = 'Storage bucket not configured. Please ensure the "lesson-pdfs" bucket exists in Supabase Storage and is set to public.';
         } else if (error.message?.includes('Service role key')) {
-          errorMessage = 'Server configuration error. Please ensure SUPABASE_SERVICE_ROLE_KEY is set in Netlify environment variables.';
+          errorMessage = 'Server configuration error. Please ensure SUPABASE_SERVICE_ROLE_KEY is set in Vercel environment variables.';
         } else if (error.message?.includes('Network error') || error.message?.includes('Failed to connect')) {
           errorMessage = 'Network error. Please check your internet connection and try again.';
         }
@@ -1153,8 +1383,10 @@ export function LessonPrintModal({
       }
 
       // Generate PDF using PDFBolt API (same as export)
-      const htmlContent = encodeUnicodeBase64(generateHTMLContent()[0]);
-      const footerContent = encodeUnicodeBase64(generateHTMLContent()[1]);
+      const [htmlRaw, footerRaw, headerRaw] = await generateHTMLContent();
+      const htmlContent = encodeUnicodeBase64(htmlRaw);
+      const footerContent = encodeUnicodeBase64(footerRaw);
+      const headerContent = encodeUnicodeBase64(headerRaw);
 
       const response = await fetch(PDFBOLT_API_URL, {
         method: 'POST',
@@ -1175,7 +1407,7 @@ export function LessonPrintModal({
           },
           displayHeaderFooter: true,
           footerTemplate: footerContent,
-          headerTemplate: encodeUnicodeBase64(`<div></div>`),
+          headerTemplate: headerContent,
           emulateMediaType: 'screen'
         })
       });
@@ -1202,15 +1434,12 @@ export function LessonPrintModal({
             })()
           : `${timestamp}_${currentSheetInfo.sheet}_${(unitName || halfTermName || 'Unit').replace(/\s+/g, '_')}.pdf`;
 
-      // Convert blob to base64 for Netlify function
+      // Convert blob to base64 for Vercel API
       const arrayBuffer = await pdfBlob.arrayBuffer();
       const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
 
-      // Upload via Netlify function to bypass RLS
-      // Use helper to route through Netlify subdomain on custom domains (fixes SSL issues)
-      const { getNetlifyFunctionUrl } = await import('../utils/netlifyFunctions');
-      const netlifyFunctionUrl = getNetlifyFunctionUrl('/.netlify/functions/upload-pdf');
-      const uploadResponse = await fetch(netlifyFunctionUrl, {
+      // Upload via Vercel API to bypass RLS
+      const uploadResponse = await fetch('/api/upload-pdf', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1323,9 +1552,9 @@ export function LessonPrintModal({
   useEffect(() => {
     if (!systemPrintOnly || lessonsToRender.length === 0 || systemPrintDone.current) return;
     systemPrintDone.current = true;
-    const run = () => {
+    const run = async () => {
       try {
-        const [fullHtml] = generateHTMLContent();
+        const [fullHtml] = await generateHTMLContent();
         const printWin = window.open('', '_blank');
         if (!printWin) {
           toast.error('Please allow pop-ups to use Print');
@@ -1521,7 +1750,6 @@ export function LessonPrintModal({
                   )}
                 </button>
               </div>
-            </div>
           </div>
 
           {/* Share URL Display - Show immediately when share is successful */}

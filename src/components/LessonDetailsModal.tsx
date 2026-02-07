@@ -304,7 +304,8 @@ export function LessonDetailsModal({
                     <span>Learning Outcome</span>
                   </h4>
                   <div 
-                    className="bg-gray-50 rounded-lg p-4 border border-gray-200 text-gray-700 prose prose-sm max-w-none"
+                    className="bg-gray-50 rounded-lg p-4 border border-gray-200 text-gray-700 prose prose-sm max-w-none overflow-hidden [&_ul]:list-none [&_ul]:pl-0 [&_ul]:ml-0 [&_ul]:my-0 [&_li]:list-none [&_li]:pl-0 [&_li]:ml-0 [&_li]:before:content-none [&_li]:before:hidden [&_ul_li]:pl-0 [&_ul_li]:ml-0"
+                    style={{ listStyle: 'none', paddingLeft: '16px', paddingRight: '16px', overflow: 'hidden' }}
                     dangerouslySetInnerHTML={{ __html: lessonData.learningOutcome }}
                   />
                 </div>
@@ -318,7 +319,8 @@ export function LessonDetailsModal({
                     <span>Success Criteria</span>
                   </h4>
                   <div 
-                    className="bg-gray-50 rounded-lg p-4 border border-gray-200 text-gray-700 prose prose-sm max-w-none"
+                    className="bg-gray-50 rounded-lg p-4 border border-gray-200 text-gray-700 prose prose-sm max-w-none overflow-hidden [&_ul]:list-none [&_ul]:pl-0 [&_ul]:ml-0 [&_ul]:my-0 [&_li]:list-none [&_li]:pl-0 [&_li]:ml-0 [&_li]:before:content-none [&_li]:before:hidden [&_ul_li]:pl-0 [&_ul_li]:ml-0"
+                    style={{ listStyle: 'none', paddingLeft: '16px', paddingRight: '16px', overflow: 'hidden' }}
                     dangerouslySetInnerHTML={{ __html: lessonData.successCriteria }}
                   />
                 </div>
