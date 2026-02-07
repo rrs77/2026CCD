@@ -80,6 +80,20 @@ export function LessonPrintModal({
   const [exportMode, setExportMode] = useState<'single' | 'unit'>(
       isUnitPrint || unitId || halfTermId ? 'unit' : 'single'
   );
+  // Custom header/footer for export (restored from previous behaviour)
+  const [exportUseCustomHeaderFooter, setExportUseCustomHeaderFooter] = useState(false);
+  const [exportCustomHeader, setExportCustomHeader] = useState('');
+  const [exportCustomFooter, setExportCustomFooter] = useState('');
+  // Sync from first lesson when lessons change
+  React.useEffect(() => {
+    if (lessonsToRender.length === 0) return;
+    const first = allLessonsData[lessonsToRender[0]];
+    if (first?.customHeader !== undefined || first?.customFooter !== undefined) {
+      setExportCustomHeader(first.customHeader || '');
+      setExportCustomFooter(first.customFooter || '');
+      setExportUseCustomHeaderFooter(!!(first.customHeader || first.customFooter));
+    }
+  }, [lessonsToRender.join(','), allLessonsData]);
   // Determine which lessons to print
   const lessonsToRender = React.useMemo(() => {
     let lessons: string[] = [];
@@ -157,15 +171,9 @@ export function LessonPrintModal({
     return lessonCustomObjectives;
   };
 
-  // PDFBolt API configuration
-const PDFBOLT_API_KEY = '146bdd01-146f-43f8-92aa-26201c38aa11'
+  // PDFBolt API configuration (used for unit/half-term Copy Link in this modal; single-lesson Export uses PDF service)
+  const PDFBOLT_API_KEY = import.meta.env.VITE_PDFBOLT_API_KEY || '146bdd01-146f-43f8-92aa-26201c38aa11';
   const PDFBOLT_API_URL = 'https://api.pdfbolt.com/v1/direct';
-
-  // Temporary debugging - remove this later
-  console.log('Environment check:', {
-    apiKey: PDFBOLT_API_KEY,
-    allEnvVars: import.meta.env
-  });
 
   // Get the title for the print
   const printTitle = React.useMemo(() => {
@@ -522,7 +530,7 @@ const PDFBOLT_API_KEY = '146bdd01-146f-43f8-92aa-26201c38aa11'
       htmlContent += `
           <!-- Lesson Header -->
           <div class="lesson-header">
-            <h1>${lessonData.customHeader || lessonTitle}</h1>
+            <h1>${(exportUseCustomHeaderFooter && exportCustomHeader) ? exportCustomHeader : (lessonData.customHeader || lessonTitle)}</h1>
             <div class="subtitle">${lessonSubtitle}</div>
             <div class="meta">
               <span class="meta-item">📚 ${currentSheetInfo.display}</span>
@@ -837,11 +845,11 @@ const PDFBOLT_API_KEY = '146bdd01-146f-43f8-92aa-26201c38aa11'
       // Close content wrapper
       htmlContent += `</div>`;
       
-      // Build footer text
-      const footerText = lessonData.customFooter || 
+      // Build footer text (export custom overrides lesson-level when set)
+      const footerText = (exportUseCustomHeaderFooter && exportCustomFooter) ? exportCustomFooter : (lessonData.customFooter || 
         [currentSheetInfo.display, halfTermName || unitName, '© Forward Thinking 2026']
           .filter(Boolean)
-          .join(' • ');
+          .join(' • '));
       
       // Footer with page number
       htmlContent += `
@@ -859,11 +867,14 @@ const PDFBOLT_API_KEY = '146bdd01-146f-43f8-92aa-26201c38aa11'
       </html>
     `;
 
-    // Create footer template for PDFBolt (separate from in-page footer)
+    // Create footer template for PDFBolt (use custom footer when set)
+    const footerCenterText = (exportUseCustomHeaderFooter && exportCustomFooter)
+      ? exportCustomFooter
+      : [currentSheetInfo.display || '', halfTermName || unitName ? '• ' + (halfTermName || unitName) : '', '© Forward Thinking 2026'].filter(Boolean).join(' ');
     const footerContent = `
       <div style="width: 100%; font-size: 9px; padding: 5px 20px; display: flex; justify-content: space-between; align-items: center; color: #666; font-family: 'Inter', sans-serif;">
         <span>Creative Curriculum Designer</span>
-        <span>${currentSheetInfo.display || ''} ${halfTermName || unitName ? '• ' + (halfTermName || unitName) : ''} • © Forward Thinking 2026</span>
+        <span>${footerCenterText}</span>
         <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
       </div>
     `;
@@ -902,24 +913,18 @@ const PDFBOLT_API_KEY = '146bdd01-146f-43f8-92aa-26201c38aa11'
     return btoa(binaryString);
   };
 
+  // Export PDF: use direct PDFBolt API (same as working cursorchanges repo) so it works without Netlify function
   const handleExport = async () => {
     if (!PDFBOLT_API_KEY || PDFBOLT_API_KEY === 'd089165b-e1da-43bb-a7dc-625ce514ed1b') {
-      toast.error('Please set your PDFBolt API key in the environment variables (VITE_PDFBOLT_API_KEY)', {
-        duration: 5000,
-      });
+      toast.error('Set VITE_PDFBOLT_API_KEY in environment (or use default key).', { duration: 5000 });
       return;
     }
-
     setIsExporting(true);
     try {
-      const htmlContent = encodeUnicodeBase64(generateHTMLContent()[0]);
-      const footerContent = encodeUnicodeBase64(generateHTMLContent()[1]);
+      const [htmlRaw, footerRaw] = generateHTMLContent();
+      const htmlContent = encodeUnicodeBase64(htmlRaw);
+      const footerContent = encodeUnicodeBase64(footerRaw);
 
-      console.log('Sending request to PDFBolt API...');
-      console.log('API Key:', PDFBOLT_API_KEY ? 'Set' : 'Not set');
-      console.log('HTML content length:', htmlContent.length);
-
-      // PDFBolt API: emulateMediaType 'screen' keeps resource hyperlinks clickable in the PDF
       const response = await fetch(PDFBOLT_API_URL, {
         method: 'POST',
         headers: {
@@ -929,71 +934,45 @@ const PDFBOLT_API_KEY = '146bdd01-146f-43f8-92aa-26201c38aa11'
         body: JSON.stringify({
           html: htmlContent,
           printBackground: true,
-          waitUntil: "networkidle",
-          format: "A4",
-          margin: {
-            "top": "15px",
-            "right": "20px",
-            "left": "20px",
-            "bottom": "55px"
-          },
+          waitUntil: 'networkidle',
+          format: 'A4',
+          margin: { top: '15px', right: '20px', left: '20px', bottom: '55px' },
           displayHeaderFooter: true,
           footerTemplate: footerContent,
-          headerTemplate: encodeUnicodeBase64(`<div></div>`),
+          headerTemplate: encodeUnicodeBase64('<div></div>'),
           emulateMediaType: 'screen'
         })
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', response.headers);
-
       if (!response.ok) {
-        // Try to get more details about the error
         const errorText = await response.text();
-        console.error('PDFBolt API Error Details:', errorText);
-        throw new Error(`PDFBolt API Error: ${response.status} - ${errorText}`);
+        throw new Error(`PDFBolt: ${response.status} - ${errorText}`);
       }
 
-      // Get the PDF as a blob
       const pdfBlob = await response.blob();
-      console.log('PDF blob received, size:', pdfBlob.size);
+      const getLessonDisplayNumber = (num: string): string => {
+        const n = num.replace(/^lesson/i, '').replace(/[^0-9]/g, '');
+        return n || num;
+      };
+      const downloadFileName = exportMode === 'single' && lessonNumber
+        ? `${currentSheetInfo.sheet}_Lesson_${getLessonDisplayNumber(lessonNumber)}.pdf`
+        : `${currentSheetInfo.sheet}_${(unitName || halfTermName || 'Unit').replace(/\s+/g, '_')}.pdf`;
 
-      // Create download link
       const url = window.URL.createObjectURL(pdfBlob);
       const link = document.createElement('a');
       link.href = url;
-
-      // Set filename - use lesson number in filename
-      // Extract numeric lesson number (handle "lesson1" format)
-      const getLessonDisplayNumber = (num: string): string => {
-        const numericPart = num.replace(/^lesson/i, '').replace(/[^0-9]/g, '');
-        return numericPart || num;
-      };
-      
-      const fileName = exportMode === 'single'
-          ? (() => {
-              const lessonDisplayNumber = getLessonDisplayNumber(lessonNumber!);
-              return `${currentSheetInfo.sheet}_Lesson_${lessonDisplayNumber}.pdf`;
-            })()
-          : `${currentSheetInfo.sheet}_${(unitName || halfTermName || 'Unit').replace(/\s+/g, '_')}.pdf`;
-
-      link.download = fileName;
+      link.download = downloadFileName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
       setExportSuccess(true);
-      toast.success('PDF exported successfully!', {
-        duration: 3000,
-        icon: '📄',
-      });
+      toast.success('PDF exported. Links are clickable.', { duration: 3000, icon: '📄' });
       setTimeout(() => setExportSuccess(false), 3000);
     } catch (error: any) {
       console.error('Export failed:', error);
-      toast.error(error.message || 'Failed to export PDF', {
-        duration: 5000,
-      });
+      toast.error(error?.message || 'Failed to export PDF', { duration: 5000 });
     } finally {
       setIsExporting(false);
     }
@@ -1449,7 +1428,44 @@ const PDFBOLT_API_KEY = '146bdd01-146f-43f8-92aa-26201c38aa11'
                   Lessons: {lessonsToRender.length}
                 </div>
               </div>
-              <div className="flex space-x-3">
+            </div>
+            {/* Header & Footer customisation (restored) */}
+            <div className="mb-4 space-y-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={exportUseCustomHeaderFooter}
+                  onChange={(e) => setExportUseCustomHeaderFooter(e.target.checked)}
+                  className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                />
+                <span className="text-sm font-medium text-gray-700">Use custom header & footer</span>
+              </label>
+              {exportUseCustomHeaderFooter && (
+                <div className="pl-6 space-y-2 border-l-2 border-teal-200">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Custom header</label>
+                    <input
+                      type="text"
+                      value={exportCustomHeader}
+                      onChange={(e) => setExportCustomHeader(e.target.value)}
+                      placeholder="e.g. Lesson 3, Autumn 1 - Year 2 Music"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Custom footer</label>
+                    <input
+                      type="text"
+                      value={exportCustomFooter}
+                      onChange={(e) => setExportCustomFooter(e.target.value)}
+                      placeholder="e.g. Creative Curriculum Designer • Lesson 3 • © 2026"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex space-x-3">
                 <button
                     onClick={handleExport}
                     disabled={isExporting || isSharing}

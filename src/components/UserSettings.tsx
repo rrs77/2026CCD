@@ -144,8 +144,10 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
   });
   const [draggedCategory, setDraggedCategory] = useState<string | null>(null);
   const [bulkYearGroupMode, setBulkYearGroupMode] = useState(false); // Bulk assignment mode
-  const [selectedCategoriesForBulk, setSelectedCategoriesForBulk] = useState<Set<string>>(new Set()); // Selected categories for bulk assignment
-  const [selectedYearGroupsForBulk, setSelectedYearGroupsForBulk] = useState<Set<string>>(new Set()); // Selected year groups for bulk assignment
+  const [bulkStep1Collapsed, setBulkStep1Collapsed] = useState(false); // Collapse Step 1 after year groups chosen so categories are visible
+  const [selectedCategoriesForBulk, setSelectedCategoriesForBulk] = useState<Set<string>>(new Set());
+  const [selectedYearGroupsForBulk, setSelectedYearGroupsForBulk] = useState<Set<string>>(new Set());
+
   const [newYearGroupId, setNewYearGroupId] = useState('');
   const [newYearGroupName, setNewYearGroupName] = useState('');
   const [newYearGroupColor, setNewYearGroupColor] = useState('#3B82F6');
@@ -794,6 +796,17 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
 
         {/* Content - Responsive padding */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-8">
+          {/* Settings saved notification - at top like other notifications, auto-hides after 3s */}
+          {saveSuccess && (
+            <div className="px-4 py-3 rounded-lg border border-teal-200" style={{ backgroundColor: '#E6F7F5' }}>
+              <div className="flex items-center space-x-2" style={{ color: '#0BA596' }}>
+                <svg className="h-5 w-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span className="text-sm font-medium">Settings saved successfully!</span>
+              </div>
+            </div>
+          )}
 
           {activeTab === 'yeargroups' && (
             <>
@@ -1300,6 +1313,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                       <button
                         onClick={() => {
                             setBulkYearGroupMode(false);
+                            setBulkStep1Collapsed(false);
                             setSelectedCategoriesForBulk(new Set());
                             setSelectedYearGroupsForBulk(new Set());
                         }}
@@ -1310,67 +1324,89 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                       </button>
                     </div>
 
-                      {/* Step 1: Year Groups Selection */}
+                      {/* Step 1: Year Groups Selection - collapsible after selection so categories are visible */}
                       <div className="mb-4 p-4 bg-white rounded-lg border border-gray-200">
-                        <label className="block text-sm font-semibold text-gray-700 mb-3">
-                          Step 1: Select Year Groups
-                        </label>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mb-3">
-                          {customYearGroups && Array.isArray(customYearGroups) && customYearGroups.length > 0 ? customYearGroups.map(yearGroup => {
-                            // Use year group ID as the key, or map to code for legacy support
-                            const yearGroupKey = yearGroup.id || 
-                              (yearGroup.name.toLowerCase().includes('lower') || yearGroup.name.toLowerCase().includes('lkg') ? 'LKG' :
-                               yearGroup.name.toLowerCase().includes('upper') || yearGroup.name.toLowerCase().includes('ukg') ? 'UKG' :
-                               yearGroup.name.toLowerCase().includes('reception') ? 'Reception' : yearGroup.name);
-                            
-                            const isSelected = selectedYearGroupsForBulk.has(yearGroupKey);
-                            
-                            return (
-                      <button
-                                key={yearGroup.id}
-                                onClick={() => {
-                                  // Toggle year group selection
-                                  const newSelected = new Set(selectedYearGroupsForBulk);
-                                  if (isSelected) {
-                                    newSelected.delete(yearGroupKey);
-                                  } else {
-                                    newSelected.add(yearGroupKey);
-                                  }
-                                  setSelectedYearGroupsForBulk(newSelected);
-                                }}
-                                className={`px-3 py-2 text-sm font-medium rounded-lg transition-all ${
-                                  isSelected 
-                                    ? 'bg-teal-600 hover:bg-teal-700 text-white shadow-md' 
-                                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
-                                }`}
-                                title={`${isSelected ? 'Deselect' : 'Select'} ${yearGroup.name}`}
-                              >
-                                {yearGroup.name}
-                      </button>
-                            );
-                          }) : null}
-                    </div>
-                        <div className="flex items-center justify-between">
-                          <div className="text-xs text-gray-500">
-                            {selectedYearGroupsForBulk.size > 0 ? (
-                              <span className="text-teal-600 font-semibold">
-                                {selectedYearGroupsForBulk.size} year group{selectedYearGroupsForBulk.size !== 1 ? 's' : ''} selected
-                              </span>
-                            ) : (
-                              <span>No year groups selected</span>
-                            )}
-                          </div>
-                          {selectedYearGroupsForBulk.size > 0 && (
-                              <button
-                              onClick={() => {
-                                setSelectedYearGroupsForBulk(new Set());
-                              }}
-                              className="px-3 py-1 text-xs font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+                        {bulkStep1Collapsed && selectedYearGroupsForBulk.size > 0 ? (
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-700">
+                              <span className="font-semibold text-teal-600">{selectedYearGroupsForBulk.size} year group{selectedYearGroupsForBulk.size !== 1 ? 's' : ''} selected</span>
+                              {' — '}
+                              Select categories below, then apply.
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setBulkStep1Collapsed(false)}
+                              className="px-3 py-1.5 text-sm font-medium text-teal-600 hover:text-teal-800 hover:bg-teal-50 rounded-lg transition-colors border border-teal-200"
                             >
-                              Clear Selection
-                              </button>
-                          )}
+                              Edit year groups
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center justify-between mb-3">
+                              <label className="block text-sm font-semibold text-gray-700">
+                                Step 1: Select Year Groups
+                              </label>
+                              {selectedYearGroupsForBulk.size > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setBulkStep1Collapsed(true)}
+                                  className="px-3 py-1 text-xs font-medium text-teal-600 hover:text-teal-800 hover:bg-teal-50 rounded transition-colors"
+                                  title="Collapse so you can select categories below"
+                                >
+                                  Collapse — select categories below
+                                </button>
+                              )}
                             </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mb-3">
+                              {customYearGroups && Array.isArray(customYearGroups) && customYearGroups.length > 0 ? customYearGroups.map(yearGroup => {
+                                const yearGroupKey = yearGroup.id ||
+                                  (yearGroup.name.toLowerCase().includes('lower') || yearGroup.name.toLowerCase().includes('lkg') ? 'LKG' :
+                                   yearGroup.name.toLowerCase().includes('upper') || yearGroup.name.toLowerCase().includes('ukg') ? 'UKG' :
+                                   yearGroup.name.toLowerCase().includes('reception') ? 'Reception' : yearGroup.name);
+                                const isSelected = selectedYearGroupsForBulk.has(yearGroupKey);
+                                return (
+                                  <button
+                                    key={yearGroup.id}
+                                    onClick={() => {
+                                      const newSelected = new Set(selectedYearGroupsForBulk);
+                                      if (isSelected) newSelected.delete(yearGroupKey);
+                                      else newSelected.add(yearGroupKey);
+                                      setSelectedYearGroupsForBulk(newSelected);
+                                      // Minimise Step 1 as soon as at least one year group is selected
+                                      if (newSelected.size > 0) setBulkStep1Collapsed(true);
+                                    }}
+                                    className={`px-3 py-2 text-sm font-medium rounded-lg transition-all ${
+                                      isSelected ? 'bg-teal-600 hover:bg-teal-700 text-white shadow-md' : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
+                                    }`}
+                                    title={`${isSelected ? 'Deselect' : 'Select'} ${yearGroup.name}`}
+                                  >
+                                    {yearGroup.name}
+                                  </button>
+                                );
+                              }) : null}
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <div className="text-xs text-gray-500">
+                                {selectedYearGroupsForBulk.size > 0 ? (
+                                  <span className="text-teal-600 font-semibold">
+                                    {selectedYearGroupsForBulk.size} year group{selectedYearGroupsForBulk.size !== 1 ? 's' : ''} selected
+                                  </span>
+                                ) : (
+                                  <span>No year groups selected</span>
+                                )}
+                              </div>
+                              {selectedYearGroupsForBulk.size > 0 && (
+                                <button
+                                  onClick={() => setSelectedYearGroupsForBulk(new Set())}
+                                  className="px-3 py-1 text-xs font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+                                >
+                                  Clear Selection
+                                </button>
+                              )}
+                            </div>
+                          </>
+                        )}
                       </div>
 
                       {/* Step 2: Category Selection Status */}
@@ -1463,7 +1499,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                   {!bulkYearGroupMode && (
                     <div className="mb-4 flex gap-2">
                       <button
-                        onClick={() => setBulkYearGroupMode(true)}
+                        onClick={() => { setBulkYearGroupMode(true); setBulkStep1Collapsed(false); }}
                         className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
                       >
                         <Filter className="h-4 w-4" />
@@ -1624,7 +1660,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                           setTempCategories(updatedCategories);
                                           updateCategories(updatedCategories);
                                         }}
-                                        className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                                        className="rounded-full border border-gray-300 text-teal-600 focus:ring-teal-500 focus:ring-offset-0 checked:border-0 checked:bg-teal-600"
                                       />
                                       <span className={`text-sm ${isEnabled ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
                                         {yearGroup.name}
@@ -1678,7 +1714,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                           setTempCategories(updatedCategories);
                                           updateCategories(updatedCategories);
                                         }}
-                                            className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                                            className="rounded-full border border-gray-300 text-teal-600 focus:ring-teal-500 focus:ring-offset-0 checked:border-0 checked:bg-teal-600"
                                           />
                                           <span className={`text-xs ${isEnabled ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>{yearGroup.name}</span>
                                         </label>
@@ -1759,7 +1795,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                     }
                                     setSelectedCategoriesForBulk(newSelected);
                                   }}
-                                  className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                                  className="w-4 h-4 rounded-full border border-gray-300 text-teal-600 focus:ring-teal-500 focus:ring-offset-0 checked:border-0 checked:bg-teal-600"
                                 />
                               ) : (
                                 <>
@@ -2044,18 +2080,6 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
         </div>
 
         {/* Footer */}
-        {/* Success Message */}
-        {saveSuccess && (
-          <div className="px-6 py-3 border-t" style={{backgroundColor: '#E6F7F5', borderColor: '#B8E6E0'}}>
-            <div className="flex items-center space-x-2" style={{color: '#0BA596'}}>
-              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              <span className="text-sm font-medium">Settings saved successfully!</span>
-            </div>
-          </div>
-        )}
-        
         <div className="flex justify-between p-6 border-t border-gray-200 bg-gray-50">
           <button
             onClick={handleCancel}

@@ -34,7 +34,10 @@ export const TABLES = {
   EYFS_STATEMENTS: 'eyfs_statements',
   HALF_TERMS: 'half_terms',
   YEAR_GROUPS: 'year_groups',
+  /** Used for category list + year group assignments (same table as ~2 weeks ago when persistence worked). */
   CUSTOM_CATEGORIES: 'custom_categories',
+  /** Alternative table; app currently uses custom_categories. */
+  CATEGORIES: 'categories',
   CATEGORY_GROUPS: 'category_groups',
   CUSTOM_OBJECTIVE_YEAR_GROUPS: 'custom_objective_year_groups',
   CUSTOM_OBJECTIVE_AREAS: 'custom_objective_areas',

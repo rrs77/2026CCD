@@ -185,8 +185,8 @@ export function CustomObjectivesAdmin({ isOpen, onClose, embedded = false }: Cus
   useEffect(() => {
     if (selectedYearGroup) {
       const yearGroup = yearGroups.find(yg => yg.id === selectedYearGroup);
-      if (yearGroup) {
-        const allAreaIds = new Set(yearGroup.areas.map(area => area.id));
+      if (yearGroup && Array.isArray(yearGroup.areas)) {
+        const allAreaIds = new Set((yearGroup.areas as { id: string }[]).map(area => area.id));
         setExpandedAreas(allAreaIds);
       }
     }
@@ -198,10 +198,12 @@ export function CustomObjectivesAdmin({ isOpen, onClose, embedded = false }: Cus
       const data = await customObjectivesApi.getCompleteStructure();
       setYearGroups(data);
       
-      // Expand first year group by default
+      // Expand first year group by default (guard missing areas)
       if (data.length > 0 && !selectedYearGroup) {
-        setSelectedYearGroup(data[0].id);
-        setExpandedAreas(new Set(data[0].areas.map(area => area.id)));
+        const first = data[0];
+        setSelectedYearGroup(first.id);
+        const areas = Array.isArray(first.areas) ? first.areas : [];
+        setExpandedAreas(new Set(areas.map((area: { id: string }) => area.id)));
       }
     } catch (error) {
       console.error('Failed to load custom objectives:', error);

@@ -1128,7 +1128,7 @@ function normaliseYearGroups(raw: any): Record<string, boolean> {
   return {};
 }
 
-// API endpoints for custom categories
+// API endpoints for categories (uses public.custom_categories - same table as ~2 weeks ago when year group persistence worked)
 // Supabase/Postgres use snake_case (year_groups); app uses camelCase (yearGroups)
 export const customCategoriesApi = {
   getAll: async () => {
@@ -1149,7 +1149,7 @@ export const customCategoriesApi = {
         yearGroups: normaliseYearGroups(row.year_groups)
       }));
     } catch (error) {
-      console.warn('Failed to get custom categories from Supabase:', error);
+      console.warn('Failed to get categories from Supabase:', error);
       throw error;
     }
   },
@@ -1174,7 +1174,7 @@ export const customCategoriesApi = {
         .select();
       
       if (error) {
-        console.error('Supabase custom_categories upsert error:', error.message, error.details);
+        console.error('Supabase categories upsert error:', error.message, error.details);
         throw error;
       }
       const result = data || [];
@@ -1187,7 +1187,7 @@ export const customCategoriesApi = {
         yearGroups: normaliseYearGroups(row.year_groups)
       }));
     } catch (error) {
-      console.warn('Failed to upsert custom categories to Supabase:', error);
+      console.warn('Failed to upsert categories to Supabase:', error);
       throw error;
     }
   },
@@ -1202,7 +1202,7 @@ export const customCategoriesApi = {
       if (error) throw error;
       return { success: true };
     } catch (error) {
-      console.warn('Failed to delete custom category from Supabase:', error);
+      console.warn('Failed to delete category from Supabase:', error);
       throw error;
     }
   }

@@ -33,7 +33,7 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    const { html, footerTemplate, fileName } = JSON.parse(event.body);
+    const { html, footerTemplate, headerTemplate, fileName } = JSON.parse(event.body || '{}');
 
     if (!html) {
       return {
@@ -73,7 +73,7 @@ exports.handler = async (event, context) => {
         },
         displayHeaderFooter: true,
         footerTemplate: footerTemplate || '',
-        headerTemplate: '',
+        headerTemplate: headerTemplate || '',
         emulateMediaType: 'screen'
       })
     });

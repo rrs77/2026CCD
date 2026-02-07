@@ -328,9 +328,17 @@ export function LessonPlannerCalendar({
     return filtered;
   }, [lessonPlans, unitFilter, className, customYearGroups]);
 
-  // Get lesson plans for a specific date
+  // Get lesson plans for a specific date (guard against invalid plan.date to avoid day view crash)
   const getLessonPlansForDate = (date: Date): LessonPlan[] => {
-    return filteredLessonPlans.filter(plan => isSameDay(new Date(plan.date), date));
+    if (!(date instanceof Date) || isNaN(date.getTime())) return [];
+    return filteredLessonPlans.filter(plan => {
+      try {
+        const planDate = plan.date ? new Date(plan.date) : null;
+        return planDate && !isNaN(planDate.getTime()) && isSameDay(planDate, date);
+      } catch {
+        return false;
+      }
+    });
   };
 
   // Get timetable classes for a specific day
@@ -338,36 +346,50 @@ export function LessonPlannerCalendar({
     return timetableClasses.filter(tClass => tClass.day === day);
   };
 
-  // Check if a date has a holiday or event
+  // Safe date check for event intervals (avoid day view crash on invalid event dates)
+  const isDateValid = (d: Date) => d instanceof Date && !isNaN(d.getTime());
   const getEventsForDate = (date: Date): CalendarEvent[] => {
-    return calendarEvents.filter(event => 
-      isWithinInterval(date, { 
-        start: new Date(event.startDate), 
-        end: new Date(event.endDate) 
-      })
-    );
+    if (!isDateValid(date)) return [];
+    return calendarEvents.filter(event => {
+      try {
+        const start = new Date(event.startDate);
+        const end = new Date(event.endDate);
+        if (!isDateValid(start) || !isDateValid(end)) return false;
+        return isWithinInterval(date, { start, end });
+      } catch {
+        return false;
+      }
+    });
   };
 
-  // Check if a date is a holiday
   const isHoliday = (date: Date): boolean => {
-    return calendarEvents.some(event => 
-      event.type === 'holiday' && 
-      isWithinInterval(date, { 
-        start: new Date(event.startDate), 
-        end: new Date(event.endDate) 
-      })
-    );
+    if (!isDateValid(date)) return false;
+    return calendarEvents.some(event => {
+      try {
+        if (event.type !== 'holiday') return false;
+        const start = new Date(event.startDate);
+        const end = new Date(event.endDate);
+        if (!isDateValid(start) || !isDateValid(end)) return false;
+        return isWithinInterval(date, { start, end });
+      } catch {
+        return false;
+      }
+    });
   };
 
-  // Check if a date is an inset day
   const isInsetDay = (date: Date): boolean => {
-    return calendarEvents.some(event => 
-      event.type === 'inset' && 
-      isWithinInterval(date, { 
-        start: new Date(event.startDate), 
-        end: new Date(event.endDate) 
-      })
-    );
+    if (!isDateValid(date)) return false;
+    return calendarEvents.some(event => {
+      try {
+        if (event.type !== 'inset') return false;
+        const start = new Date(event.startDate);
+        const end = new Date(event.endDate);
+        if (!isDateValid(start) || !isDateValid(end)) return false;
+        return isWithinInterval(date, { start, end });
+      } catch {
+        return false;
+      }
+    });
   };
 
   // Get the week number
@@ -823,11 +845,15 @@ export function LessonPlannerCalendar({
       }
     });
     
-    // Find lesson plans for this time slot
+    // Find lesson plans for this time slot (guard against invalid plan.time)
     const plansForTimeSlot = plansForDate.filter(plan => {
-      if (!plan.time) return false;
-      const planHour = parseInt(plan.time.split(':')[0], 10);
-      return planHour === hour;
+      if (typeof plan.time !== 'string' || !plan.time) return false;
+      try {
+        const planHour = parseInt(plan.time.split(':')[0], 10);
+        return !isNaN(planHour) && planHour === hour;
+      } catch {
+        return false;
+      }
     });
     
     // Set up drop target for activities and units
@@ -1237,31 +1263,31 @@ export function LessonPlannerCalendar({
   // Render the day view
   const renderDayView = () => {
     try {
-      if (!dayViewDate) {
-        setDayViewDate(new Date());
-        return <div className="p-4">Loading...</div>;
-      }
-      
-      const dayOfWeek = getDay(dayViewDate);
-      const isHolidayDate = isHoliday(dayViewDate);
-      const isInsetDayDate = isInsetDay(dayViewDate);
-      const eventsForDate = getEventsForDate(dayViewDate);
-      const plansForDate = getLessonPlansForDate(dayViewDate);
+      // Ensure we have a valid date (avoid crash from invalid or missing dayViewDate)
+      const isValid = dayViewDate instanceof Date && !isNaN(dayViewDate.getTime());
+      const safeDate = isValid ? dayViewDate : new Date();
+      if (!isValid) setDayViewDate(safeDate);
+
+      const dayOfWeek = getDay(safeDate);
+      const isHolidayDate = isHoliday(safeDate);
+      const isInsetDayDate = isInsetDay(safeDate);
+      const eventsForDate = getEventsForDate(safeDate);
+      const plansForDate = getLessonPlansForDate(safeDate);
     
     return (
       <div className="flex flex-col h-full">
         {/* Day header */}
         <div className={`p-4 ${
-          isSameDay(dayViewDate, new Date()) ? 'bg-blue-100' : 'bg-gray-50'
+          isSameDay(safeDate, new Date()) ? 'bg-blue-100' : 'bg-gray-50'
         } ${isHolidayDate ? 'bg-red-100' : ''} 
           ${isInsetDayDate ? 'bg-purple-100' : ''}`}>
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-xl font-bold">
-                {format(dayViewDate, 'EEEE, MMMM d, yyyy')}
+                {format(safeDate, 'EEEE, MMMM d, yyyy')}
               </h2>
               <div className="flex items-center space-x-2 mt-1">
-                {isSameDay(dayViewDate, new Date()) && (
+                {isSameDay(safeDate, new Date()) && (
                   <span className="text-xs px-2 py-0.5 bg-blue-200 text-blue-800 rounded-full">Today</span>
                 )}
                 {isHolidayDate && (
@@ -1335,7 +1361,7 @@ export function LessonPlannerCalendar({
             {dayViewHours.map(hour => (
               <DayTimeSlot
                 key={hour}
-                date={dayViewDate}
+                date={safeDate}
                 hour={hour}
                 dayOfWeek={dayOfWeek}
                 getLessonPlansForDate={getLessonPlansForDate}

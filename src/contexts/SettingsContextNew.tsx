@@ -533,7 +533,7 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
       console.error('Failed to load settings:', error);
     }
 
-    // Load any saved categories from localStorage (merge in any missing FIXED_CATEGORIES so new options like Drama Games, Vocal Warmups appear)
+    // Load any saved categories from localStorage (always merge in Drama Games, Vocal Warmups if missing)
     try {
       const savedCategories = localStorage.getItem('saved-categories');
       if (savedCategories) {
@@ -548,7 +548,11 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
             }
           } catch (_) {}
           const namesInSaved = new Set(parsed.map((c: any) => c.name));
-          const missingFixed = FIXED_CATEGORIES.filter(f => !namesInSaved.has(f.name) && !deletedCats.has(f.name));
+          const requiredFixedNames = new Set(['Drama Games', 'Vocal Warmups']);
+          const missingFixed = FIXED_CATEGORIES.filter(f =>
+            !namesInSaved.has(f.name) &&
+            (requiredFixedNames.has(f.name) || !deletedCats.has(f.name))
+          );
           const merged = missingFixed.length > 0
             ? (() => {
                 const combined = [...parsed];
@@ -787,10 +791,15 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
               };
             });
             
-            // Use categories from Supabase; merge in any FIXED_CATEGORIES that are missing (e.g. new categories like Drama Games, Vocal Warmups)
+            // Use categories from Supabase; merge in any FIXED_CATEGORIES that are missing (always include Drama Games, Vocal Warmups)
             if (formattedCategories.length > 0) {
               const namesInSupabase = new Set(formattedCategories.map(c => c.name));
-              const missingFixed = FIXED_CATEGORIES.filter(f => !namesInSupabase.has(f.name) && !deletedFixedCategories.has(f.name));
+              const requiredNames = new Set(['Drama Games', 'Vocal Warmups']);
+              const missingFixed = FIXED_CATEGORIES.filter(f => {
+                if (namesInSupabase.has(f.name)) return false;
+                if (f.name === 'Vocal Warmups' && namesInSupabase.has('Vocal Warm-Ups')) return false; // DB may use hyphen
+                return requiredNames.has(f.name) || !deletedFixedCategories.has(f.name);
+              });
               const merged = [...formattedCategories];
               if (missingFixed.length > 0) {
                 missingFixed.forEach(f => merged.push({ ...f }));
@@ -800,8 +809,9 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
               setCategories(merged);
               console.log('📦 Loaded categories from Supabase:', merged.length, 'categories');
             } else {
-              // No categories in Supabase, use FIXED_CATEGORIES as defaults (excluding deleted ones)
-              const activeFixed = FIXED_CATEGORIES.filter(fixed => !deletedFixedCategories.has(fixed.name));
+              // No categories in Supabase, use FIXED_CATEGORIES as defaults (always include Drama Games, Vocal Warmups)
+              const requiredNames = new Set(['Drama Games', 'Vocal Warmups']);
+              const activeFixed = FIXED_CATEGORIES.filter(fixed => requiredNames.has(fixed.name) || !deletedFixedCategories.has(fixed.name));
               setCategories(activeFixed);
               console.log('📦 No categories in Supabase, using default categories (excluding deleted):', activeFixed.length, 'categories');
               if (deletedFixedCategories.size > 0) {
@@ -825,7 +835,7 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
             if (cleanedCount > 0) {
               console.log(`💾 ${cleanedCount} categories were cleaned of old defaults - saving cleaned state to Supabase`);
               // Save cleaned categories back to Supabase to update the database
-              const categoriesToSave = mergedCategories.filter(cat => {
+              const categoriesToSave = merged.filter(cat => {
                 const isCustom = !FIXED_CATEGORIES.some(fixed => fixed.name === cat.name);
                 const hasGroupAssignments = (cat.groups && cat.groups.length > 0) || cat.group;
                 const hasYearGroupAssignments = cat.yearGroups && Object.keys(cat.yearGroups).length > 0 && 
@@ -853,8 +863,8 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
               }
             }
             
-            // Update localStorage to match Supabase data
-            localStorage.setItem('saved-categories', JSON.stringify(mergedCategories));
+            // Update localStorage to match Supabase data (use merged so year groups persist across refresh)
+            localStorage.setItem('saved-categories', JSON.stringify(merged));
             
             // Clear loading flag after a short delay to allow state to settle
             setTimeout(() => {
@@ -891,9 +901,13 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
                   }
                 }
                 
-                // Use categories from localStorage; merge in any missing FIXED_CATEGORIES (e.g. Drama Games, Vocal Warmups)
+                // Use categories from localStorage; merge in any missing FIXED_CATEGORIES (always include Drama Games, Vocal Warmups)
                 const namesInLocal = new Set(localCategories.map((c: any) => c.name));
-                const missingFixed = FIXED_CATEGORIES.filter(f => !namesInLocal.has(f.name) && !deletedFixedCategories.has(f.name));
+                const requiredFixedNames = new Set(['Drama Games', 'Vocal Warmups']);
+                const missingFixed = FIXED_CATEGORIES.filter(f =>
+                  !namesInLocal.has(f.name) &&
+                  (requiredFixedNames.has(f.name) || !deletedFixedCategories.has(f.name))
+                );
                 const merged = missingFixed.length > 0
                   ? (() => {
                       const combined = [...localCategories];
@@ -906,12 +920,14 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
                 console.log('📦 Using categories from localStorage:', merged.length, missingFixed.length ? `(merged ${missingFixed.length} missing: ${missingFixed.map(c => c.name).join(', ')})` : '');
               } catch (error) {
                 console.warn('Failed to parse localStorage categories:', error);
-                const activeFixed = FIXED_CATEGORIES.filter(fixed => !deletedFixedCategories.has(fixed.name));
+                const requiredNames = new Set(['Drama Games', 'Vocal Warmups']);
+                const activeFixed = FIXED_CATEGORIES.filter(fixed => requiredNames.has(fixed.name) || !deletedFixedCategories.has(fixed.name));
                 setCategories(activeFixed);
                 console.log('📦 Using fixed categories due to parse error (excluding deleted)');
               }
             } else {
-              const activeFixed = FIXED_CATEGORIES.filter(fixed => !deletedFixedCategories.has(fixed.name));
+              const requiredNames = new Set(['Drama Games', 'Vocal Warmups']);
+              const activeFixed = FIXED_CATEGORIES.filter(fixed => requiredNames.has(fixed.name) || !deletedFixedCategories.has(fixed.name));
               setCategories(activeFixed);
               console.log('📦 No categories anywhere, using fixed categories (excluding deleted)');
             }
@@ -990,12 +1006,14 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
               console.log('📦 Fallback: Loaded categories from localStorage:', localCategories.length);
             } catch (parseError) {
               console.error('❌ Failed to parse localStorage categories fallback:', parseError);
-              const activeFixed = FIXED_CATEGORIES.filter(fixed => !deletedFixedCategories.has(fixed.name));
+              const requiredNames = new Set(['Drama Games', 'Vocal Warmups']);
+              const activeFixed = FIXED_CATEGORIES.filter(fixed => requiredNames.has(fixed.name) || !deletedFixedCategories.has(fixed.name));
               setCategories(activeFixed);
               console.log('📦 Fallback: Using fixed categories due to parse error (excluding deleted)');
             }
           } else {
-            const activeFixed = FIXED_CATEGORIES.filter(fixed => !deletedFixedCategories.has(fixed.name));
+            const requiredNames = new Set(['Drama Games', 'Vocal Warmups']);
+            const activeFixed = FIXED_CATEGORIES.filter(fixed => requiredNames.has(fixed.name) || !deletedFixedCategories.has(fixed.name));
             setCategories(activeFixed);
             console.log('📦 Fallback: Using fixed categories (no localStorage data, excluding deleted)');
           }
@@ -1152,13 +1170,15 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
     };
   }, []);
 
-  // Ensure Drama Games and Vocal Warmups (and any new FIXED_CATEGORIES) are always in the list when Categories tab is used
+  // Ensure Drama Games and Vocal Warmups always appear (DB may have "Vocal Warm-Ups" - treat as same)
   const REQUIRED_FIXED_NAMES = ['Drama Games', 'Vocal Warmups'];
   useEffect(() => {
     const names = new Set(categories.map(c => c.name));
-    const missing = REQUIRED_FIXED_NAMES.filter(
-      name => !names.has(name) && !deletedFixedCategories.has(name)
-    );
+    const missing = REQUIRED_FIXED_NAMES.filter(name => {
+      if (names.has(name)) return false;
+      if (name === 'Vocal Warmups' && names.has('Vocal Warm-Ups')) return false; // DB uses hyphen
+      return true;
+    });
     if (missing.length === 0) return;
     const toAdd = FIXED_CATEGORIES.filter(f => missing.includes(f.name));
     if (toAdd.length === 0) return;
@@ -1166,8 +1186,18 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
     toAdd.forEach(f => merged.push({ ...f }));
     merged.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
     setCategories(merged);
+    // Remove these from "deleted" set so they stay visible and aren't re-excluded on next load
+    setDeletedFixedCategories(prev => {
+      const next = new Set(prev);
+      toAdd.forEach(f => next.delete(f.name));
+      if (next.size === prev.size) return prev;
+      try {
+        localStorage.setItem('deleted-fixed-categories', JSON.stringify(Array.from(next)));
+      } catch (_) {}
+      return next;
+    });
     console.log('📦 Ensured missing categories in list:', missing.join(', '));
-  }, [categories, deletedFixedCategories]);
+  }, [categories]);
 
   // Save settings to localStorage whenever they change
   useEffect(() => {
@@ -1301,52 +1331,33 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
         sample: categoriesForSupabase.slice(0, 3).map(c => ({ name: c.name, yearGroups: c.yearGroups }))
       });
       
-      // Also check for categories in Supabase that should be deleted
-      // (custom categories that are no longer in the current list)
-      // Wrap in async IIFE since updateCategories is not async
-      // CRITICAL: Only run cleanup if user is not actively making changes to prevent race conditions
+      // Delete from Supabase any category no longer in the list (so deleted categories stay deleted)
+      const currentCategoryNames = new Set(categoriesToSave.map(c => c.name));
       (async () => {
-        if (isSupabaseConfigured() && dataLoadedFromSupabase.current && !isUserMakingChanges) {
-          try {
-            // Add a small delay to ensure any pending deletions have completed
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            const supabaseCategories = await customCategoriesApi.getAll();
-            const currentCategoryNames = new Set(categoriesToSave.map(c => c.name));
-            
-            // Find custom categories in Supabase that are no longer in the current list
-            const categoriesToDelete = supabaseCategories
-              .filter(supabaseCat => {
-                const isFixed = FIXED_CATEGORIES.some(fixed => fixed.name === supabaseCat.name);
-                const isInCurrentList = currentCategoryNames.has(supabaseCat.name);
-                // Delete if it's a custom category (not fixed) and not in current list
-                return !isFixed && !isInCurrentList;
-              })
-              .map(cat => cat.name);
-            
-            if (categoriesToDelete.length > 0) {
-              console.log('🗑️ Cleanup: Deleting categories from Supabase that are no longer in the list:', categoriesToDelete);
-              // Delete each category
-              for (const categoryName of categoriesToDelete) {
-                try {
-                  await customCategoriesApi.delete(categoryName);
-                  console.log('✅ Cleanup: Deleted category from Supabase:', categoryName);
-                  // Small delay between deletions to avoid overwhelming Supabase
-                  await new Promise(resolve => setTimeout(resolve, 200));
-                } catch (deleteError) {
-                  console.error('❌ Cleanup: Failed to delete category from Supabase:', categoryName, deleteError);
-                }
+        if (!isSupabaseConfigured() || !dataLoadedFromSupabase.current) return;
+        try {
+          const supabaseCategories = await customCategoriesApi.getAll();
+          const categoriesToDelete = supabaseCategories
+            .filter(supabaseCat => {
+              const isFixed = FIXED_CATEGORIES.some(fixed => fixed.name === supabaseCat.name);
+              return !isFixed && !currentCategoryNames.has(supabaseCat.name);
+            })
+            .map(cat => cat.name);
+          if (categoriesToDelete.length > 0) {
+            console.log('🗑️ Deleting categories from Supabase no longer in list:', categoriesToDelete);
+            for (const name of categoriesToDelete) {
+              try {
+                await customCategoriesApi.delete(name);
+              } catch (e) {
+                console.warn('Failed to delete category from Supabase:', name, e);
               }
             }
-          } catch (error) {
-            console.error('❌ Error checking for categories to delete:', error);
-            // Continue with save even if delete check fails
           }
-        } else if (isUserMakingChanges) {
-          console.log('⏸️ Skipping category cleanup - user is actively making changes');
+        } catch (e) {
+          console.warn('Error during category cleanup:', e);
         }
       })();
-      
+
       // Queue Supabase save
       queueSave('categories', categoriesForSupabase);
     } else {

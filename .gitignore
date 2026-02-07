@@ -46,3 +46,6 @@ coverage/
 # Temp files
 tmp/
 .temp/
+
+# Reference clone (cursorchanges) - do not commit
+_cursorchanges_ref/

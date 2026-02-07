@@ -163,7 +163,7 @@ export function RichTextEditor({
   const modules = {
     toolbar: [
       ['bold', 'italic', 'underline', 'strike'],
-      [{ 'header': [false, 2, 3] }],
+      [{ 'header': [2, 3, false] }], // Order: Heading 2, Heading 3, Normal
       [{ 'list': 'ordered' }, { 'list': 'bullet' }, { 'list': 'check' }],
       ['blockquote', 'link'],
       ['clean']

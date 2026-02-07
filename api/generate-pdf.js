@@ -36,7 +36,7 @@ export async function OPTIONS() {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { html: encodedHtml, footerTemplate: encodedFooter, fileName } = body || {};
+    const { html: encodedHtml, footerTemplate: encodedFooter, headerTemplate: encodedHeader, fileName } = body || {};
 
     if (!encodedHtml) {
       return jsonResponse({ error: 'Missing html content' }, 400);
@@ -63,7 +63,7 @@ export async function POST(request) {
         margin: { top: '15px', right: '20px', left: '20px', bottom: '55px' },
         displayHeaderFooter: true,
         footerTemplate: encodedFooter || '',
-        headerTemplate: '',
+        headerTemplate: encodedHeader || '',
         emulateMediaType: 'screen',
       }),
     });

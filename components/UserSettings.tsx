@@ -442,11 +442,11 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
                 </div>
               </div>
 
-              {/* Theme Customization */}
+              {/* Theme Customisation */}
               <div className="bg-purple-50 border border-purple-200 rounded-xl p-6">
                 <div className="flex items-center space-x-3 mb-6">
                   <Palette className="h-6 w-6 text-purple-600" />
-                  <h3 className="text-lg font-semibold text-gray-900">Theme Customization</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">Theme Customisation</h3>
                 </div>
 
                 <div className="space-y-6">
@@ -469,7 +469,7 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
                     </label>
                   </div>
 
-                  {/* Color Customization (only when custom theme is enabled) */}
+                  {/* Colour customisation (only when custom theme is enabled) */}
                   {tempSettings.customTheme && (
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

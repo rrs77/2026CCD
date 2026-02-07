@@ -160,6 +160,7 @@ export function useShareLesson() {
     const shouldShowCustom = hasCustomObjectives;
     const shouldShowEyfs = hasEyfsObjectives && !hasCustomObjectives;
 
+    const headerTitle = lessonData.customHeader || `Lesson ${termSpecificNumber}, ${halfTermName || 'Autumn 1'} - ${currentSheetInfo.display}, Music`;
     let htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -167,12 +168,18 @@ export function useShareLesson() {
         <meta charset="UTF-8">
         <title>${lessonTitle}</title>
         <script src="https://cdn.tailwindcss.com"></script>
-        <style>  
-          @page {
-            size: A4;
-            margin: 1cm;
+        <style>
+          .lesson-header-teal {
+            background: #0f766e;
+            color: white;
+            padding: 20px 24px;
+            border-radius: 8px 8px 0 0;
+            margin-bottom: 1rem;
           }
-          
+          .lesson-header-teal h3 { font-size: 22px; font-weight: 700; margin: 0 0 6px 0; color: white; }
+          .lesson-header-teal .subtitle { font-size: 14px; opacity: 0.95; }
+          .lesson-header-teal .meta { font-size: 11px; opacity: 0.9; margin-top: 8px; }
+          @page { size: A4; margin: 1cm; }
           .lesson-page {
             width: 21cm;
             min-height: 29.7cm;
@@ -183,41 +190,22 @@ export function useShareLesson() {
             page-break-after: always;
             break-after: always;
           }
-          
-          .lesson-page:last-child {
-            margin-bottom: 0;
-          }
-          
+          .lesson-page:last-child { margin-bottom: 0; }
           @media print {
-            .lesson-page {
-              box-shadow: none;
-              margin: 0;
-              padding: 0;
-              width: 100%;
-              min-height: auto;
-            }
-            
-            .lesson-page:not(:last-child) {
-              page-break-after: always;
-              break-after: always;
-            }
-            
-            * {
-              -webkit-print-color-adjust: exact !important;
-              color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
+            .lesson-page { box-shadow: none; margin: 0; padding: 0; width: 100%; min-height: auto; }
+            .lesson-page:not(:last-child) { page-break-after: always; break-after: always; }
+            * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; print-color-adjust: exact !important; }
           }
         </style>
       </head>
       <body>
         <div class="lesson-page bg-white">
           <div class="px-6 pt-3 pb-6">
-            <!-- Lesson Title -->
-            <div class="mb-3 border-b border-black pb-2">
-              <h3 class="text-xl font-bold text-black">
-                ${lessonData.customHeader || `Lesson ${termSpecificNumber}, ${halfTermName || 'Autumn 1'} - ${currentSheetInfo.display}, Music`}
-              </h3>
+            <!-- Teal header (matches PDFBolt desired output) -->
+            <div class="lesson-header-teal">
+              <h3>${headerTitle}</h3>
+              <div class="subtitle">${halfTermName || 'Autumn 1'} - ${currentSheetInfo.display}</div>
+              <div class="meta">${currentSheetInfo.display} • ${lessonData.totalTime || 45} mins • ${halfTermName || 'Term 1'}</div>
             </div>
     `;
 
@@ -618,8 +606,72 @@ export function useShareLesson() {
     }
   };
 
+  /**
+   * Generate PDF via the same service as Copy Link and return the public URL (no clipboard).
+   * Use this for "Download PDF" so the file is identical to the share link (teal styling, clickable links).
+   */
+  const getPdfUrl = async (lessonNumber: string): Promise<string | null> => {
+    const storedUrl = getStoredShareUrl(lessonNumber);
+    if (storedUrl) return storedUrl;
+
+    if (isSharing) return null;
+    setIsSharing(true);
+    setShareError(null);
+    try {
+      const bucketCheck = await ensureBucketExists();
+      if (!bucketCheck.exists) {
+        const msg = bucketCheck.requiresManualSetup
+          ? "The 'lesson-pdfs' storage bucket needs to be created in Supabase."
+          : `Storage bucket error: ${bucketCheck.error || 'Unknown'}`;
+        throw new Error(msg);
+      }
+      const [htmlContent, footerContent] = generateHTMLContent(lessonNumber);
+      const encodedHtml = encodeUnicodeBase64(htmlContent);
+      const encodedFooter = encodeUnicodeBase64(footerContent);
+      const getLessonDisplayNumber = (num: string): string => {
+        const n = num.replace(/^lesson/i, '').replace(/[^0-9]/g, '');
+        return n || num;
+      };
+      const lessonDisplayNumber = getLessonDisplayNumber(lessonNumber);
+      const timestamp = Date.now();
+      const fileName = `shared-pdfs/${timestamp}_${currentSheetInfo.sheet}_Lesson_${lessonDisplayNumber}.pdf`;
+
+      const { getPdfApiUrl } = await import('../utils/pdfApi');
+      const pdfApiUrl = getPdfApiUrl();
+      if (import.meta.env.DEV) console.log('[PDF] Using service:', pdfApiUrl);
+
+      const uploadResponse = await fetch(pdfApiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html: encodedHtml, footerTemplate: encodedFooter, fileName })
+      });
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        let errData: { error?: string } = {};
+        try { errData = JSON.parse(errorText); } catch { errData = { error: errorText }; }
+        if (uploadResponse.status === 404) {
+          throw new Error('PDF service not found. On Netlify deploy the generate-pdf function; on custom domain set VITE_NETLIFY_SUBDOMAIN.');
+        }
+        throw new Error(errData.error || `PDF service error: ${uploadResponse.status}`);
+      }
+
+      const responseData = await uploadResponse.json();
+      const publicUrl = responseData.url || responseData.publicUrl;
+      if (!publicUrl) throw new Error('No URL returned from PDF service');
+      storeShareUrl(lessonNumber, publicUrl);
+      return publicUrl;
+    } catch (error: any) {
+      setShareError(error.message);
+      throw error;
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
   return {
     shareLesson,
+    getPdfUrl,
     isSharing,
     shareUrl,
     shareError,

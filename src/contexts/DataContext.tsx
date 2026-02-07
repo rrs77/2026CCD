@@ -1860,26 +1860,13 @@ console.log('🏁 Set subjectsLoading to FALSE'); // ADD THIS DEBUG LINE
       // Save to localStorage first (this is guaranteed to work)
       localStorage.setItem('user-created-lesson-plans', JSON.stringify(plans));
       
-      // Then try to save to Supabase if connected
+      // Then try to save to Supabase if connected (attempt even without session - RLS may allow anon)
       if (isSupabaseConfigured()) {
         try {
-          // Refresh session first to ensure valid auth
-          const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
-          
-          if (sessionError) {
-            console.warn('Session refresh failed:', sessionError);
-            return; // Skip Supabase save if auth fails
-          }
-          
-          if (!session) {
-            console.warn('No valid session after refresh');
-            return; // Skip Supabase save if no session
-          }
-          
           // Convert plans to the format expected by Supabase
           const supabasePlans = plans.map(plan => ({
             id: plan.id,
-            date: plan.date.toISOString(),
+            date: plan.date instanceof Date ? plan.date.toISOString() : (typeof plan.date === 'string' ? plan.date : new Date().toISOString()),
             week: plan.week,
             class_name: plan.className,
             activities: plan.activities,
