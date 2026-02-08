@@ -1,12 +1,16 @@
 /**
- * Vercel Serverless Function: Generate lesson PDF and upload to Supabase Storage.
+ * Vercel Serverless Function: Generate lesson PDF and upload to Vercel Blob Storage.
  * Returns a public URL for the saved PDF (shortcut link for the lesson plan).
  *
  * POST body: { html: string (base64), footerTemplate?: string (base64), fileName?: string }
- * Env: VITE_PDFBOLT_API_KEY or PDFBOLT_API_KEY, SUPABASE_SERVICE_ROLE_KEY, VITE_SUPABASE_URL or SUPABASE_URL
+ * Env: VITE_PDFBOLT_API_KEY or PDFBOLT_API_KEY, BLOB_READ_WRITE_TOKEN (auto-created by Vercel)
+ * 
+ * Storage Options:
+ * - Vercel Blob: 1 GB/month free, 2,000 uploads/month free (RECOMMENDED - integrated with Vercel)
+ * - Cloudflare R2: 10 GB/month free, 1M uploads/month free (better free tier, requires Cloudflare account)
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { put } from '@vercel/blob';
 
 const PDFBOLT_API_URL = 'https://api.pdfbolt.com/v1/direct';
 
@@ -35,16 +39,21 @@ export async function OPTIONS() {
 
 export async function POST(request) {
   try {
+    // Log that the function was called (for debugging)
+    console.log('[generate-pdf] Function called');
+    
     const body = await request.json();
     const { html: encodedHtml, footerTemplate: encodedFooter, headerTemplate: encodedHeader, fileName } = body || {};
 
     if (!encodedHtml) {
+      console.error('[generate-pdf] Missing html content');
       return jsonResponse({ error: 'Missing html content' }, 400);
     }
 
     const PDFBOLT_API_KEY = process.env.VITE_PDFBOLT_API_KEY || process.env.PDFBOLT_API_KEY;
     if (!PDFBOLT_API_KEY) {
-      return jsonResponse({ error: 'PDFBOLT_API_KEY or VITE_PDFBOLT_API_KEY not set' }, 500);
+      console.error('[generate-pdf] PDFBOLT_API_KEY not set');
+      return jsonResponse({ error: 'PDFBOLT_API_KEY or VITE_PDFBOLT_API_KEY not set in Vercel environment variables' }, 500);
     }
 
     // Pass base64 HTML and footer directly to PDFBolt. Use emulateMediaType: 'screen' so
@@ -77,34 +86,40 @@ export async function POST(request) {
     const pdfBuffer = Buffer.from(await pdfResponse.arrayBuffer());
     const storageFileName = fileName || `shared-pdfs/${Date.now()}_lesson.pdf`;
 
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://wiudrzdkbpyziaodqoog.supabase.co';
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!serviceRoleKey) {
-      return jsonResponse({ error: 'SUPABASE_SERVICE_ROLE_KEY not set in Vercel environment' }, 500);
+    // Use Vercel Blob Storage (free tier: 1 GB storage, 2,000 uploads/month)
+    // BLOB_READ_WRITE_TOKEN is automatically created by Vercel when you create a Blob store
+    const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+    
+    if (!blobToken) {
+      console.error('[generate-pdf] BLOB_READ_WRITE_TOKEN not set');
+      return jsonResponse({ 
+        error: 'BLOB_READ_WRITE_TOKEN not found. Please create a Blob store in Vercel Dashboard → Storage → Create Blob Store. The token is automatically created.' 
+      }, 500);
     }
+    
+    console.log('[generate-pdf] Configuration OK, uploading to Vercel Blob...');
 
-    const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
-
-    const { error: uploadError } = await supabase.storage
-      .from('lesson-pdfs')
-      .upload(storageFileName, pdfBuffer, {
+    try {
+      // Upload to Vercel Blob Storage
+      const blob = await put(storageFileName, pdfBuffer, {
+        access: 'public', // Make the file publicly accessible
         contentType: 'application/pdf',
-        upsert: true,
+        addRandomSuffix: false, // Use exact filename (will overwrite if exists)
       });
 
-    if (uploadError) {
-      console.error('Supabase upload error:', uploadError);
-      return jsonResponse({ error: `Upload failed: ${uploadError.message}` }, 500);
+      console.log('[generate-pdf] PDF uploaded successfully to Vercel Blob:', blob.url);
+
+      return jsonResponse({
+        success: true,
+        url: blob.url, // Public URL from Vercel Blob
+        path: storageFileName,
+      });
+    } catch (blobError) {
+      console.error('[generate-pdf] Vercel Blob upload error:', blobError);
+      return jsonResponse({ 
+        error: `Upload to Vercel Blob failed: ${blobError.message || 'Unknown error'}` 
+      }, 500);
     }
-
-    const { data: urlData } = supabase.storage.from('lesson-pdfs').getPublicUrl(storageFileName);
-
-    return jsonResponse({
-      success: true,
-      url: urlData.publicUrl,
-      path: storageFileName,
-    });
   } catch (err) {
     console.error('generate-pdf error:', err);
     return jsonResponse(

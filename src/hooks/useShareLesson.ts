@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useSettings } from '../contexts/SettingsContextNew';
-import { supabase } from '../config/supabase';
 import { customObjectivesApi } from '../config/customObjectivesApi';
 import type { CustomObjective, CustomObjectiveArea, CustomObjectiveYearGroup } from '../types/customObjectives';
 import type { Activity } from '../contexts/DataContext';
@@ -76,29 +75,9 @@ export function useShareLesson() {
     }
   };
 
-  // Check if bucket exists
-  const ensureBucketExists = async () => {
-    const bucketName = 'lesson-pdfs';
-    
-    try {
-      const { data: files, error: accessError } = await supabase.storage
-        .from(bucketName)
-        .list('', { limit: 1 });
-      
-      if (!accessError) {
-        return { exists: true };
-      }
-      
-      if (accessError.message?.includes('not found') || accessError.message?.includes('Bucket not found')) {
-        return { exists: false, requiresManualSetup: true };
-      }
-      
-      return { exists: false, error: accessError.message, requiresManualSetup: true };
-      
-    } catch (error: any) {
-      return { exists: false, error: error.message || 'Unknown error', requiresManualSetup: true };
-    }
-  };
+  // Note: Bucket check removed - we're using Vercel Blob Storage now
+  // Vercel Blob stores are automatically available when created in Vercel Dashboard
+  // No need to check if they exist - the API will return an error if not configured
 
   // Generate HTML content for PDF (full lesson plan version)
   const generateHTMLContent = (lessonNumber: string) => {
@@ -494,18 +473,9 @@ export function useShareLesson() {
     setShareError(null);
 
     try {
-      // Check bucket exists
-      const bucketCheck = await ensureBucketExists();
-      if (!bucketCheck.exists) {
-        const setupUrl = 'https://supabase.com/dashboard/project/wiudrzdkbpyziaodqoog/storage/buckets';
-        const errorMsg = bucketCheck.requiresManualSetup
-          ? `The 'lesson-pdfs' storage bucket needs to be created.\n\nQuick Setup:\n1. Go to: ${setupUrl}\n2. Click "New bucket"\n3. Name: "lesson-pdfs"\n4. Enable "Public bucket"\n5. Click "Create bucket"`
-          : `Storage bucket 'lesson-pdfs' does not exist. Error: ${bucketCheck.error || 'Unknown error'}`;
-        
-        throw new Error(errorMsg);
-      }
-
       // Generate HTML content
+      // Note: Vercel Blob Storage is automatically available when configured in Vercel Dashboard
+      // No bucket check needed - the API will handle errors if Blob store doesn't exist
       const [htmlContent, footerContent] = generateHTMLContent(lessonNumber);
       const encodedHtml = encodeUnicodeBase64(htmlContent);
       const encodedFooter = encodeUnicodeBase64(footerContent);
@@ -562,16 +532,35 @@ export function useShareLesson() {
         
         // If it's a server configuration error, provide helpful message
         if (errorData.error === 'Server configuration error' || uploadResponse.status === 500) {
+          // Check if it's a Blob token error
+          if (errorData.error?.includes('BLOB_READ_WRITE_TOKEN') || errorData.error?.includes('Blob store')) {
+            throw new Error(
+              'Vercel Blob Storage not configured.\n\nSetup:\n1. Go to Vercel Dashboard → Your Project → Storage tab\n2. Click "Create Blob Store"\n3. Name it (e.g., "lesson-pdfs")\n4. Redeploy your project\n\nThe BLOB_READ_WRITE_TOKEN is automatically created by Vercel.'
+            );
+          }
           throw new Error(
-            'Copy Link needs SUPABASE_SERVICE_ROLE_KEY on the server. ' +
-            'In Vercel: Project → Settings → Environment Variables → add SUPABASE_SERVICE_ROLE_KEY (from Supabase Dashboard → Project Settings → API). ' +
-            'Then redeploy.'
+            'PDF generation service error. ' +
+            'Please check Vercel function logs for details. ' +
+            'Ensure PDFBOLT_API_KEY and BLOB_READ_WRITE_TOKEN are set in Vercel environment variables.'
           );
         }
         
         // If API not found
         if (uploadResponse.status === 404) {
-          throw new Error('PDF API not found. Please ensure api/generate-pdf is deployed on Vercel.');
+          const isDev = import.meta.env.DEV;
+          const vercelUrl = import.meta.env.VITE_VERCEL_URL;
+          
+          let helpfulMessage: string;
+          if (isDev) {
+            if (!vercelUrl) {
+              helpfulMessage = 'PDF API not found in development.\n\nTo test locally:\n1. Add VITE_VERCEL_URL=https://your-app.vercel.app to your .env file\n2. Restart the dev server\n\nOr test in production where the API route is automatically available.';
+            } else {
+              helpfulMessage = `PDF API not found at ${pdfApiUrl}.\n\nPlease ensure:\n1. Your Vercel app is deployed\n2. The api/generate-pdf.js route exists\n3. Environment variables are set in Vercel\n4. The deployment completed successfully`;
+            }
+          } else {
+            helpfulMessage = 'PDF API not found. Please ensure:\n1. api/generate-pdf.js exists in your project\n2. The project is deployed on Vercel\n3. Environment variables (PDFBOLT_API_KEY, BLOB_READ_WRITE_TOKEN) are set in Vercel\n4. A Blob store is created in Vercel Dashboard → Storage\n5. The deployment completed successfully';
+          }
+          throw new Error(helpfulMessage);
         }
         
         throw new Error(errorData.error || `Upload failed: ${uploadResponse.status}`);
@@ -618,13 +607,8 @@ export function useShareLesson() {
     setIsSharing(true);
     setShareError(null);
     try {
-      const bucketCheck = await ensureBucketExists();
-      if (!bucketCheck.exists) {
-        const msg = bucketCheck.requiresManualSetup
-          ? "The 'lesson-pdfs' storage bucket needs to be created in Supabase."
-          : `Storage bucket error: ${bucketCheck.error || 'Unknown'}`;
-        throw new Error(msg);
-      }
+      // Note: Using Vercel Blob Storage - no bucket check needed
+      // The API will handle errors if Blob store is not configured
       const [htmlContent, footerContent] = generateHTMLContent(lessonNumber);
       const encodedHtml = encodeUnicodeBase64(htmlContent);
       const encodedFooter = encodeUnicodeBase64(footerContent);
