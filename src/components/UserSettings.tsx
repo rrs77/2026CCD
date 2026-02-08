@@ -1360,10 +1360,8 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                             </div>
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mb-3">
                               {customYearGroups && Array.isArray(customYearGroups) && customYearGroups.length > 0 ? customYearGroups.map(yearGroup => {
-                                const yearGroupKey = yearGroup.id ||
-                                  (yearGroup.name.toLowerCase().includes('lower') || yearGroup.name.toLowerCase().includes('lkg') ? 'LKG' :
-                                   yearGroup.name.toLowerCase().includes('upper') || yearGroup.name.toLowerCase().includes('ukg') ? 'UKG' :
-                                   yearGroup.name.toLowerCase().includes('reception') ? 'Reception' : yearGroup.name);
+                                // Use yearGroup.id consistently (which is the name from the API)
+                                const yearGroupKey = yearGroup.id || yearGroup.name;
                                 const isSelected = selectedYearGroupsForBulk.has(yearGroupKey);
                                 return (
                                   <button
@@ -1433,7 +1431,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                           </label>
                           <div className="flex flex-wrap gap-3">
                                 <button
-                              onClick={() => {
+                              onClick={async () => {
                                 // Apply selected year groups to selected categories
                                 const updatedCategories = tempCategories.map(cat => {
                                   if (selectedCategoriesForBulk.has(cat.name)) {
@@ -1451,6 +1449,12 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                 
                                 setTempCategories(updatedCategories);
                                 updateCategories(updatedCategories);
+                                // Immediately sync to Supabase to ensure persistence
+                                try {
+                                  await forceSyncToSupabase({ categories: updatedCategories });
+                                } catch (error) {
+                                  console.error('❌ Failed to sync bulk year group assignment:', error);
+                                }
                                 setSelectedCategoriesForBulk(new Set());
                                 setSelectedYearGroupsForBulk(new Set());
                                 setBulkYearGroupMode(false);
@@ -1461,7 +1465,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                               Assign Selected Year Groups
                                 </button>
                                 <button
-                              onClick={() => {
+                              onClick={async () => {
                                 if (confirm('Remove all selected year groups from selected categories?')) {
                                   const updatedCategories = tempCategories.map(cat => {
                                     if (selectedCategoriesForBulk.has(cat.name)) {
@@ -1479,6 +1483,12 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                   
                                   setTempCategories(updatedCategories);
                                   updateCategories(updatedCategories);
+                                  // Immediately sync to Supabase to ensure persistence
+                                  try {
+                                    await forceSyncToSupabase({ categories: updatedCategories });
+                                  } catch (error) {
+                                    console.error('❌ Failed to sync bulk year group removal:', error);
+                                  }
                                   setSelectedCategoriesForBulk(new Set());
                                   setSelectedYearGroupsForBulk(new Set());
                                   setBulkYearGroupMode(false);
@@ -1506,7 +1516,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                         Bulk Assign Year Groups
                       </button>
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           if (confirm('Are you sure you want to remove ALL year group assignments (LKG, UKG, Reception) from ALL categories? This cannot be undone.')) {
                             const updatedCategories = tempCategories.map(cat => ({
                               ...cat,
@@ -1514,6 +1524,12 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                             }));
                             setTempCategories(updatedCategories);
                             updateCategories(updatedCategories);
+                            // Immediately sync to Supabase to ensure persistence
+                            try {
+                              await forceSyncToSupabase({ categories: updatedCategories });
+                            } catch (error) {
+                              console.error('❌ Failed to sync clear all year groups:', error);
+                            }
                           }
                         }}
                         className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
@@ -1634,11 +1650,8 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                               </label>
                               <div className="flex flex-wrap gap-3">
                                 {customYearGroups && Array.isArray(customYearGroups) && customYearGroups.length > 0 ? customYearGroups.map(yearGroup => {
-                                  // Use year group ID as the key, or map to code for legacy support
-                                  const yearGroupKey = yearGroup.id || 
-                                    (yearGroup.name.toLowerCase().includes('lower') || yearGroup.name.toLowerCase().includes('lkg') ? 'LKG' :
-                                     yearGroup.name.toLowerCase().includes('upper') || yearGroup.name.toLowerCase().includes('ukg') ? 'UKG' :
-                                     yearGroup.name.toLowerCase().includes('reception') ? 'Reception' : yearGroup.name);
+                                  // Use yearGroup.id consistently (which is the name from the API)
+                                  const yearGroupKey = yearGroup.id || yearGroup.name;
                                   
                                   const categoryYearGroups = tempCategories[index]?.yearGroups || {};
                                   const isEnabled = categoryYearGroups[yearGroupKey] || false;
@@ -1647,7 +1660,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                       <input
                                         type="checkbox"
                                         checked={isEnabled}
-                                        onChange={(e) => {
+                                        onChange={async (e) => {
                                           const updatedCategories = [...tempCategories];
                                           updatedCategories[index] = {
                                             ...updatedCategories[index],
@@ -1659,6 +1672,12 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                           tempCategoriesRef.current = updatedCategories;
                                           setTempCategories(updatedCategories);
                                           updateCategories(updatedCategories);
+                                          // Immediately sync to Supabase to ensure persistence
+                                          try {
+                                            await forceSyncToSupabase({ categories: updatedCategories });
+                                          } catch (error) {
+                                            console.error('❌ Failed to sync year group assignment:', error);
+                                          }
                                         }}
                                         className="rounded-full border border-gray-300 text-teal-600 focus:ring-teal-500 focus:ring-offset-0 checked:border-0 checked:bg-teal-600"
                                       />
@@ -1701,7 +1720,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                           <input
                                             type="checkbox"
                                             checked={isEnabled}
-                                            onChange={(e) => {
+                                            onChange={async (e) => {
                                           const updatedCategories = [...tempCategories];
                                           updatedCategories[index] = { 
                                             ...updatedCategories[index], 
@@ -1713,6 +1732,12 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                           tempCategoriesRef.current = updatedCategories;
                                           setTempCategories(updatedCategories);
                                           updateCategories(updatedCategories);
+                                          // Immediately sync to Supabase to ensure persistence
+                                          try {
+                                            await forceSyncToSupabase({ categories: updatedCategories });
+                                          } catch (error) {
+                                            console.error('❌ Failed to sync year group assignment:', error);
+                                          }
                                         }}
                                             className="rounded-full border border-gray-300 text-teal-600 focus:ring-teal-500 focus:ring-offset-0 checked:border-0 checked:bg-teal-600"
                                           />
@@ -1722,7 +1747,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                     }) : null}
                                     <div className="flex gap-2 items-center">
                                       <button
-                                        onClick={() => {
+                                        onClick={async () => {
                                         const updatedCategories = [...tempCategories];
                                           updatedCategories[index] = { 
                                             ...updatedCategories[index], 
@@ -1731,6 +1756,12 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                           tempCategoriesRef.current = updatedCategories;
                                           setTempCategories(updatedCategories);
                                           updateCategories(updatedCategories);
+                                          // Immediately sync to Supabase to ensure persistence
+                                          try {
+                                            await forceSyncToSupabase({ categories: updatedCategories });
+                                          } catch (error) {
+                                            console.error('❌ Failed to sync year group assignment clear:', error);
+                                          }
                                         }}
                                         className="text-xs text-red-600 hover:text-red-800 px-2 py-1 hover:bg-red-50 rounded"
                                         title="Remove all year group assignments"
@@ -1750,10 +1781,8 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                   <>
                                     {customYearGroups && Array.isArray(customYearGroups) ? customYearGroups
                                       .filter(yearGroup => {
-                                        const yearGroupKey = yearGroup.id || 
-                                          (yearGroup.name.toLowerCase().includes('lower') || yearGroup.name.toLowerCase().includes('lkg') ? 'LKG' :
-                                           yearGroup.name.toLowerCase().includes('upper') || yearGroup.name.toLowerCase().includes('ukg') ? 'UKG' :
-                                           yearGroup.name.toLowerCase().includes('reception') ? 'Reception' : yearGroup.name);
+                                        // Use yearGroup.id consistently (which is the name from the API)
+                                        const yearGroupKey = yearGroup.id || yearGroup.name;
                                         return category.yearGroups?.[yearGroupKey] === true;
                                       })
                                       .map(yearGroup => (
