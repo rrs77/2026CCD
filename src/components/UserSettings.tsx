@@ -137,11 +137,8 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
   const [editingCategoryYearGroups, setEditingCategoryYearGroups] = useState<string | null>(null); // Track which category's year groups are being edited
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryColor, setNewCategoryColor] = useState('#6B7280');
-  const [newCategoryYearGroups, setNewCategoryYearGroups] = useState<{[key: string]: boolean}>({
-    LKG: false,
-    UKG: false,
-    Reception: false
-  });
+  // Use actual year group IDs/names as keys (not legacy codes)
+  const [newCategoryYearGroups, setNewCategoryYearGroups] = useState<{[key: string]: boolean}>({});
   const [draggedCategory, setDraggedCategory] = useState<string | null>(null);
   const [bulkYearGroupMode, setBulkYearGroupMode] = useState(false); // Bulk assignment mode
   const [bulkStep1Collapsed, setBulkStep1Collapsed] = useState(false); // Collapse Step 1 after year groups chosen so categories are visible
@@ -278,23 +275,13 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
     }
   };
 
-  // Helper function to map year group name to code
-  const getYearGroupCode = (yearGroupName: string): string | null => {
-    const name = yearGroupName.toLowerCase();
-    if (name.includes('lower') || name.includes('lkg')) return 'LKG';
-    if (name.includes('upper') || name.includes('ukg')) return 'UKG';
-    if (name.includes('reception')) return 'Reception';
-    return null;
-  };
-
-  const handleYearGroupChange = (yearGroupName: string, checked: boolean) => {
-    const code = getYearGroupCode(yearGroupName);
-    if (code) {
+  // Handle year group selection using actual year group IDs/names
+  const handleYearGroupChange = (yearGroup: { id?: string; name: string }, checked: boolean) => {
+    const yearGroupKey = yearGroup.id || yearGroup.name;
     setNewCategoryYearGroups(prev => ({
       ...prev,
-        [code]: checked
+      [yearGroupKey]: checked
     }));
-    }
   };
 
   const handleAddCategory = async () => {
@@ -310,16 +297,12 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
       // Start user change to pause real-time sync
       startUserChange();
       
-      // Create new category
+      // Create new category with year group assignments using actual IDs/names
       const newCategory: Category = {
         name: newCategoryName,
         color: newCategoryColor,
         position: tempCategories.length,
-        yearGroups: {
-          LKG: newCategoryYearGroups.LKG || false,
-          UKG: newCategoryYearGroups.UKG || false,
-          Reception: newCategoryYearGroups.Reception || false
-        }
+        yearGroups: { ...newCategoryYearGroups } // Use actual year group IDs/names as keys
       };
       
       // Add new category to both temp state and persist it
@@ -333,7 +316,7 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
     // Reset form
     setNewCategoryName('');
     setNewCategoryColor('#6B7280');
-    setNewCategoryYearGroups({ LKG: false, UKG: false, Reception: false });
+    setNewCategoryYearGroups({}); // Reset to empty object
       
       console.log('✅ Category added and persisted:', newCategory.name);
       
@@ -1209,8 +1192,9 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                         <div className="space-y-3">
                           {customYearGroups && Array.isArray(customYearGroups) && customYearGroups.length > 0 ? (
                             customYearGroups.map(yearGroup => {
-                              const code = getYearGroupCode(yearGroup.name);
-                              const isChecked = code ? (newCategoryYearGroups[code] || false) : false;
+                              // Use actual year group ID/name as key (consistent with rest of app)
+                              const yearGroupKey = yearGroup.id || yearGroup.name;
+                              const isChecked = newCategoryYearGroups[yearGroupKey] || false;
                               
                               return (
                                 <label 
@@ -1221,9 +1205,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                               type="checkbox"
                                     checked={isChecked}
                                     onChange={(e) => {
-                                      if (code) {
-                                        handleYearGroupChange(yearGroup.name, e.target.checked);
-                                      }
+                                      handleYearGroupChange(yearGroup, e.target.checked);
                                     }}
                                     className="h-5 w-5 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
                                   />
@@ -1242,11 +1224,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                         <button
                           onClick={() => {
                             // Clear all selections
-                            setNewCategoryYearGroups({
-                              LKG: false,
-                              UKG: false,
-                              Reception: false
-                            });
+                            setNewCategoryYearGroups({});
                           }}
                           className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                         >
@@ -1673,8 +1651,19 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                           setTempCategories(updatedCategories);
                                           updateCategories(updatedCategories);
                                           // Immediately sync to Supabase to ensure persistence
+                                          console.log('🔄 Immediate sync triggered for year group assignment (edit mode):', {
+                                            category: updatedCategories[index].name,
+                                            yearGroupKey,
+                                            checked: e.target.checked,
+                                            yearGroups: updatedCategories[index].yearGroups
+                                          });
                                           try {
-                                            await forceSyncToSupabase({ categories: updatedCategories });
+                                            const synced = await forceSyncToSupabase({ categories: updatedCategories });
+                                            if (synced) {
+                                              console.log('✅ Immediate sync successful for year group assignment');
+                                            } else {
+                                              console.warn('⚠️ Immediate sync returned false');
+                                            }
                                           } catch (error) {
                                             console.error('❌ Failed to sync year group assignment:', error);
                                           }
@@ -1733,8 +1722,19 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                           setTempCategories(updatedCategories);
                                           updateCategories(updatedCategories);
                                           // Immediately sync to Supabase to ensure persistence
+                                          console.log('🔄 Immediate sync triggered for year group assignment (view mode):', {
+                                            category: updatedCategories[index].name,
+                                            yearGroupKey,
+                                            checked: e.target.checked,
+                                            yearGroups: updatedCategories[index].yearGroups
+                                          });
                                           try {
-                                            await forceSyncToSupabase({ categories: updatedCategories });
+                                            const synced = await forceSyncToSupabase({ categories: updatedCategories });
+                                            if (synced) {
+                                              console.log('✅ Immediate sync successful for year group assignment');
+                                            } else {
+                                              console.warn('⚠️ Immediate sync returned false');
+                                            }
                                           } catch (error) {
                                             console.error('❌ Failed to sync year group assignment:', error);
                                           }

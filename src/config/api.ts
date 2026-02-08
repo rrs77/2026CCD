@@ -1159,6 +1159,16 @@ export const customCategoriesApi = {
       const rows = categories.map((cat: any) => {
         const yearGroups = cat.yearGroups ?? {};
         const yearGroupsObj = typeof yearGroups === 'object' && !Array.isArray(yearGroups) ? yearGroups : {};
+        
+        // Debug logging for year group assignments
+        if (yearGroupsObj && Object.keys(yearGroupsObj).length > 0 && Object.values(yearGroupsObj).some(v => v === true)) {
+          console.log('💾 Saving category with year groups:', {
+            name: cat.name,
+            yearGroups: yearGroupsObj,
+            yearGroupKeys: Object.keys(yearGroupsObj).filter(k => yearGroupsObj[k] === true)
+          });
+        }
+        
         return {
           name: cat.name,
           color: cat.color,
@@ -1168,24 +1178,47 @@ export const customCategoriesApi = {
           year_groups: yearGroupsObj
         };
       });
+      
+      // Log what we're about to upsert
+      const categoriesWithYearGroups = rows.filter(r => r.year_groups && Object.keys(r.year_groups).length > 0 && Object.values(r.year_groups).some(v => v === true));
+      if (categoriesWithYearGroups.length > 0) {
+        console.log('📤 Upserting categories with year group assignments:', categoriesWithYearGroups.map(c => ({
+          name: c.name,
+          year_groups: c.year_groups
+        })));
+      }
+      
       const { data, error } = await supabase
         .from(TABLES.CUSTOM_CATEGORIES)
         .upsert(rows, { onConflict: 'name' })
         .select();
       
       if (error) {
-        console.error('Supabase categories upsert error:', error.message, error.details);
+        console.error('❌ Supabase categories upsert error:', error.message, error.details);
         throw error;
       }
       const result = data || [];
-      return result.map((row: any) => ({
-        name: row.name,
-        color: row.color,
-        position: row.position,
-        group: row.group ?? row.group_name,
-        groups: row.groups ?? [],
-        yearGroups: normaliseYearGroups(row.year_groups)
-      }));
+      
+      // Debug logging for what was returned
+      const returnedWithYearGroups = result.filter((r: any) => r.year_groups && Object.keys(r.year_groups).length > 0 && Object.values(r.year_groups).some((v: any) => v === true));
+      if (returnedWithYearGroups.length > 0) {
+        console.log('✅ Categories returned from Supabase with year groups:', returnedWithYearGroups.map((r: any) => ({
+          name: r.name,
+          year_groups: r.year_groups
+        })));
+      }
+      
+      return result.map((row: any) => {
+        const normalizedYearGroups = normaliseYearGroups(row.year_groups);
+        return {
+          name: row.name,
+          color: row.color,
+          position: row.position,
+          group: row.group ?? row.group_name,
+          groups: row.groups ?? [],
+          yearGroups: normalizedYearGroups
+        };
+      });
     } catch (error) {
       console.warn('Failed to upsert categories to Supabase:', error);
       throw error;
