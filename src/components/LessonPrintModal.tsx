@@ -418,6 +418,13 @@ export function LessonPrintModal({
             margin-top: 16px;
           }
           
+          /* Category wrapper - prevents heading from appearing alone */
+          .category-group {
+            break-inside: avoid;
+            page-break-inside: avoid;
+            margin-bottom: 10px;
+          }
+          
           /* Section headings (Welcome, Introduce Bailey, etc.) - orange-brown/gold */
           .activity-category {
             font-size: 14px;
@@ -437,6 +444,8 @@ export function LessonPrintModal({
             overflow: hidden;
             border-left: 4px solid #0f766e;
             box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            break-inside: avoid;
+            page-break-inside: avoid;
           }
           
           .activity-header {
@@ -834,9 +843,8 @@ export function LessonPrintModal({
         if (lessonData.learningOutcome) {
           htmlContent += `
             <div style="background: #fffbeb; border: 1px solid #fbbf24; border-radius: 8px; padding: 12px; margin-bottom: 10px; overflow: hidden; box-sizing: border-box;">
-              <h4 style="font-size: 12px; font-weight: 600; color: #92400e; margin: 0 0 6px 0; display: flex; align-items: center;">
-                <span style="margin-right: 6px;">🎯</span>
-                Learning Outcome
+              <h4 style="font-size: 12px; font-weight: 600; color: #92400e; margin: 0 0 6px 0;">
+                Lesson Outcomes
               </h4>
               <div class="learning-outcome-content" style="font-size: 11px; color: #1f2937; line-height: 1.5; overflow: hidden; box-sizing: border-box;">
                 ${removeBulletPoints(lessonData.learningOutcome)}
@@ -848,8 +856,7 @@ export function LessonPrintModal({
         if (lessonData.successCriteria) {
           htmlContent += `
             <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 12px; overflow: hidden; box-sizing: border-box;">
-              <h4 style="font-size: 12px; font-weight: 600; color: #166534; margin: 0 0 6px 0; display: flex; align-items: center;">
-                <span style="margin-right: 6px;">✓</span>
+              <h4 style="font-size: 12px; font-weight: 600; color: #166534; margin: 0 0 6px 0;">
                 Success Criteria
               </h4>
               <div class="success-criteria-content" style="font-size: 11px; color: #1f2937; line-height: 1.5; overflow: hidden; box-sizing: border-box;">
@@ -1016,45 +1023,91 @@ export function LessonPrintModal({
 
           const categoryColor = getCategoryColor(category);
 
+          // Wrap category heading with first activity to prevent orphaned headings
+          // This ensures at least one activity follows the heading on the same page
+          htmlContent += `<div class="category-group">`;
+          
           htmlContent += `
             <div class="activity-category" style="color: ${categoryColor}; border-bottom-color: ${categoryColor};">
               ${category}
             </div>
           `;
 
-          activities.forEach(activity => {
+          // Render first activity within the category-group wrapper
+          if (activities.length > 0) {
+            const firstActivity = activities[0];
             htmlContent += `
               <div class="activity-card" style="border-left: 3px solid ${categoryColor};">
                 <div class="activity-header">
-                  <span class="activity-title">${activity.activity}</span>
-                  ${activity.time > 0 ? `<span class="activity-time">${activity.time} min</span>` : ''}
+                  <span class="activity-title">${firstActivity.activity}</span>
+                  ${firstActivity.time > 0 ? `<span class="activity-time">${firstActivity.time} min</span>` : ''}
                 </div>
                 <div class="activity-body">
-                  ${activity.activityText ? `<p style="font-weight: 500; margin-bottom: 6px;">${activity.activityText}</p>` : ''}
-                  <div>${activity.description.includes('<') ? activity.description : activity.description.replace(/\n/g, '<br>')}</div>
+                  ${firstActivity.activityText ? `<p style="font-weight: 500; margin-bottom: 6px;">${firstActivity.activityText}</p>` : ''}
+                  <div>${firstActivity.description.includes('<') ? firstActivity.description : firstActivity.description.replace(/\n/g, '<br>')}</div>
             `;
 
-            // Resources - clickable shortcuts at bottom of each activity (original export style)
-            const resources: { label: string; url: string; class: string }[] = [];
-            if (activity.videoLink) resources.push({ label: 'Video', url: activity.videoLink, class: 'resource-video' });
-            if (activity.musicLink) resources.push({ label: 'Music', url: activity.musicLink, class: 'resource-music' });
-            if (activity.backingLink) resources.push({ label: 'Backing', url: activity.backingLink, class: 'resource-backing' });
-            if (activity.resourceLink) resources.push({ label: 'Resource', url: activity.resourceLink, class: 'resource-resource' });
-            if (activity.link) resources.push({ label: 'Link', url: activity.link, class: 'resource-link' });
-            if (activity.vocalsLink) resources.push({ label: 'Vocals', url: activity.vocalsLink, class: 'resource-vocals' });
-            if (activity.imageLink) resources.push({ label: 'Image', url: activity.imageLink, class: 'resource-image' });
-            if (activity.canvaLink) resources.push({ label: 'Canva', url: activity.canvaLink, class: 'resource-canva' });
+            // Resources for first activity
+            const firstResources: { label: string; url: string; class: string }[] = [];
+            if (firstActivity.videoLink) firstResources.push({ label: 'Video', url: firstActivity.videoLink, class: 'resource-video' });
+            if (firstActivity.musicLink) firstResources.push({ label: 'Music', url: firstActivity.musicLink, class: 'resource-music' });
+            if (firstActivity.backingLink) firstResources.push({ label: 'Backing', url: firstActivity.backingLink, class: 'resource-backing' });
+            if (firstActivity.resourceLink) firstResources.push({ label: 'Resource', url: firstActivity.resourceLink, class: 'resource-resource' });
+            if (firstActivity.link) firstResources.push({ label: 'Link', url: firstActivity.link, class: 'resource-link' });
+            if (firstActivity.vocalsLink) firstResources.push({ label: 'Vocals', url: firstActivity.vocalsLink, class: 'resource-vocals' });
+            if (firstActivity.imageLink) firstResources.push({ label: 'Image', url: firstActivity.imageLink, class: 'resource-image' });
+            if (firstActivity.canvaLink) firstResources.push({ label: 'Canva', url: firstActivity.canvaLink, class: 'resource-canva' });
 
-            if (resources.length > 0) {
+            if (firstResources.length > 0) {
               htmlContent += `<div class="activity-resources">`;
-              resources.forEach(r => {
+              firstResources.forEach(r => {
                 htmlContent += `<a href="${r.url}" target="_blank" rel="noopener noreferrer" class="resource-tag ${r.class}">${r.label}</a>`;
               });
               htmlContent += `</div>`;
             }
 
             htmlContent += `</div></div>`;
-          });
+          }
+          
+          // Close category-group wrapper
+          htmlContent += `</div>`;
+
+          // Render remaining activities (if any) outside the wrapper - they can break normally
+          if (activities.length > 1) {
+            activities.slice(1).forEach(activity => {
+              htmlContent += `
+                <div class="activity-card" style="border-left: 3px solid ${categoryColor};">
+                  <div class="activity-header">
+                    <span class="activity-title">${activity.activity}</span>
+                    ${activity.time > 0 ? `<span class="activity-time">${activity.time} min</span>` : ''}
+                  </div>
+                  <div class="activity-body">
+                    ${activity.activityText ? `<p style="font-weight: 500; margin-bottom: 6px;">${activity.activityText}</p>` : ''}
+                    <div>${activity.description.includes('<') ? activity.description : activity.description.replace(/\n/g, '<br>')}</div>
+              `;
+
+              // Resources - clickable shortcuts at bottom of each activity (original export style)
+              const resources: { label: string; url: string; class: string }[] = [];
+              if (activity.videoLink) resources.push({ label: 'Video', url: activity.videoLink, class: 'resource-video' });
+              if (activity.musicLink) resources.push({ label: 'Music', url: activity.musicLink, class: 'resource-music' });
+              if (activity.backingLink) resources.push({ label: 'Backing', url: activity.backingLink, class: 'resource-backing' });
+              if (activity.resourceLink) resources.push({ label: 'Resource', url: activity.resourceLink, class: 'resource-resource' });
+              if (activity.link) resources.push({ label: 'Link', url: activity.link, class: 'resource-link' });
+              if (activity.vocalsLink) resources.push({ label: 'Vocals', url: activity.vocalsLink, class: 'resource-vocals' });
+              if (activity.imageLink) resources.push({ label: 'Image', url: activity.imageLink, class: 'resource-image' });
+              if (activity.canvaLink) resources.push({ label: 'Canva', url: activity.canvaLink, class: 'resource-canva' });
+
+              if (resources.length > 0) {
+                htmlContent += `<div class="activity-resources">`;
+                resources.forEach(r => {
+                  htmlContent += `<a href="${r.url}" target="_blank" rel="noopener noreferrer" class="resource-tag ${r.class}">${r.label}</a>`;
+                });
+                htmlContent += `</div>`;
+              }
+
+              htmlContent += `</div></div>`;
+            });
+          }
         });
         
         htmlContent += `</div>`;

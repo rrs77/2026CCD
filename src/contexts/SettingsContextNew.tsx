@@ -52,6 +52,30 @@ export interface ResourceLinkConfig {
   enabled: boolean; // Whether this resource link is enabled
 }
 
+export interface BrandingSettings {
+  // Login page customization
+  loginLogoUrl?: string; // URL to custom logo image (if empty, uses default Logo component)
+  loginTitle?: string; // Custom title text (e.g., "Creative Curriculum Designer")
+  loginSubtitle?: string; // Custom subtitle text (e.g., "From Forward Thinking")
+  loginBackgroundColor?: string; // Background color for login page (default: rgb(77, 181, 168))
+  loginButtonColor?: string; // Button color (default: #008272)
+  
+  // Footer customization
+  footerCompanyName?: string; // Company name in footer (default: "Forward Thinking")
+  footerCopyrightYear?: string; // Copyright year (default: "2026")
+  footerContactEmail?: string; // Contact email (default: "info@rhythmstix.co.uk")
+  footerPrivacyUrl?: string; // Privacy policy URL (default: "https://www.rhythmstix.co.uk/policy")
+  footerBackgroundColor?: string; // Footer background color (default: "#128c7e")
+  
+  // Social media links (optional - if not provided, defaults are used)
+  footerYoutubeUrl?: string;
+  footerLinkedinUrl?: string;
+  footerFacebookUrl?: string;
+  
+  // Show/hide social media icons
+  showSocialMedia?: boolean; // Default: true
+}
+
 interface UserSettings {
   schoolName: string;
   schoolLogo: string;
@@ -60,6 +84,7 @@ interface UserSettings {
   accentColor: string;
   customTheme: boolean;
   resourceLinks?: ResourceLinkConfig[]; // Custom resource link configurations
+  branding?: BrandingSettings; // White-label branding settings
 }
 
 interface YearGroup {
@@ -223,6 +248,23 @@ const FIXED_CATEGORIES: Category[] = [
   },
 ];
 
+// Default branding settings
+const DEFAULT_BRANDING: BrandingSettings = {
+  loginTitle: 'Creative Curriculum Designer',
+  loginSubtitle: 'From Forward Thinking',
+  loginBackgroundColor: 'rgb(77, 181, 168)',
+  loginButtonColor: '#008272',
+  footerCompanyName: 'Forward Thinking',
+  footerCopyrightYear: '2026',
+  footerContactEmail: 'info@rhythmstix.co.uk',
+  footerPrivacyUrl: 'https://www.rhythmstix.co.uk/policy',
+  footerBackgroundColor: '#128c7e',
+  footerYoutubeUrl: 'https://www.youtube.com/channel/UCooHhU7FKALUQ4CtqjDFMsw',
+  footerLinkedinUrl: 'https://www.linkedin.com/in/robert-reich-storer-974449144',
+  footerFacebookUrl: 'https://www.facebook.com/Rhythmstix-Music-108327688309431',
+  showSocialMedia: true
+};
+
 // Default settings
 const DEFAULT_SETTINGS: UserSettings = {
   schoolName: 'Curriculum Designer',
@@ -230,7 +272,8 @@ const DEFAULT_SETTINGS: UserSettings = {
   primaryColor: '#3B82F6',
   secondaryColor: '#2563EB',
   accentColor: '#60A5FA',
-  customTheme: false
+  customTheme: false,
+  branding: DEFAULT_BRANDING
 };
 
 // Default year groups

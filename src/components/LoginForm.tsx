@@ -4,15 +4,24 @@ import { useAuth } from '../hooks/useAuth';
 import { LoadingSpinner } from './LoadingSpinner';
 import { LogoSVG } from './Logo';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { useSettings } from '../contexts/SettingsContextNew';
 
 export function LoginForm() {
   const { login, loading } = useAuth();
   const { canInstall, isInstalled, install } = usePWAInstall();
+  const { settings } = useSettings();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  
+  // Get branding settings with defaults
+  const branding = settings.branding || {};
+  const loginBgColor = branding.loginBackgroundColor || 'rgb(77, 181, 168)';
+  const loginButtonColor = branding.loginButtonColor || '#008272';
+  const loginTitle = branding.loginTitle || 'Creative Curriculum Designer';
+  const loginSubtitle = branding.loginSubtitle || 'From Forward Thinking';
 
   // Check if WordPress is configured
   const wordpressUrl = import.meta.env.VITE_WORDPRESS_URL;
