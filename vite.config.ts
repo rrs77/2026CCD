@@ -31,13 +31,63 @@ export default defineConfig({
       include: [/node_modules/],
       transformMixedEsModules: true,
     },
+    chunkSizeWarningLimit: 600, // Increase warning limit slightly since we're splitting better
     rollupOptions: {
       output: {
         manualChunks: (id) => {
+          // Split node_modules into separate chunks
           if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom')) {
+            // React core libraries
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react/jsx-runtime')) {
               return 'react-vendor';
             }
+            
+            // Supabase client
+            if (id.includes('@supabase')) {
+              return 'supabase-vendor';
+            }
+            
+            // PDF generation libraries (large)
+            if (id.includes('jspdf') || id.includes('html2canvas')) {
+              return 'pdf-vendor';
+            }
+            
+            // Excel/Spreadsheet libraries
+            if (id.includes('xlsx')) {
+              return 'xlsx-vendor';
+            }
+            
+            // Rich text editor (large)
+            if (id.includes('react-quill') || id.includes('quill')) {
+              return 'editor-vendor';
+            }
+            
+            // Drag and drop
+            if (id.includes('react-dnd') || id.includes('dnd-core')) {
+              return 'dnd-vendor';
+            }
+            
+            // Date utilities
+            if (id.includes('date-fns')) {
+              return 'date-vendor';
+            }
+            
+            // Icons library (can be large)
+            if (id.includes('lucide-react')) {
+              return 'icons-vendor';
+            }
+            
+            // Toast notifications
+            if (id.includes('react-hot-toast')) {
+              return 'toast-vendor';
+            }
+            
+            // Vercel blob
+            if (id.includes('@vercel/blob')) {
+              return 'vercel-vendor';
+            }
+            
+            // All other vendor libraries
             return 'vendor';
           }
         },
