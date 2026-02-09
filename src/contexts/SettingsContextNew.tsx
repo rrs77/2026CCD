@@ -632,11 +632,85 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
       if (isSupabaseConfigured()) {
         loadingFromSupabase.current = true;
         try {
-          // Wrap in try-catch to prevent 500 errors from breaking the app
-          // Errors are handled gracefully with localStorage fallback
+          // Load categories FIRST so activities show immediately on refresh (don't wait for year groups retries)
+          console.log('🔄 Loading categories from Supabase first...');
+          const supabaseCategories = await customCategoriesApi.getAll();
+          console.log('📦 Raw categories from Supabase:', supabaseCategories);
+
+          if (supabaseCategories && supabaseCategories.length > 0) {
+            isCurrentlyLoading.current = true;
+            const formattedCategories = supabaseCategories.map((cat: any) => {
+              let yearGroups = cat.yearGroups || {};
+              if (yearGroups && typeof yearGroups === 'object') {
+                const hasOldDefaults =
+                  yearGroups.LKG === true &&
+                  yearGroups.UKG === true &&
+                  yearGroups.Reception === true &&
+                  Object.keys(yearGroups).length === 3;
+                if (hasOldDefaults) yearGroups = {};
+              }
+              return {
+                id: cat.id,
+                name: cat.name,
+                color: cat.color,
+                position: cat.position || 0,
+                group: cat.group,
+                groups: cat.groups || (cat.group ? [cat.group] : []),
+                yearGroups: yearGroups
+              };
+            });
+            const namesInSupabase = new Set(formattedCategories.map((c: any) => c.name));
+            const requiredNames = new Set(['Drama Games', 'Vocal Warmups']);
+            const missingFixed = FIXED_CATEGORIES.filter((f: any) => {
+              if (namesInSupabase.has(f.name)) return false;
+              if (f.name === 'Vocal Warmups' && namesInSupabase.has('Vocal Warm-Ups')) return false;
+              return requiredNames.has(f.name) || !deletedFixedCategories.has(f.name);
+            });
+            const merged = [...formattedCategories];
+            if (missingFixed.length > 0) {
+              missingFixed.forEach((f: any) => merged.push({ ...f }));
+              merged.sort((a: any, b: any) => (a.position ?? 0) - (b.position ?? 0));
+            }
+            setCategories(merged);
+            localStorage.setItem('saved-categories', JSON.stringify(merged));
+            setTimeout(() => { isCurrentlyLoading.current = false; }, 1000);
+            console.log('📦 Loaded categories from Supabase (first):', merged.length, 'categories');
+          } else {
+            const requiredFixedNames = new Set(['Drama Games', 'Vocal Warmups']);
+            const localStorageCategories = localStorage.getItem('saved-categories');
+            if (localStorageCategories) {
+              try {
+                const localCategories = JSON.parse(localStorageCategories);
+                const namesInLocal = new Set(localCategories.map((c: any) => c.name));
+                const missingFixed = FIXED_CATEGORIES.filter((f: any) =>
+                  !namesInLocal.has(f.name) &&
+                  (requiredFixedNames.has(f.name) || !deletedFixedCategories.has(f.name))
+                );
+                const merged = missingFixed.length > 0
+                  ? (() => {
+                      const combined = [...localCategories];
+                      missingFixed.forEach((f: any) => combined.push({ ...f }));
+                      combined.sort((a: any, b: any) => (a.position ?? 0) - (b.position ?? 0));
+                      return combined;
+                    })()
+                  : localCategories;
+                setCategories(merged);
+              } catch (_) {
+                const activeFixed = FIXED_CATEGORIES.filter((f: any) =>
+                  requiredFixedNames.has(f.name) || !deletedFixedCategories.has(f.name)
+                );
+                setCategories(activeFixed);
+              }
+            } else {
+              const activeFixed = FIXED_CATEGORIES.filter((f: any) =>
+                requiredFixedNames.has(f.name) || !deletedFixedCategories.has(f.name)
+              );
+              setCategories(activeFixed);
+            }
+          }
+
+          // Then load year groups (retries can take several seconds; categories already applied above)
           console.log('🔄 Attempting to load year groups from Supabase...');
-          
-          // Enhanced Safari-specific retry logic
           const browserIsSafari = isSafari();
           const maxRetries = browserIsSafari ? 5 : 3; // More retries for Safari
           const baseDelay = browserIsSafari ? 2000 : 1000; // Longer delays for Safari
@@ -798,205 +872,28 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
             }
           }
 
-          // Load custom categories from Supabase
-          console.log('🔄 Attempting to load categories from Supabase...');
-          const supabaseCategories = await customCategoriesApi.getAll();
-          console.log('📦 Raw categories from Supabase:', supabaseCategories);
-          
-          if (supabaseCategories && supabaseCategories.length > 0) {
-            // Set loading flag to prevent save during load
-            isCurrentlyLoading.current = true;
-            
-            const formattedCategories = supabaseCategories.map(cat => {
-              // Clean old default yearGroups assignments
-              let yearGroups = cat.yearGroups || {};
-              
-              // Log what we received from Supabase
-              if (yearGroups && typeof yearGroups === 'object' && Object.keys(yearGroups).length > 0) {
-                const assignedKeys = Object.keys(yearGroups).filter(k => yearGroups[k] === true);
-                if (assignedKeys.length > 0) {
-                  console.log(`📥 Loaded category "${cat.name}" with yearGroups:`, {
-                    yearGroups,
-                    assignedKeys,
-                    totalKeys: Object.keys(yearGroups).length
-                  });
-                }
-              } else {
-                console.log(`⚠️ Category "${cat.name}" loaded with empty/missing yearGroups:`, {
-                  yearGroups,
-                  type: typeof yearGroups,
-                  isNull: yearGroups === null,
-                  isUndefined: yearGroups === undefined,
-                  keysLength: yearGroups && typeof yearGroups === 'object' ? Object.keys(yearGroups).length : 0
-                });
-              }
-              
-              // If category has old default assignments (all legacy keys = true), clear them
-              if (yearGroups && typeof yearGroups === 'object') {
-                const hasOldDefaults = 
-                  yearGroups.LKG === true && 
-                  yearGroups.UKG === true && 
-                  yearGroups.Reception === true &&
-                  Object.keys(yearGroups).length === 3;
-                
-                if (hasOldDefaults) {
-                  console.log(`🧹 Cleaning old default yearGroups for category "${cat.name}"`);
-                  yearGroups = {}; // Clear old defaults
-                }
-              }
-              
-              return {
-                id: cat.id,  // Preserve Supabase PK
-                name: cat.name,
-                color: cat.color,
-                position: cat.position || 0,
-                group: cat.group, // Single group (backward compatibility)
-                groups: cat.groups || (cat.group ? [cat.group] : []), // Multiple groups
-                yearGroups: yearGroups
-              };
-            });
-            
-            // Use categories from Supabase; merge in any FIXED_CATEGORIES that are missing (always include Drama Games, Vocal Warmups)
-            if (formattedCategories.length > 0) {
-              const namesInSupabase = new Set(formattedCategories.map(c => c.name));
-              const requiredNames = new Set(['Drama Games', 'Vocal Warmups']);
-              const missingFixed = FIXED_CATEGORIES.filter(f => {
-                if (namesInSupabase.has(f.name)) return false;
-                if (f.name === 'Vocal Warmups' && namesInSupabase.has('Vocal Warm-Ups')) return false; // DB may use hyphen
-                return requiredNames.has(f.name) || !deletedFixedCategories.has(f.name);
-              });
-              const merged = [...formattedCategories];
-              if (missingFixed.length > 0) {
-                missingFixed.forEach(f => merged.push({ ...f }));
-                merged.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-                console.log('📦 Merged missing fixed categories:', missingFixed.map(c => c.name));
-              }
-              setCategories(merged);
-              console.log('📦 Loaded categories from Supabase:', merged.length, 'categories');
-            } else {
-              // No categories in Supabase, use FIXED_CATEGORIES as defaults (always include Drama Games, Vocal Warmups)
-              const requiredNames = new Set(['Drama Games', 'Vocal Warmups']);
-              const activeFixed = FIXED_CATEGORIES.filter(fixed => requiredNames.has(fixed.name) || !deletedFixedCategories.has(fixed.name));
-              setCategories(activeFixed);
-              console.log('📦 No categories in Supabase, using default categories (excluding deleted):', activeFixed.length, 'categories');
-              if (deletedFixedCategories.size > 0) {
-                console.log('🗑️ Excluded deleted fixed categories:', Array.from(deletedFixedCategories));
-              }
-            }
-            
-            // Check if any categories were cleaned (had old defaults)
-            const cleanedCount = formattedCategories.filter(cat => {
-              const original = supabaseCategories.find(s => s.name === cat.name);
-              if (!original || !original.yearGroups) return false;
-              const hasOldDefaults = 
-                original.yearGroups.LKG === true && 
-                original.yearGroups.UKG === true && 
-                original.yearGroups.Reception === true &&
-                Object.keys(original.yearGroups).length === 3;
-              return hasOldDefaults && (!cat.yearGroups || Object.keys(cat.yearGroups).length === 0);
-            }).length;
-            
-            // If categories were cleaned, save the cleaned state back to Supabase
-            if (cleanedCount > 0) {
-              console.log(`💾 ${cleanedCount} categories were cleaned of old defaults - saving cleaned state to Supabase`);
-              // Save cleaned categories back to Supabase to update the database
-              const categoriesToSave = merged.filter(cat => {
-                const isCustom = !FIXED_CATEGORIES.some(fixed => fixed.name === cat.name);
-                const hasGroupAssignments = (cat.groups && cat.groups.length > 0) || cat.group;
-                const hasYearGroupAssignments = cat.yearGroups && Object.keys(cat.yearGroups).length > 0 && 
-                  Object.values(cat.yearGroups).some(v => v === true);
-                return isCustom || hasGroupAssignments || hasYearGroupAssignments;
-              });
-              
-              if (categoriesToSave.length > 0) {
-                const categoriesForSupabase = categoriesToSave.map(cat => ({
-                  id: cat.id,  // Preserve Supabase PK
-                  name: cat.name,
-                  color: cat.color,
-                  position: cat.position,
-                  group: cat.group,
-                  groups: cat.groups || [],
-                  yearGroups: cat.yearGroups || {}
-                }));
-                
-                // Save directly to Supabase (not through queue) to update cleaned state
-                try {
-                  await customCategoriesApi.upsert(categoriesForSupabase);
-                  console.log('✅ Cleaned categories saved to Supabase');
-                } catch (error) {
-                  console.error('❌ Failed to save cleaned categories:', error);
-                }
-              }
-            }
-            
-            // Update localStorage to match Supabase data (use merged so year groups persist across refresh)
-            localStorage.setItem('saved-categories', JSON.stringify(merged));
-            
-            // Clear loading flag after a short delay to allow state to settle
-            setTimeout(() => {
-              isCurrentlyLoading.current = false;
-            }, 1000);
-          } else {
-            // No categories in Supabase, check localStorage and sync to Supabase
-            console.log('📦 No categories in Supabase, checking localStorage...');
+          // If we had no categories from Supabase, sync custom categories from localStorage to Supabase
+          if (!supabaseCategories || supabaseCategories.length === 0) {
             const localStorageCategories = localStorage.getItem('saved-categories');
             if (localStorageCategories) {
               try {
                 const localCategories = JSON.parse(localStorageCategories);
-                // Filter out fixed categories to get only custom ones
-                const customCategories = localCategories.filter((cat: any) => 
-                  !FIXED_CATEGORIES.some(fixed => fixed.name === cat.name)
+                const customCategories = localCategories.filter((cat: any) =>
+                  !FIXED_CATEGORIES.some((fixed: any) => fixed.name === cat.name)
                 );
-                
                 if (customCategories.length > 0) {
-                  // Sync custom categories to Supabase
                   const categoriesForSupabase = customCategories.map((cat: any) => ({
-                    id: cat.id,  // Preserve Supabase PK
+                    id: cat.id,
                     name: cat.name,
                     color: cat.color,
                     position: cat.position || 0,
-                    group: cat.group, // Single group (backward compatibility)
-                    groups: cat.groups || (cat.group ? [cat.group] : []), // Multiple groups
+                    group: cat.group,
+                    groups: cat.groups || (cat.group ? [cat.group] : []),
                     yearGroups: cat.yearGroups || {}
                   }));
-                  
-                  try {
-                    await customCategoriesApi.upsert(categoriesForSupabase);
-                    console.log('✅ Synced custom categories to Supabase:', categoriesForSupabase.length);
-                  } catch (error) {
-                    console.warn('Failed to sync categories to Supabase:', error);
-                  }
+                  await customCategoriesApi.upsert(categoriesForSupabase).catch(() => {});
                 }
-                
-                // Use categories from localStorage; merge in any missing FIXED_CATEGORIES (always include Drama Games, Vocal Warmups)
-                const namesInLocal = new Set(localCategories.map((c: any) => c.name));
-                const requiredFixedNames = new Set(['Drama Games', 'Vocal Warmups']);
-                const missingFixed = FIXED_CATEGORIES.filter(f =>
-                  !namesInLocal.has(f.name) &&
-                  (requiredFixedNames.has(f.name) || !deletedFixedCategories.has(f.name))
-                );
-                const merged = missingFixed.length > 0
-                  ? (() => {
-                      const combined = [...localCategories];
-                      missingFixed.forEach(f => combined.push({ ...f }));
-                      combined.sort((a: any, b: any) => (a.position ?? 0) - (b.position ?? 0));
-                      return combined;
-                    })()
-                  : localCategories;
-                setCategories(merged);
-                console.log('📦 Using categories from localStorage:', merged.length, missingFixed.length ? `(merged ${missingFixed.length} missing: ${missingFixed.map(c => c.name).join(', ')})` : '');
-              } catch (error) {
-                console.warn('Failed to parse localStorage categories:', error);
-                const requiredNames = new Set(['Drama Games', 'Vocal Warmups']);
-                const activeFixed = FIXED_CATEGORIES.filter(fixed => requiredNames.has(fixed.name) || !deletedFixedCategories.has(fixed.name));
-                setCategories(activeFixed);
-                console.log('📦 Using fixed categories due to parse error (excluding deleted)');
-              }
-            } else {
-              const requiredNames = new Set(['Drama Games', 'Vocal Warmups']);
-              const activeFixed = FIXED_CATEGORIES.filter(fixed => requiredNames.has(fixed.name) || !deletedFixedCategories.has(fixed.name));
-              setCategories(activeFixed);
-              console.log('📦 No categories anywhere, using fixed categories (excluding deleted)');
+              } catch (_) {}
             }
           }
         } catch (error: any) {

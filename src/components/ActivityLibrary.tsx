@@ -162,18 +162,15 @@ export function ActivityLibrary({
       currentYearGroupKey
     ].filter(Boolean) as string[];
     
-    // STRICT: Filter categories that are EXPLICITLY assigned to current year group
+    // STRICT: Filter categories that are EXPLICITLY assigned to current year group (no special cases)
     const filteredCategories = categories
       .filter((category) => {
-        // Skip categories without yearGroups configuration
         if (!category || !category.yearGroups || Object.keys(category.yearGroups).length === 0) {
-          console.log(`❌ Category "${category.name}" has no yearGroups - excluding`);
+          console.log(`❌ Category "${category?.name}" has no yearGroups - excluding`);
           return false;
         }
-        
-        // Get all keys that are explicitly set to true for this category
+
         const assignedKeys = Object.keys(category.yearGroups).filter(k => category.yearGroups[k] === true);
-        
         if (assignedKeys.length === 0) {
           console.log(`❌ Category "${category.name}" has no assigned year groups - excluding`);
           return false;
