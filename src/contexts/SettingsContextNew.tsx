@@ -1522,11 +1522,15 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
                     categories.forEach(supabaseCat => {
                       const existingIndex = merged.findIndex(cat => cat.name === supabaseCat.name);
                       if (existingIndex >= 0) {
-                        // Update existing category with Supabase data
+                        // Update existing category with ALL Supabase data (including yearGroups!)
                         merged[existingIndex] = {
                           ...merged[existingIndex],
+                          id: supabaseCat.id,
+                          color: supabaseCat.color || merged[existingIndex].color,
+                          position: supabaseCat.position ?? merged[existingIndex].position,
                           group: supabaseCat.group,
-                          groups: supabaseCat.groups || []
+                          groups: supabaseCat.groups || [],
+                          yearGroups: supabaseCat.yearGroups ?? merged[existingIndex].yearGroups
                         };
                       }
                     });
