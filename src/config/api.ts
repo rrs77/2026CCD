@@ -1170,7 +1170,7 @@ export const customCategoriesApi = {
         name: row.name,
         color: row.color,
         position: row.position,
-        group: row.group ?? row.group_name,
+        group: row.group,
         groups: row.groups ?? [],
         yearGroups: normaliseYearGroups(row.year_groups)
       }));
@@ -1195,9 +1195,6 @@ export const customCategoriesApi = {
         // Ensure color is a string
         const color = cat.color || '#6B7280';
         
-        // Ensure group_name is a string or null
-        const groupName = cat.group || null;
-        
         // Debug logging for year group assignments
         if (yearGroupsObj && Object.keys(yearGroupsObj).length > 0 && Object.values(yearGroupsObj).some(v => v === true)) {
           console.log('💾 Saving category with year groups:', {
@@ -1207,12 +1204,13 @@ export const customCategoriesApi = {
           });
         }
         
+        // NOTE: The actual Supabase table column is "group" (not "group_name").
+        // Sending "group_name" caused PGRST204 "column not found" errors that
+        // silently killed every upsert, preventing year_groups from persisting.
         const rowData: any = {
-          id: cat.id || crypto.randomUUID(),  // Must include id – table PK has no default
           name: cat.name,
           color: color,
           position: position,
-          group_name: groupName,
           groups: groupsArray,
           year_groups: yearGroupsObj
         };
@@ -1260,7 +1258,7 @@ export const customCategoriesApi = {
           // Ensure groups is a valid array
           if (!Array.isArray(row.groups)) {
             console.warn(`⚠️ Invalid groups type for category "${row.name}", converting to array`);
-            row.groups = row.group_name ? [row.group_name] : [];
+            row.groups = row.group ? [row.group] : [];
           }
           
           // Ensure position is a number
@@ -1318,7 +1316,7 @@ export const customCategoriesApi = {
           name: row.name,
           color: row.color,
           position: row.position,
-          group: row.group ?? row.group_name,
+          group: row.group,
           groups: row.groups ?? [],
           yearGroups: normalizedYearGroups
         };
