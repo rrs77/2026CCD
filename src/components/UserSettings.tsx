@@ -1696,7 +1696,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                 <div className="flex flex-wrap items-center gap-1.5">
                                   {editingCategoryYearGroups === `category-index-${index}` ? (
                                   // Edit mode: show checkboxes for year groups - show ALL year groups
-                                  <div className="flex flex-wrap gap-2">
+                                  <div className="flex flex-wrap gap-2 w-full">
                                     {customYearGroups && Array.isArray(customYearGroups) && customYearGroups.length > 0 ? customYearGroups.map(yearGroup => {
                                       // Use year group ID as the key (or name if ID not available)
                                       const yearGroupKey = yearGroup.id || yearGroup.name;
@@ -1745,7 +1745,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                         </label>
                                       );
                                     }) : null}
-                                    <div className="flex gap-2 items-center">
+                                    <div className="flex gap-2 items-center w-full mt-2">
                                       <button
                                         onClick={async () => {
                                         const updatedCategories = [...tempCategories];
@@ -1769,7 +1769,10 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                         Clear All
                                       </button>
                                       <button
-                                        onClick={() => setEditingCategoryYearGroups(null)}
+                                        onClick={() => {
+                                          console.log('✅ Closing edit mode for category:', category.name);
+                                          setEditingCategoryYearGroups(null);
+                                        }}
                                         className="text-xs text-teal-600 hover:text-teal-800 px-2 py-1 hover:bg-teal-50 rounded font-medium"
                                       >
                                         Done
@@ -1777,33 +1780,42 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                 </div>
                               </div>
                                 ) : (
-                                  // View mode: show year group tags (clickable to edit)
+                                  // View mode: show year group tags and edit button
                                   <>
-                                    {customYearGroups && Array.isArray(customYearGroups) ? customYearGroups
-                                      .filter(yearGroup => {
-                                        // Use yearGroup.id consistently (which is the name from the API)
-                                        const yearGroupKey = yearGroup.id || yearGroup.name;
-                                        return category.yearGroups?.[yearGroupKey] === true;
-                                      })
-                                      .map(yearGroup => (
-                                        <span 
-                                          key={yearGroup.id} 
-                                          className="px-2 py-1 bg-teal-100 text-teal-800 text-xs font-medium rounded-full cursor-pointer hover:bg-teal-200 transition-colors"
-                                          onClick={() => setEditingCategoryYearGroups(`category-index-${index}`)}
-                                          title="Click to edit year group assignments"
-                                        >
-                                          {yearGroup.name}
-                                    </span>
-                                      )) : null}
-                                    {(!category.yearGroups || Object.values(category.yearGroups).every(v => !v)) && (
-                                      <button
-                                        onClick={() => setEditingCategoryYearGroups(`category-index-${index}`)}
-                                        className="px-2 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-full hover:bg-gray-200 transition-colors"
-                                        title="Click to assign year groups"
-                                      >
-                                        + Assign Year Groups
-                                      </button>
-                                    )}
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                      {customYearGroups && Array.isArray(customYearGroups) ? customYearGroups
+                                        .filter(yearGroup => {
+                                          // Use yearGroup.id consistently (which is the name from the API)
+                                          const yearGroupKey = yearGroup.id || yearGroup.name;
+                                          return category.yearGroups?.[yearGroupKey] === true;
+                                        })
+                                        .map(yearGroup => (
+                                          <span 
+                                            key={yearGroup.id} 
+                                            className="px-2 py-1 bg-teal-100 text-teal-800 text-xs font-medium rounded-full"
+                                            title={yearGroup.name}
+                                          >
+                                            {yearGroup.name}
+                                          </span>
+                                        )) : null}
+                                      {(!category.yearGroups || Object.values(category.yearGroups).every(v => !v)) && (
+                                        <span className="text-xs text-gray-400 italic">No year groups assigned</span>
+                                      )}
+                                    </div>
+                                    <button
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        console.log('🔄 Opening edit mode for category:', category.name, 'index:', index);
+                                        setEditingCategoryYearGroups(`category-index-${index}`);
+                                      }}
+                                      className="px-2 py-1 bg-teal-50 text-teal-700 text-xs font-medium rounded-full hover:bg-teal-100 transition-colors border border-teal-200 mt-1"
+                                      title="Click to assign or edit year groups"
+                                    >
+                                      {(!category.yearGroups || Object.values(category.yearGroups).every(v => !v)) 
+                                        ? '+ Assign Year Groups' 
+                                        : 'Edit Year Groups'}
+                                    </button>
                                   </>
                                   )}
                             </div>
