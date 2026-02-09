@@ -1140,6 +1140,31 @@ export const customCategoriesApi = {
       
       if (error) throw error;
       const rows = data || [];
+      
+      // Log raw data from Supabase to debug yearGroups
+      const categoriesWithYearGroups = rows.filter((r: any) => {
+        const normalized = normaliseYearGroups(r.year_groups);
+        return normalized && Object.keys(normalized).length > 0 && Object.values(normalized).some(v => v === true);
+      });
+      
+      if (categoriesWithYearGroups.length > 0) {
+        console.log('📥 Categories loaded from Supabase WITH year groups:', categoriesWithYearGroups.map((r: any) => ({
+          name: r.name,
+          year_groups_raw: r.year_groups,
+          year_groups_normalized: normaliseYearGroups(r.year_groups),
+          assignedKeys: Object.keys(normaliseYearGroups(r.year_groups)).filter(k => normaliseYearGroups(r.year_groups)[k] === true)
+        })));
+      } else {
+        console.warn('⚠️ NO categories loaded from Supabase with year groups assigned. Total categories:', rows.length);
+        console.log('📥 Sample category data:', rows.slice(0, 3).map((r: any) => ({
+          name: r.name,
+          year_groups_raw: r.year_groups,
+          year_groups_type: typeof r.year_groups,
+          year_groups_is_null: r.year_groups === null,
+          year_groups_normalized: normaliseYearGroups(r.year_groups)
+        })));
+      }
+      
       return rows.map((row: any) => ({
         name: row.name,
         color: row.color,
@@ -1160,6 +1185,18 @@ export const customCategoriesApi = {
         const yearGroups = cat.yearGroups ?? {};
         const yearGroupsObj = typeof yearGroups === 'object' && !Array.isArray(yearGroups) ? yearGroups : {};
         
+        // Ensure groups is a valid array (not null/undefined)
+        const groupsArray = Array.isArray(cat.groups) ? cat.groups : (cat.group ? [cat.group] : []);
+        
+        // Ensure position is a number
+        const position = typeof cat.position === 'number' ? cat.position : (cat.position ? parseInt(cat.position, 10) : 0);
+        
+        // Ensure color is a string
+        const color = cat.color || '#6B7280';
+        
+        // Ensure group_name is a string or null
+        const groupName = cat.group || null;
+        
         // Debug logging for year group assignments
         if (yearGroupsObj && Object.keys(yearGroupsObj).length > 0 && Object.values(yearGroupsObj).some(v => v === true)) {
           console.log('💾 Saving category with year groups:', {
@@ -1169,14 +1206,23 @@ export const customCategoriesApi = {
           });
         }
         
-        return {
+        const rowData: any = {
           name: cat.name,
-          color: cat.color,
-          position: cat.position,
-          group_name: cat.group,
-          groups: cat.groups ?? [],
+          color: color,
+          position: position,
+          group_name: groupName,
+          groups: groupsArray,
           year_groups: yearGroupsObj
         };
+        
+        // Remove null/undefined values that might cause issues
+        Object.keys(rowData).forEach(key => {
+          if (rowData[key] === undefined) {
+            delete rowData[key];
+          }
+        });
+        
+        return rowData;
       });
       
       // Log what we're about to upsert
@@ -1188,13 +1234,68 @@ export const customCategoriesApi = {
         })));
       }
       
+      // Log sample row data to debug format issues
+      if (rows.length > 0) {
+        console.log('📤 Sample row data being sent to Supabase:', {
+          sample: rows[0],
+          totalRows: rows.length,
+          sampleYearGroups: rows[0].year_groups,
+          sampleGroups: rows[0].groups,
+          sampleGroupsType: typeof rows[0].groups,
+          sampleGroupsIsArray: Array.isArray(rows[0].groups)
+        });
+      }
+      
+      // Validate data before sending to Supabase
+      const validatedRows = rows.map((row, index) => {
+        try {
+          // Ensure year_groups is a valid JSONB object
+          if (row.year_groups && typeof row.year_groups !== 'object') {
+            console.warn(`⚠️ Invalid year_groups type for category "${row.name}", converting to object`);
+            row.year_groups = {};
+          }
+          
+          // Ensure groups is a valid array
+          if (!Array.isArray(row.groups)) {
+            console.warn(`⚠️ Invalid groups type for category "${row.name}", converting to array`);
+            row.groups = row.group_name ? [row.group_name] : [];
+          }
+          
+          // Ensure position is a number
+          if (typeof row.position !== 'number') {
+            row.position = parseInt(row.position, 10) || 0;
+          }
+          
+          // Ensure required fields exist
+          if (!row.name) {
+            throw new Error(`Category at index ${index} is missing required field: name`);
+          }
+          
+          return row;
+        } catch (validationError) {
+          console.error(`❌ Validation error for category at index ${index}:`, validationError);
+          throw validationError;
+        }
+      });
+      
       const { data, error } = await supabase
         .from(TABLES.CUSTOM_CATEGORIES)
-        .upsert(rows, { onConflict: 'name' })
+        .upsert(validatedRows, { onConflict: 'name' })
         .select();
       
       if (error) {
-        console.error('❌ Supabase categories upsert error:', error.message, error.details);
+        console.error('❌ Supabase categories upsert error:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+          sampleRow: validatedRows.length > 0 ? validatedRows[0] : null,
+          totalRows: validatedRows.length
+        });
+        
+        // Log the full error response for debugging
+        console.error('❌ Full error object:', JSON.stringify(error, null, 2));
+        
         throw error;
       }
       const result = data || [];

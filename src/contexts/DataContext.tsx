@@ -1637,12 +1637,28 @@ console.log('🏁 Set subjectsLoading to FALSE'); // ADD THIS DEBUG LINE
     try {
       // Try to update in Supabase if connected
       let updatedActivity = { ...activity, yearGroups: activity.yearGroups || [] };
+      
+      console.log('💾 DataContext.updateActivity called:', {
+        activityId: activity._id || activity.id,
+        activityName: activity.activity,
+        yearGroups: updatedActivity.yearGroups,
+        yearGroupsLength: updatedActivity.yearGroups?.length || 0,
+        yearGroupsIsArray: Array.isArray(updatedActivity.yearGroups)
+      });
+      
       if (isSupabaseConfigured() && (activity._id)) {
         try {
           updatedActivity = await activitiesApi.update(activity._id, { ...updatedActivity, yearGroups: updatedActivity.yearGroups || [] });
+          console.log('✅ Activity updated in Supabase with year groups:', {
+            activityId: updatedActivity._id || updatedActivity.id,
+            yearGroups: updatedActivity.yearGroups
+          });
         } catch (error) {
+          console.error('❌ Failed to update activity in Supabase:', error);
           console.warn('Failed to update activity in Supabase:', error);
         }
+      } else {
+        console.log('⚠️ Supabase not configured or activity missing _id, skipping Supabase update');
       }
       // Update local state
       setAllActivities(prev => prev.map(a => (a._id === activity._id) ? updatedActivity : a));

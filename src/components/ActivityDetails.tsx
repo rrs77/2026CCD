@@ -150,11 +150,23 @@ export function ActivityDetails({
       standards: selectedStandards
     };
     
+    // Log year groups before saving
+    console.log('💾 Saving activity with year groups:', {
+      activityId: updatedActivity._id || updatedActivity.id,
+      activityName: updatedActivity.activity,
+      yearGroups: updatedActivity.yearGroups,
+      yearGroupsLength: updatedActivity.yearGroups?.length || 0,
+      yearGroupsArray: Array.isArray(updatedActivity.yearGroups) ? updatedActivity.yearGroups : []
+    });
+    
     // ALWAYS update the global activity data first (master copy)
     // This ensures changes propagate to all lessons using this activity
     try {
       await updateActivityGlobal(updatedActivity);
-      console.log('✅ Activity updated globally:', updatedActivity.id || updatedActivity._id);
+      console.log('✅ Activity updated globally with year groups:', {
+        activityId: updatedActivity.id || updatedActivity._id,
+        yearGroups: updatedActivity.yearGroups
+      });
     } catch (error) {
       console.error('❌ Failed to update activity globally:', error);
     }
@@ -352,12 +364,26 @@ export function ActivityDetails({
   };
 
   const handleYearGroupChange = (yearGroup: string, checked: boolean) => {
-    setEditedActivity(prev => ({
-      ...prev,
-      yearGroups: checked 
-        ? [...(prev.yearGroups || []), yearGroup]
-        : (prev.yearGroups || []).filter(g => g !== yearGroup)
-    }));
+    setEditedActivity(prev => {
+      const currentYearGroups = prev.yearGroups || [];
+      const newYearGroups = checked 
+        ? [...currentYearGroups, yearGroup]
+        : currentYearGroups.filter(g => g !== yearGroup);
+      
+      console.log('🔄 Year group assignment changed:', {
+        yearGroup,
+        checked,
+        previousYearGroups: currentYearGroups,
+        newYearGroups,
+        activityId: prev._id || prev.id,
+        activityName: prev.activity
+      });
+      
+      return {
+        ...prev,
+        yearGroups: newYearGroups
+      };
+    });
   };
 
   return (

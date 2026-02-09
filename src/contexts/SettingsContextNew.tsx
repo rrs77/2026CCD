@@ -810,6 +810,26 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
               // Clean old default yearGroups assignments
               let yearGroups = cat.yearGroups || {};
               
+              // Log what we received from Supabase
+              if (yearGroups && typeof yearGroups === 'object' && Object.keys(yearGroups).length > 0) {
+                const assignedKeys = Object.keys(yearGroups).filter(k => yearGroups[k] === true);
+                if (assignedKeys.length > 0) {
+                  console.log(`📥 Loaded category "${cat.name}" with yearGroups:`, {
+                    yearGroups,
+                    assignedKeys,
+                    totalKeys: Object.keys(yearGroups).length
+                  });
+                }
+              } else {
+                console.log(`⚠️ Category "${cat.name}" loaded with empty/missing yearGroups:`, {
+                  yearGroups,
+                  type: typeof yearGroups,
+                  isNull: yearGroups === null,
+                  isUndefined: yearGroups === undefined,
+                  keysLength: yearGroups && typeof yearGroups === 'object' ? Object.keys(yearGroups).length : 0
+                });
+              }
+              
               // If category has old default assignments (all legacy keys = true), clear them
               if (yearGroups && typeof yearGroups === 'object') {
                 const hasOldDefaults = 
@@ -1844,27 +1864,52 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
       
       let categoriesSuccess = true;
       if (categoriesToSave.length > 0) {
-        const categoriesForSupabase = categoriesToSave.map(cat => ({
-          name: cat.name,
-          color: cat.color,
-          position: cat.position,
-          group: cat.group,
-          groups: cat.groups || [],
-          yearGroups: typeof cat.yearGroups === 'object' && cat.yearGroups !== null && !Array.isArray(cat.yearGroups) ? cat.yearGroups : {}
-        }));
-        const withYearGroups = categoriesForSupabase.filter(c => c.yearGroups && Object.keys(c.yearGroups).length > 0 && Object.values(c.yearGroups).some(v => v === true));
-        if (override?.categories && withYearGroups.length > 0) {
-          console.log('📤 Syncing categories with year group assignments:', withYearGroups.length, withYearGroups.map(c => ({ name: c.name, yearGroups: c.yearGroups })));
-        }
-        categoriesSuccess = await customCategoriesApi.upsert(categoriesForSupabase)
-          .then(() => {
-            console.log('✅ Categories synced to Supabase', categoriesForSupabase.length);
-            return true;
-          })
-          .catch(error => {
-            console.error('❌ Failed to sync categories:', error);
-            return false;
+        const categoriesForSupabase = categoriesToSave.map(cat => {
+          // Ensure all required fields are present and valid
+          const categoryData: any = {
+            name: cat.name || '',
+            color: cat.color || '#6B7280',
+            position: typeof cat.position === 'number' ? cat.position : (cat.position ? parseInt(cat.position, 10) : 0),
+            group: cat.group || null,
+            groups: Array.isArray(cat.groups) ? cat.groups : (cat.group ? [cat.group] : []),
+            yearGroups: typeof cat.yearGroups === 'object' && cat.yearGroups !== null && !Array.isArray(cat.yearGroups) ? cat.yearGroups : {}
+          };
+          
+          // Validate required fields
+          if (!categoryData.name) {
+            console.warn(`⚠️ Skipping category with missing name:`, cat);
+            return null;
+          }
+          
+          return categoryData;
+        }).filter(cat => cat !== null); // Remove any invalid categories
+        
+        if (categoriesForSupabase.length === 0) {
+          console.warn('⚠️ No valid categories to sync after validation');
+          categoriesSuccess = true; // Not an error, just nothing to sync
+        } else {
+          const withYearGroups = categoriesForSupabase.filter(c => c.yearGroups && Object.keys(c.yearGroups).length > 0 && Object.values(c.yearGroups).some(v => v === true));
+          if (override?.categories && withYearGroups.length > 0) {
+            console.log('📤 Syncing categories with year group assignments:', withYearGroups.length, withYearGroups.map(c => ({ name: c.name, yearGroups: c.yearGroups })));
+          }
+          
+          console.log('📤 Preparing to upsert categories:', {
+            total: categoriesForSupabase.length,
+            withYearGroups: withYearGroups.length,
+            sample: categoriesForSupabase[0]
           });
+          
+          categoriesSuccess = await customCategoriesApi.upsert(categoriesForSupabase)
+            .then(() => {
+              console.log('✅ Categories synced to Supabase', categoriesForSupabase.length);
+              return true;
+            })
+            .catch(error => {
+              console.error('❌ Failed to sync categories:', error);
+              console.error('❌ Categories that failed:', categoriesForSupabase.slice(0, 3));
+              return false;
+            });
+        }
       }
 
       const allSuccess = yearGroupsSuccess && categoriesSuccess;

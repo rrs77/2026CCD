@@ -10,6 +10,7 @@ import { isSupabaseConfigured } from '../config/supabase';
 import { customCategoriesApi } from '../config/api';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import toast from 'react-hot-toast';
 
 // Draggable Category Item Component
 interface DraggableCategoryProps {
@@ -248,14 +249,48 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
         console.warn('⚠️ Supabase sync returned false - queue may still save shortly');
       }
       
+      // Show success message
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000); // Hide after 3 seconds
+      
+      // Show toast notification for better visibility
+      toast.success('Settings saved successfully!', {
+        duration: 3000,
+        position: 'top-center',
+        icon: '✅',
+        style: {
+          background: '#E6F7F5',
+          color: '#0BA596',
+          border: '1px solid #0BA596',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          fontSize: '14px',
+          fontWeight: '500'
+        }
+      });
       
       console.log('✅ All settings saved successfully');
     } catch (error: unknown) {
       console.error('❌ Failed to save settings:', error);
       const err = error as Error;
       console.error('❌ Error details:', { message: err?.message, stack: err?.stack, name: err?.name });
+      
+      // Show error toast notification
+      toast.error('Failed to save settings. Please try again.', {
+        duration: 4000,
+        position: 'top-center',
+        icon: '❌',
+        style: {
+          background: '#FEF2F2',
+          color: '#DC2626',
+          border: '1px solid #DC2626',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          fontSize: '14px',
+          fontWeight: '500'
+        }
+      });
+      
       alert('Failed to save settings. Please try again.');
     }
   };
