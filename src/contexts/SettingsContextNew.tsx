@@ -32,6 +32,7 @@ interface Theme {
 }
 
 export interface Category {
+  id?: string; // Supabase primary key – preserved across round-trips so upserts don't fail
   name: string;
   color: string;
   position: number;
@@ -845,6 +846,7 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
               }
               
               return {
+                id: cat.id,  // Preserve Supabase PK
                 name: cat.name,
                 color: cat.color,
                 position: cat.position || 0,
@@ -908,6 +910,7 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
               
               if (categoriesToSave.length > 0) {
                 const categoriesForSupabase = categoriesToSave.map(cat => ({
+                  id: cat.id,  // Preserve Supabase PK
                   name: cat.name,
                   color: cat.color,
                   position: cat.position,
@@ -948,6 +951,7 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
                 if (customCategories.length > 0) {
                   // Sync custom categories to Supabase
                   const categoriesForSupabase = customCategories.map((cat: any) => ({
+                    id: cat.id,  // Preserve Supabase PK
                     name: cat.name,
                     color: cat.color,
                     position: cat.position || 0,
@@ -1381,6 +1385,7 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
     
     if (categoriesToSave.length > 0) {
       const categoriesForSupabase = categoriesToSave.map(cat => ({
+        id: cat.id,  // Preserve Supabase PK so upserts don't fail on missing id
         name: cat.name,
         color: cat.color,
         position: cat.position,
@@ -1867,6 +1872,7 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
         const categoriesForSupabase = categoriesToSave.map(cat => {
           // Ensure all required fields are present and valid
           const categoryData: any = {
+            id: cat.id,  // Preserve Supabase PK for round-trip upserts
             name: cat.name || '',
             color: cat.color || '#6B7280',
             position: typeof cat.position === 'number' ? cat.position : (cat.position ? parseInt(cat.position, 10) : 0),
@@ -2010,6 +2016,7 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
           }
           
           return {
+            id: cat.id,  // Preserve Supabase PK
             name: cat.name,
             color: cat.color,
             position: cat.position || 0,

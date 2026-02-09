@@ -1166,6 +1166,7 @@ export const customCategoriesApi = {
       }
       
       return rows.map((row: any) => ({
+        id: row.id,  // Preserve Supabase primary key for round-trip upserts
         name: row.name,
         color: row.color,
         position: row.position,
@@ -1207,6 +1208,7 @@ export const customCategoriesApi = {
         }
         
         const rowData: any = {
+          id: cat.id || crypto.randomUUID(),  // Must include id – table PK has no default
           name: cat.name,
           color: color,
           position: position,
@@ -1312,6 +1314,7 @@ export const customCategoriesApi = {
       return result.map((row: any) => {
         const normalizedYearGroups = normaliseYearGroups(row.year_groups);
         return {
+          id: row.id,  // Preserve id from Supabase response
           name: row.name,
           color: row.color,
           position: row.position,
