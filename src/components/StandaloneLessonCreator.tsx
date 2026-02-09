@@ -511,8 +511,8 @@ export const StandaloneLessonCreator: React.FC<StandaloneLessonCreatorProps> = (
                 ? 'text-white'
                 : 'text-gray-600 hover:text-teal-600 hover:bg-teal-50'
             }`}
-            style={activeTab === 'main' ? { background: 'linear-gradient(135deg, #0BA596 0%, #0BA596 100%)' } : {}}
-            style={{ 
+            style={{
+              ...(activeTab === 'main' ? { background: 'linear-gradient(135deg, #0BA596 0%, #0BA596 100%)' } : {}),
               border: 'none !important', 
               borderBottom: 'none !important', 
               borderTop: 'none !important',
@@ -547,8 +547,8 @@ export const StandaloneLessonCreator: React.FC<StandaloneLessonCreatorProps> = (
                 ? 'text-white'
                 : 'text-gray-600 hover:text-teal-600 hover:bg-teal-50'
             }`}
-            style={activeTab === 'extended' ? { background: 'linear-gradient(135deg, #0BA596 0%, #0BA596 100%)' } : {}}
             style={{
+              ...(activeTab === 'extended' ? { background: 'linear-gradient(135deg, #0BA596 0%, #0BA596 100%)' } : {}),
               border: 'none !important',
               borderBottom: 'none !important',
               borderTop: 'none !important',
