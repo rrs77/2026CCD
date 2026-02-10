@@ -122,7 +122,7 @@ interface UserSettingsProps {
 export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
   const { user } = useAuth();
   const isViewOnly = useIsViewOnly();
-  const { settings, updateSettings, resetToDefaults, categories, updateCategories, resetCategoriesToDefaults, customYearGroups, updateYearGroups, resetYearGroupsToDefaults, forceSyncYearGroups, forceSyncToSupabase, forceRefreshFromSupabase, forceSyncCurrentYearGroups, forceSafariSync, startUserChange, endUserChange, resourceLinks, updateResourceLinks, resetResourceLinksToDefaults } = useSettings();
+  const { settings, updateSettings, resetToDefaults, categories, updateCategories, resetCategoriesToDefaults, customYearGroups, updateYearGroups, deleteYearGroup, resetYearGroupsToDefaults, forceSyncYearGroups, forceSyncToSupabase, forceRefreshFromSupabase, forceSyncCurrentYearGroups, forceSafariSync, startUserChange, endUserChange, resourceLinks, updateResourceLinks, resetResourceLinksToDefaults } = useSettings();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [tempSettings, setTempSettings] = useState(settings);
   const [tempCategories, setTempCategories] = useState(categories);
@@ -150,6 +150,7 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
   const [newYearGroupName, setNewYearGroupName] = useState('');
   const [newYearGroupColor, setNewYearGroupColor] = useState('#3B82F6');
   const [editingYearGroup, setEditingYearGroup] = useState<string | null>(null);
+  const [editingYearGroupDraft, setEditingYearGroupDraft] = useState<{ id: string; name: string; color: string } | null>(null);
   const [draggedYearGroup, setDraggedYearGroup] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showYearGroupsModal, setShowYearGroupsModal] = useState(false);
@@ -568,25 +569,22 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
   const handleDeleteYearGroup = async (index: number) => {
     if (confirm('Are you sure you want to delete this year group? This may affect existing lessons.')) {
       try {
-        // Set deletion flag to prevent useEffect from resetting tempYearGroups
         setIsDeletingYearGroup(true);
-        
-      const updatedYearGroups = tempYearGroups.filter((_, i) => i !== index);
-      setTempYearGroups(updatedYearGroups);
-      
-      // Immediately persist changes
-      console.log('🔄 Deleting year group and persisting immediately');
-      await updateYearGroups(updatedYearGroups);
-      console.log('✅ Year group deleted and persisted');
-        
-        // Wait a bit before clearing the deletion flag to ensure state is stable
-        setTimeout(() => {
-          setIsDeletingYearGroup(false);
-        }, 1000);
+        const removed = tempYearGroups[index];
+        const updatedYearGroups = tempYearGroups.filter((_, i) => i !== index);
+        setTempYearGroups(updatedYearGroups);
+
+        // Remove from Supabase (and sync context/localStorage) so it doesn't reappear on reload
+        const idToDelete = removed?.id || removed?.name;
+        if (idToDelete) {
+          await deleteYearGroup(idToDelete);
+        }
+        await updateYearGroups(updatedYearGroups);
+
+        setTimeout(() => setIsDeletingYearGroup(false), 1000);
       } catch (error) {
         console.error('❌ Failed to delete year group:', error);
         alert('Failed to delete year group. Please try again.');
-        // Clear deletion flag on error
         setIsDeletingYearGroup(false);
       }
     }
@@ -1026,11 +1024,9 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                 id={`editYearGroupId-${index}`}
                                 name={`editYearGroupId-${index}`}
                                 type="text"
-                                value={editingYearGroup === yearGroup.id ? yearGroup.id : ''}
+                                value={editingYearGroupDraft?.id ?? yearGroup.id}
                                 onChange={(e) => {
-                                  const updatedYearGroups = [...tempYearGroups];
-                                  updatedYearGroups[index] = { ...updatedYearGroups[index], id: e.target.value };
-                                  setTempYearGroups(updatedYearGroups);
+                                  setEditingYearGroupDraft(prev => prev ? { ...prev, id: e.target.value } : null);
                                 }}
                                 className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
                                 dir="ltr"
@@ -1039,33 +1035,35 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                 id={`editYearGroupName-${index}`}
                                 name={`editYearGroupName-${index}`}
                                 type="text"
-                                value={editingYearGroup === yearGroup.id ? yearGroup.name : ''}
+                                value={editingYearGroupDraft?.name ?? yearGroup.name}
                                 onChange={(e) => {
-                                  const updatedYearGroups = [...tempYearGroups];
-                                  updatedYearGroups[index] = { ...updatedYearGroups[index], name: e.target.value };
-                                  setTempYearGroups(updatedYearGroups);
+                                  setEditingYearGroupDraft(prev => prev ? { ...prev, name: e.target.value } : null);
                                 }}
                                 className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
                               />
-                                <input
+                              <input
                                 id={`editYearGroupColor-${index}`}
                                 name={`editYearGroupColor-${index}`}
-                                  type="color"
-                                value={editingYearGroup === yearGroup.id ? yearGroup.color : ''}
-                                  onChange={(e) => {
-                                    const updatedYearGroups = [...tempYearGroups];
-                                  updatedYearGroups[index] = { ...updatedYearGroups[index], color: e.target.value };
-                                    setTempYearGroups(updatedYearGroups);
-                                  }}
+                                type="color"
+                                value={editingYearGroupDraft?.color ?? yearGroup.color}
+                                onChange={(e) => {
+                                  setEditingYearGroupDraft(prev => prev ? { ...prev, color: e.target.value } : null);
+                                }}
                                 className="w-10 h-8 rounded border border-gray-300 cursor-pointer"
-                                />
+                              />
                             </div>
-                                <button
-                                  onClick={() => setEditingYearGroup(null)}
-                                  className="p-1.5 text-teal-600 hover:text-teal-800 hover:bg-teal-50 rounded-lg transition-colors duration-200"
-                                >
-                                  <Save className="h-5 w-5" />
-                                </button>
+                            <button
+                              onClick={() => {
+                                if (editingYearGroupDraft) {
+                                  handleUpdateYearGroup(index, editingYearGroupDraft.id, editingYearGroupDraft.name, editingYearGroupDraft.color);
+                                  setEditingYearGroupDraft(null);
+                                }
+                                setEditingYearGroup(null);
+                              }}
+                              className="p-1.5 text-teal-600 hover:text-teal-800 hover:bg-teal-50 rounded-lg transition-colors duration-200"
+                            >
+                              <Save className="h-5 w-5" />
+                            </button>
                           </div>
                         ) : (
                           <div className="flex items-center space-x-3">
@@ -1082,7 +1080,10 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                             </div>
                             <div className="flex items-center space-x-1">
                               <button
-                                onClick={() => setEditingYearGroup(yearGroup.id)}
+                                onClick={() => {
+                                  setEditingYearGroup(yearGroup.id);
+                                  setEditingYearGroupDraft({ id: yearGroup.id, name: yearGroup.name, color: yearGroup.color || '#14B8A6' });
+                                }}
                                 className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200"
                               >
                                 <Edit3 className="h-4 w-4" />
