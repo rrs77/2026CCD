@@ -513,6 +513,12 @@ export function DataProvider({ children }: DataProviderProps) {
     loadHalfTerms();
     // ADD: Load subjects
     loadSubjects();
+
+    // Stop spinner after 8s if load hangs – user can still use the app and refresh manually
+    const fallback = setTimeout(() => {
+      setLoading(false);
+    }, 8000);
+    return () => clearTimeout(fallback);
   }, [currentSheetInfo, currentAcademicYear]);
 
   // Load half-terms from Supabase when sheet or academic year changes

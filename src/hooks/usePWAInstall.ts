@@ -5,12 +5,19 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
+/** Set to false to hide the "Install as app" prompt */
+const PWA_INSTALL_PROMPT_ENABLED = false;
+
 export function usePWAInstall() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [canInstall, setCanInstall] = useState(false);
 
   useEffect(() => {
+    if (!PWA_INSTALL_PROMPT_ENABLED) {
+      setCanInstall(false);
+      return;
+    }
     // Check if app is already installed
     if (window.matchMedia('(display-mode: standalone)').matches) {
       setIsInstalled(true);

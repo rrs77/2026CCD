@@ -178,7 +178,7 @@ export function Header() {
                   </span>
                 </div>
                 <button
-                  onClick={logout}
+                  onClick={() => void logout()}
                   className="p-1.5 lg:p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors duration-200 flex-shrink-0"
                   title="Logout"
                 >
@@ -289,7 +289,7 @@ export function Header() {
                       <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
                     </button>
                     <button
-                      onClick={logout}
+                      onClick={() => void logout()}
                       className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors duration-200"
                     >
                       <LogOut className="h-5 w-5" />

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from '../config/supabase';
 import { yearGroupsApi, customCategoriesApi, categoryGroupsApi } from '../config/api';
+import { useAuth } from '../hooks/useAuth';
 
 // Production logging control
 const isDevelopment = import.meta.env.DEV;
@@ -72,10 +73,23 @@ export interface BrandingSettings {
   footerYoutubeUrl?: string;
   footerLinkedinUrl?: string;
   footerFacebookUrl?: string;
+  /** Customizable social links with platform + URL. Overrides legacy URLs when set. */
+  footerSocialLinks?: { platform: string; url: string }[];
   
   // Show/hide social media icons
   showSocialMedia?: boolean; // Default: true
 }
+
+/** Supported social platforms for footer icons */
+export const SOCIAL_PLATFORMS = [
+  { id: 'youtube', label: 'YouTube', icon: 'youtube' },
+  { id: 'linkedin', label: 'LinkedIn', icon: 'linkedin' },
+  { id: 'facebook', label: 'Facebook', icon: 'facebook' },
+  { id: 'twitter', label: 'X (Twitter)', icon: 'twitter' },
+  { id: 'instagram', label: 'Instagram', icon: 'instagram' },
+  { id: 'tiktok', label: 'TikTok', icon: 'music' },
+  { id: 'other', label: 'Other / Website', icon: 'globe' },
+] as const;
 
 interface UserSettings {
   schoolName: string;
@@ -263,6 +277,11 @@ const DEFAULT_BRANDING: BrandingSettings = {
   footerYoutubeUrl: 'https://www.youtube.com/channel/UCooHhU7FKALUQ4CtqjDFMsw',
   footerLinkedinUrl: 'https://www.linkedin.com/in/robert-reich-storer-974449144',
   footerFacebookUrl: 'https://www.facebook.com/Rhythmstix-Music-108327688309431',
+  footerSocialLinks: [
+    { platform: 'youtube', url: 'https://www.youtube.com/channel/UCooHhU7FKALUQ4CtqjDFMsw' },
+    { platform: 'linkedin', url: 'https://www.linkedin.com/in/robert-reich-storer-974449144' },
+    { platform: 'facebook', url: 'https://www.facebook.com/Rhythmstix-Music-108327688309431' },
+  ],
   showSocialMedia: true
 };
 
@@ -373,6 +392,10 @@ export const useSettings = () => {
 export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  const { user } = useAuth();
+  const userRef = useRef(user);
+  userRef.current = user;
+
   const [categories, setCategories] = useState<Category[]>(FIXED_CATEGORIES);
   const [deletedFixedCategories, setDeletedFixedCategories] = useState<Set<string>>(new Set());
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
@@ -1366,6 +1389,9 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
     let lastVisibilityChange = 0;
     
     const handleVisibilityChange = async () => {
+      // Don't run on login page – avoids reloads while user is typing password
+      if (!userRef.current) return;
+
       const now = Date.now();
       
       // Debounce visibility changes - only process if it's been at least 5 seconds since last change
@@ -1448,18 +1474,11 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
       }
     };
 
-    const handleFocus = () => {
-      // Focus events are less frequent, so no debouncing needed
-      handleVisibilityChange();
-    };
-
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
     
     return () => {
       clearTimeout(visibilityTimeout);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
     };
   }, []);
 
@@ -1541,38 +1560,42 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
     return null;
   };
 
-  const deleteYearGroup = async (yearGroupId: string) => {
+  const deleteYearGroup = async (yearGroupNameOrId: string) => {
+    // Match by name or id (frontend may pass either; DB can use TEXT id like "assemb" or UUID).
+    const exact = (yearGroupNameOrId || '').trim();
+    if (!exact) return;
+
     try {
-      console.log('🗑️ Deleting year group:', yearGroupId);
-      
-      // Remove from local state
-      setCustomYearGroups(prev => prev.filter(group => group.id !== yearGroupId));
-      
-      // Delete from Supabase if configured
+      console.log('🗑️ Deleting year group:', exact);
+
       if (isSupabaseConfigured()) {
-        // Since we use names as IDs in frontend but UUIDs in database,
-        // we need to find the UUID by name
-        const { data: existingGroups } = await supabase
-          .from(TABLES.YEAR_GROUPS)
+        const YEAR_GROUPS_TABLE = 'year_groups';
+        // Match by name OR id (handles both TEXT ids like "assemb" and name-based lookups)
+        const { data: rows, error: selectError } = await supabase
+          .from(YEAR_GROUPS_TABLE)
           .select('id, name')
-          .eq('name', yearGroupId);
-        
-        if (existingGroups && existingGroups.length > 0) {
-          for (const group of existingGroups) {
-            await supabase
-              .from(TABLES.YEAR_GROUPS)
-              .delete()
-              .eq('id', group.id);
-          }
-          console.log('✅ Deleted year group from Supabase');
+          .or(`name.eq.${exact},id.eq.${exact}`);
+
+        if (selectError) {
+          console.error('❌ Failed to fetch year group for delete:', selectError);
+          throw new Error(selectError.message || `Database error: ${JSON.stringify(selectError)}`);
         }
+        if (!rows || rows.length === 0) {
+          console.warn('⚠️ No year group in Supabase matching:', exact);
+          throw new Error(`Year group "${exact}" not found in database.`);
+        }
+        if (rows.length > 1) {
+          console.warn('⚠️ Multiple rows matching - deleting all');
+        }
+        for (const group of rows) {
+          await yearGroupsApi.delete(group.id);
+        }
+        console.log('✅ Deleted year group from Supabase:', exact);
       }
-      
-      // Update localStorage
-      localStorage.setItem('custom-year-groups', JSON.stringify(
-        customYearGroups.filter(group => group.id !== yearGroupId)
-      ));
-      
+
+      setCustomYearGroups(prev => prev.filter(g => (g.id || '').trim() !== exact && (g.name || '').trim() !== exact));
+      const filtered = customYearGroups.filter(g => (g.id || '').trim() !== exact && (g.name || '').trim() !== exact);
+      localStorage.setItem('custom-year-groups', JSON.stringify(filtered));
     } catch (error) {
       console.error('❌ Failed to delete year group:', error);
       throw error;
@@ -2080,7 +2103,7 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
         console.log(`🧹 Found ${allGroups.length - uniqueGroups.length} duplicates, cleaning up...`);
         
         // Delete all existing year groups
-        await supabase.from(TABLES.YEAR_GROUPS).delete().neq('id', '');
+        await supabase.from('year_groups').delete().neq('id', '');
         
         // Re-insert only unique groups
         if (uniqueGroups.length > 0) {

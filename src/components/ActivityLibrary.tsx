@@ -176,13 +176,15 @@ export function ActivityLibrary({
           return false;
         }
         
-        // STRICT CHECK: Category must be explicitly assigned to current year group
+        // Category must be explicitly assigned to current year group
+        // Match exact (case-insensitive) or when sheet name starts with year group name (e.g. "Year 1" matches "Year 1 Music")
         const isAssigned = assignedKeys.some(assignedKey => {
           const assignedKeyLower = assignedKey.toLowerCase().trim();
           return keysToCheck.some(checkKey => {
-            const checkKeyLower = checkKey.toLowerCase().trim();
-            // Exact match only (case-insensitive)
-            return assignedKeyLower === checkKeyLower;
+            const checkKeyLower = (checkKey || '').toLowerCase().trim();
+            if (assignedKeyLower === checkKeyLower) return true;
+            if (checkKeyLower.startsWith(assignedKeyLower + ' ') || assignedKeyLower.startsWith(checkKeyLower + ' ')) return true;
+            return false;
           });
         });
         
@@ -193,13 +195,20 @@ export function ActivityLibrary({
         }
         
         return isAssigned;
-      })
-      .map(c => c.name);
+      });
     
-    console.log(`📚 STRICT Filtering Result: ${filteredCategories.length} categories for "${currentYearGroup?.name || currentYearGroupKey}":`, filteredCategories);
+    // Build list of category names; include both "Vocal Warmups" and "Vocal Warm-Ups" when either is assigned
+    // so activities show regardless of which spelling is stored on the activity
+    const categoryNames = [...new Set(filteredCategories.flatMap(c => {
+      const name = c.name;
+      if (name === 'Vocal Warm-Ups' || name === 'Vocal Warmups') return ['Vocal Warmups', 'Vocal Warm-Ups'];
+      return [name];
+    }))];
+    
+    console.log(`📚 STRICT Filtering Result: ${categoryNames.length} categories for "${currentYearGroup?.name || currentYearGroupKey}":`, categoryNames);
     
     // Return empty array if no categories assigned (NOT null - we want to show nothing)
-    return filteredCategories.length > 0 ? filteredCategories : [];
+    return categoryNames.length > 0 ? categoryNames : [];
   }, [categories, className, currentSheetInfo, customYearGroups]);
   
   const { user } = useAuth();

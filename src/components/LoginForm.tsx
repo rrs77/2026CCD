@@ -7,7 +7,7 @@ import { usePWAInstall } from '../hooks/usePWAInstall';
 import { useSettings } from '../contexts/SettingsContextNew';
 
 export function LoginForm() {
-  const { login, loading } = useAuth();
+  const { login } = useAuth();
   const { canInstall, isInstalled, install } = usePWAInstall();
   const { settings } = useSettings();
   const [username, setUsername] = useState('');
@@ -15,6 +15,7 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Get branding settings with defaults
   const branding = settings.branding || {};
@@ -30,11 +31,19 @@ export function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
+    setIsSubmitting(true);
     try {
-      await login(username, password);
+      const LOGIN_TIMEOUT_MS = 15000;
+      await Promise.race([
+        login(username, password),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Connection timed out. Check your network and try again.')), LOGIN_TIMEOUT_MS)
+        ),
+      ]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -151,23 +160,23 @@ export function LoginForm() {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={isSubmitting}
               className="w-full text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
               style={{
-                backgroundColor: loading ? '#6B7280' : '#008272'
+                backgroundColor: isSubmitting ? '#6B7280' : '#008272'
               }}
               onMouseEnter={(e) => {
-                if (!loading) {
+                if (!isSubmitting) {
                   e.currentTarget.style.backgroundColor = '#007366';
                 }
               }}
               onMouseLeave={(e) => {
-                if (!loading) {
+                if (!isSubmitting) {
                   e.currentTarget.style.backgroundColor = '#008272';
                 }
               }}
             >
-              {loading ? (
+              {isSubmitting ? (
                 <>
                   <LoadingSpinner size="sm" />
                   <span>Signing in...</span>

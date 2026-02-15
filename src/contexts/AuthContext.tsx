@@ -1,20 +1,15 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { wordpressAPI } from '../config/api';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  avatar?: string;
-  role: string;
-  token?: string;
-}
+import { supabase, isSupabaseAuthEnabled } from '../config/supabase';
+import type { AppUser, Profile } from '../types/auth';
 
 interface AuthContextType {
-  user: User | null;
+  user: AppUser | null;
+  profile: Profile | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -61,43 +56,125 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+function syncUserIdToStorage(userId: string | null) {
+  if (userId) {
+    localStorage.setItem('rhythmstix_user_id', userId);
+  } else {
+    localStorage.removeItem('rhythmstix_user_id');
+  }
+}
+
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const fetchSupabaseProfile = useCallback(async (authUserId: string): Promise<Profile | null> => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', authUserId)
+      .maybeSingle();
+    if (error) {
+      console.warn('Failed to fetch profile:', error);
+      return null;
+    }
+    return data as Profile | null;
+  }, []);
 
   useEffect(() => {
     checkAuthStatus();
   }, []);
 
+  // Supabase auth state: when session changes, refresh profile
+  useEffect(() => {
+    if (!isSupabaseAuthEnabled()) return;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setProfile(null);
+        syncUserIdToStorage(null);
+        localStorage.removeItem('rhythmstix_auth_token');
+      } else if (session?.user) {
+        const p = await fetchSupabaseProfile(session.user.id);
+        const appUser: AppUser = {
+          id: session.user.id,
+          email: session.user.email ?? '',
+          name: p?.display_name ?? session.user.email ?? '',
+          role: p?.role ?? 'teacher',
+          profile: p ?? undefined
+        };
+        setUser(appUser);
+        setProfile(p ?? null);
+        syncUserIdToStorage(session.user.id);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [fetchSupabaseProfile]);
+
+  const AUTH_CHECK_TIMEOUT_MS = 5000; // Stop spinning after 5s if auth check hangs (e.g. Supabase unreachable)
+
   const checkAuthStatus = async () => {
+    const timeoutId = setTimeout(() => {
+      console.warn('Auth check timed out – showing login form');
+      setLoading(false);
+      setUser(null);
+      setProfile(null);
+    }, AUTH_CHECK_TIMEOUT_MS);
+
     try {
+      if (isSupabaseAuthEnabled()) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const p = await fetchSupabaseProfile(session.user.id);
+          const appUser: AppUser = {
+            id: session.user.id,
+            email: session.user.email ?? '',
+            name: p?.display_name ?? session.user.email ?? '',
+            role: p?.role ?? 'teacher',
+            profile: p ?? undefined
+          };
+          setUser(appUser);
+          setProfile(p ?? null);
+          syncUserIdToStorage(session.user.id);
+          setLoading(false);
+          return;
+        }
+        setUser(null);
+        setProfile(null);
+        syncUserIdToStorage(null);
+        setLoading(false);
+        return;
+      }
+
+      // ----- Legacy: local + WordPress -----
       // DEV MODE: Auto-login for local development
       if (import.meta.env.DEV && !localStorage.getItem('rhythmstix_auth_token')) {
         const devUser = localUsers[0];
         if (devUser) {
           console.log('🔧 DEV MODE: Auto-logging in as', devUser.email);
           localStorage.setItem('rhythmstix_auth_token', `rhythmstix_local_${devUser.id}`);
-          setUser({
+          const userData: AppUser = {
             id: devUser.id,
             email: devUser.email,
             name: devUser.name,
             avatar: devUser.avatar,
             role: devUser.role
-          });
+          };
+          setUser(userData);
+          syncUserIdToStorage(devUser.id);
           setLoading(false);
           return;
         }
       }
-      
+
       const token = localStorage.getItem('rhythmstix_auth_token');
       if (token) {
-        // Check if it's a local user token
         if (token.startsWith('rhythmstix_local_')) {
           const userId = token.replace('rhythmstix_local_', '');
           const localUser = localUsers.find(u => u.id === userId);
-          
           if (localUser) {
-            const userData: User = {
+            const userData: AppUser = {
               id: localUser.id,
               email: localUser.email,
               name: localUser.name,
@@ -105,18 +182,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
               role: localUser.role
             };
             setUser(userData);
+            syncUserIdToStorage(localUser.id);
           } else {
             localStorage.removeItem('rhythmstix_auth_token');
           }
         } else {
-          // Try WordPress validation if configured
           const wordpressUrl = import.meta.env.VITE_WORDPRESS_URL;
           if (wordpressUrl && wordpressUrl !== 'https://your-wordpress-site.com') {
             try {
               const isValid = await wordpressAPI.validateToken(token);
               if (isValid) {
                 const userInfo = await wordpressAPI.getUserInfo(token);
-                const userData: User = {
+                const userData: AppUser = {
                   id: userInfo.id.toString(),
                   email: userInfo.email,
                   name: userInfo.name,
@@ -125,6 +202,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
                   token
                 };
                 setUser(userData);
+                syncUserIdToStorage(userData.id);
               } else {
                 localStorage.removeItem('rhythmstix_auth_token');
               }
@@ -140,60 +218,77 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (error) {
       console.error('Auth check failed:', error);
       localStorage.removeItem('rhythmstix_auth_token');
+      syncUserIdToStorage(null);
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   };
 
+  const refreshProfile = useCallback(async () => {
+    if (!isSupabaseAuthEnabled() || !user?.id) return;
+    const p = await fetchSupabaseProfile(user.id);
+    setProfile(p);
+    setUser(prev => prev ? { ...prev, profile: p ?? undefined } : null);
+  }, [user?.id, fetchSupabaseProfile]);
+
   const login = async (username: string, password: string) => {
     try {
-      setLoading(true);
-      
-      // TESTING MODE: Allow blank password for admin user
+      // Don't set loading=true here – it would unmount LoginForm and clear the password field.
+      // LoginForm handles its own submit loading state.
+
+      if (isSupabaseAuthEnabled()) {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: username.trim(),
+          password
+        });
+        if (error) throw new Error(error.message);
+        if (!data.session?.user) throw new Error('No session after sign in');
+        const p = await fetchSupabaseProfile(data.session.user.id);
+        const appUser: AppUser = {
+          id: data.session.user.id,
+          email: data.session.user.email ?? '',
+          name: p?.display_name ?? data.session.user.email ?? '',
+          role: p?.role ?? 'teacher',
+          profile: p ?? undefined
+        };
+        setUser(appUser);
+        setProfile(p ?? null);
+        syncUserIdToStorage(data.session.user.id);
+        return;
+      }
+
+      // ----- Legacy: local users (only when Supabase Auth is disabled) -----
       const localUser = localUsers.find(u => {
         if (u.email === username) {
-          // Allow blank password OR correct password during testing
           return password === '' || u.password === password;
         }
         return false;
       });
-      
+
       if (localUser) {
-        const userData: User = {
+        const userData: AppUser = {
           id: localUser.id,
           email: localUser.email,
           name: localUser.name,
           avatar: localUser.avatar,
           role: localUser.role
         };
-        
         localStorage.setItem('rhythmstix_auth_token', `rhythmstix_local_${localUser.id}`);
         setUser(userData);
+        syncUserIdToStorage(localUser.id);
         return;
       }
-      
-      // If not found in local users, try WordPress authentication
+
+      // ----- WordPress -----
       const wordpressUrl = import.meta.env.VITE_WORDPRESS_URL;
-      
-      console.log('🔍 WordPress Debug:', {
-        wordpressUrl,
-        isConfigured: wordpressUrl && wordpressUrl !== 'https://your-wordpress-site.com',
-        username
-      });
-      
       if (wordpressUrl && wordpressUrl !== 'https://your-wordpress-site.com') {
         try {
-          console.log('🔄 Attempting WordPress authentication...');
           const authResponse = await wordpressAPI.authenticate(username, password);
-          console.log('✅ WordPress auth response:', authResponse);
-          
           if (authResponse.token) {
             localStorage.setItem('rhythmstix_auth_token', authResponse.token);
-            console.log('🔄 Getting user info from WordPress...');
             const userInfo = await wordpressAPI.getUserInfo(authResponse.token);
-            console.log('✅ WordPress user info:', userInfo);
-            
-            const userData: User = {
+            const userData: AppUser = {
               id: userInfo.id.toString(),
               email: userInfo.email,
               name: userInfo.name,
@@ -201,42 +296,39 @@ export function AuthProvider({ children }: AuthProviderProps) {
               role: userInfo.roles?.[0] || 'subscriber',
               token: authResponse.token
             };
-            
             setUser(userData);
-            console.log('✅ WordPress login successful!');
+            syncUserIdToStorage(userData.id);
             return;
-          } else {
-            throw new Error('No token received from WordPress');
           }
         } catch (wpError) {
-          console.error('❌ WordPress authentication failed:', wpError);
-          // Don't throw here, fall through to generic error
+          console.error('WordPress authentication failed:', wpError);
         }
-      } else {
-        console.log('⚠️ WordPress not configured or using default URL');
       }
-      
-      // If we get here, authentication failed
+
       throw new Error('Invalid credentials. Please check your email and password.');
-      
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    if (isSupabaseAuthEnabled()) {
+      await supabase.auth.signOut();
+    }
     localStorage.removeItem('rhythmstix_auth_token');
+    syncUserIdToStorage(null);
     setUser(null);
+    setProfile(null);
   };
 
   const value = {
     user,
+    profile,
     loading,
     login,
-    logout
+    logout,
+    refreshProfile
   };
 
   return (

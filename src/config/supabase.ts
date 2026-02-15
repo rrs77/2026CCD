@@ -8,15 +8,18 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase credentials. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel (or use defaults).');
 }
 
-// Create Supabase client with options to bypass RLS for anonymous access
+// Use Supabase Auth (email/password, RLS): set VITE_USE_SUPABASE_AUTH=true
+const useSupabaseAuth = import.meta.env.VITE_USE_SUPABASE_AUTH === 'true';
+
+// Create Supabase client. When using Supabase Auth, session is persisted and sent with requests (RLS applies).
 export const supabase = createClient(
   supabaseUrl,
   supabaseAnonKey,
   {
     auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false
+      persistSession: useSupabaseAuth,
+      autoRefreshToken: useSupabaseAuth,
+      detectSessionInUrl: useSupabaseAuth
     },
     global: {
       headers: {
@@ -25,6 +28,8 @@ export const supabase = createClient(
     }
   }
 );
+
+export const isSupabaseAuthEnabled = () => useSupabaseAuth;
 
 // Database table names
 export const TABLES = {

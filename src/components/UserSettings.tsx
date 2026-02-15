@@ -1,12 +1,14 @@
 import React, { useState, useRef } from 'react';
 import { Settings, Palette, RotateCcw, X, Plus, Trash2, GripVertical, Edit3, Save, Users, Database, AlertTriangle, GraduationCap, Package, Filter, Video, Music, Volume2, FileText, Link as LinkIcon, Image, FileVideo, FileMusic, File, Globe, ExternalLink, Share2, Download, Upload, Eye, Play, Pause, Headphones, Mic, Speaker, Film, Camera, BookOpen, Book, Folder, Cloud, Network, Target } from 'lucide-react';
-import { useSettings, Category, ResourceLinkConfig } from '../contexts/SettingsContextNew';
+import { useSettings, Category, ResourceLinkConfig, SOCIAL_PLATFORMS } from '../contexts/SettingsContextNew';
 import { DataSourceSettings } from './DataSourceSettings';
 import { CustomObjectivesAdmin } from './CustomObjectivesAdmin';
 import { ActivityPacksAdmin } from './ActivityPacksAdmin';
 import { useAuth } from '../hooks/useAuth';
 import { useIsViewOnly } from '../hooks/useIsViewOnly';
-import { isSupabaseConfigured } from '../config/supabase';
+import { isSupabaseConfigured, isSupabaseAuthEnabled } from '../config/supabase';
+import { AuthGuard } from './Auth/AuthGuard';
+import { UserManagement } from './Admin/UserManagement';
 import { customCategoriesApi } from '../config/api';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -120,7 +122,7 @@ interface UserSettingsProps {
 }
 
 export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const isViewOnly = useIsViewOnly();
   const { settings, updateSettings, resetToDefaults, categories, updateCategories, resetCategoriesToDefaults, customYearGroups, updateYearGroups, deleteYearGroup, resetYearGroupsToDefaults, forceSyncYearGroups, forceSyncToSupabase, forceRefreshFromSupabase, forceSyncCurrentYearGroups, forceSafariSync, startUserChange, endUserChange, resourceLinks, updateResourceLinks, resetResourceLinksToDefaults } = useSettings();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -133,7 +135,7 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
   tempCategoriesRef.current = tempCategories;
   tempYearGroupsRef.current = tempYearGroups;
   const [tempResourceLinks, setTempResourceLinks] = useState(resourceLinks);
-  const [activeTab, setActiveTab] = useState<'yeargroups' | 'categories' | 'purchases' | 'manage-packs' | 'data' | 'admin' | 'resource-links'>('yeargroups');
+  const [activeTab, setActiveTab] = useState<'yeargroups' | 'categories' | 'purchases' | 'manage-packs' | 'data' | 'admin' | 'resource-links' | 'users' | 'branding'>('yeargroups');
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [editingCategoryYearGroups, setEditingCategoryYearGroups] = useState<string | null>(null); // Track which category's year groups are being edited
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -156,9 +158,10 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
   const [showYearGroupsModal, setShowYearGroupsModal] = useState(false);
   const [newlyAddedYearGroup, setNewlyAddedYearGroup] = useState<{ id: string; name: string } | null>(null);
 
-  // Check if user is admin
   const isAdmin = user?.email === 'rob.reichstorer@gmail.com' || 
-                  user?.role === 'administrator';
+                  user?.role === 'administrator' ||
+                  profile?.role === 'admin';
+  const showUserManagement = isSupabaseAuthEnabled() && (profile?.role === 'admin' || profile?.can_manage_users === true);
 
   // Update temp settings when settings change
   React.useEffect(() => {
@@ -539,10 +542,13 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
     const updatedYearGroups = [...tempYearGroups, newYearGroup];
     setTempYearGroups(updatedYearGroups);
     
-    // Immediately persist to global state and Supabase
     console.log('🔄 Adding year group and persisting immediately:', newYearGroup);
-    await updateYearGroups(updatedYearGroups);
-    
+    updateYearGroups(updatedYearGroups);
+    try {
+      await forceSyncToSupabase({ yearGroups: updatedYearGroups });
+    } catch (e) {
+      console.warn('Year group added locally; Supabase sync will retry.', e);
+    }
     // Reset form
     setNewYearGroupId('');
     setNewYearGroupName('');
@@ -560,10 +566,13 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
     setTempYearGroups(updatedYearGroups);
     setEditingYearGroup(null);
     
-    // Immediately persist changes
     console.log('🔄 Updating year group and persisting immediately:', { id, name, color });
-    await updateYearGroups(updatedYearGroups);
-    console.log('✅ Year group updated and persisted');
+    updateYearGroups(updatedYearGroups);
+    try {
+      await forceSyncToSupabase({ yearGroups: updatedYearGroups });
+    } catch (e) {
+      console.warn('Year group updated locally; Supabase sync will retry.', e);
+    }
   };
 
   const handleDeleteYearGroup = async (index: number) => {
@@ -571,20 +580,21 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
       try {
         setIsDeletingYearGroup(true);
         const removed = tempYearGroups[index];
+        const exactName = (removed?.name || removed?.id || '').trim();
+        if (!exactName) {
+          setIsDeletingYearGroup(false);
+          return;
+        }
+        // Delete from Supabase first (exact name match); only update UI on success
+        await deleteYearGroup(exactName);
         const updatedYearGroups = tempYearGroups.filter((_, i) => i !== index);
         setTempYearGroups(updatedYearGroups);
-
-        // Remove from Supabase (and sync context/localStorage) so it doesn't reappear on reload
-        const idToDelete = removed?.id || removed?.name;
-        if (idToDelete) {
-          await deleteYearGroup(idToDelete);
-        }
         await updateYearGroups(updatedYearGroups);
-
         setTimeout(() => setIsDeletingYearGroup(false), 1000);
       } catch (error) {
         console.error('❌ Failed to delete year group:', error);
-        alert('Failed to delete year group. Please try again.');
+        const message = error instanceof Error ? error.message : (error && typeof error === 'object' && 'message' in error ? String((error as { message?: string }).message) : 'Failed to delete year group. Please try again.');
+        alert(message || 'Failed to delete year group. Please try again.');
         setIsDeletingYearGroup(false);
       }
     }
@@ -631,12 +641,12 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
       newYearGroups.splice(targetIndex, 0, removed);
 
       setTempYearGroups(newYearGroups);
-      
-      // Immediately persist changes
-      console.log('🔄 Reordering year groups and persisting immediately');
-      await updateYearGroups(newYearGroups);
-      
-      console.log('✅ Year groups reordered and persisted');
+      updateYearGroups(newYearGroups);
+      try {
+        await forceSyncToSupabase({ yearGroups: newYearGroups });
+      } catch (e) {
+        console.warn('Reorder saved locally; Supabase sync will retry.', e);
+      }
     } catch (error: unknown) {
       console.error('❌ Failed to reorder year groups:', error);
       alert('Failed to reorder year groups. Please try again.');
@@ -791,6 +801,42 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                 <span>Manage Packs</span>
               </div>
                           </button>
+          )}
+
+          {/* Branding - Admin only: white-label for client deployments */}
+          {isAdmin && (
+            <button
+              onClick={() => setActiveTab('branding')}
+              className={`px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
+                activeTab === 'branding'
+                  ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
+              }`}
+              style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif', border: 'none', borderLeft: 'none', borderRight: 'none' }}
+            >
+              <div className="flex items-center space-x-2">
+                <Palette className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span>Branding</span>
+              </div>
+            </button>
+          )}
+
+          {/* User Management - Supabase Auth admins only */}
+          {showUserManagement && (
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
+                activeTab === 'users'
+                  ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
+              }`}
+              style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif', border: 'none', borderLeft: 'none', borderRight: 'none' }}
+            >
+              <div className="flex items-center space-x-2">
+                <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span>Users</span>
+              </div>
+            </button>
           )}
 
           {/* Resource Links */}
@@ -2152,6 +2198,221 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
           {activeTab === 'admin' && (
             <div className="h-full">
               <CustomObjectivesAdmin embedded={true} />
+            </div>
+          )}
+
+          {activeTab === 'users' && showUserManagement && (
+            <AuthGuard requireCanManageUsers fallback={<div className="p-4 text-gray-600">You don’t have permission to manage users.</div>}>
+              <div className="border border-teal-200 bg-gradient-to-br from-teal-50 to-cyan-50 rounded-lg p-6 shadow-sm">
+                <UserManagement />
+              </div>
+            </AuthGuard>
+          )}
+
+          {activeTab === 'branding' && isAdmin && (
+            <div className="border border-teal-200 bg-gradient-to-br from-teal-50 to-cyan-50 rounded-lg p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <Palette className="h-6 w-6 text-teal-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">White-label Branding</h3>
+                </div>
+                <button
+                  onClick={() => {
+                    if (confirm('Reset branding to defaults (Rhythmstix/Forward Thinking)?')) {
+                      const defaults = {
+                        loginTitle: 'Creative Curriculum Designer',
+                        loginSubtitle: 'From Forward Thinking',
+                        loginBackgroundColor: 'rgb(77, 181, 168)',
+                        loginButtonColor: '#008272',
+                        footerCompanyName: 'Forward Thinking',
+                        footerCopyrightYear: '2026',
+                        footerContactEmail: 'info@rhythmstix.co.uk',
+                        footerPrivacyUrl: 'https://www.rhythmstix.co.uk/policy',
+                        footerBackgroundColor: '#128c7e',
+                        showSocialMedia: true,
+                        footerSocialLinks: [
+                          { platform: 'youtube', url: 'https://www.youtube.com/channel/UCooHhU7FKALUQ4CtqjDFMsw' },
+                          { platform: 'linkedin', url: 'https://www.linkedin.com/in/robert-reich-storer-974449144' },
+                          { platform: 'facebook', url: 'https://www.facebook.com/Rhythmstix-Music-108327688309431' },
+                        ]
+                      };
+                      updateSettings({ branding: defaults });
+                      setTempSettings(prev => ({ ...prev, branding: defaults }));
+                      toast.success('Branding reset to defaults');
+                    }
+                  }}
+                  className="px-3 py-1.5 text-sm text-teal-600 hover:text-teal-700 hover:bg-teal-100 rounded-lg transition-colors flex items-center space-x-1"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  <span>Reset to defaults</span>
+                </button>
+              </div>
+              <p className="text-sm text-gray-600 mb-6">
+                Customize product name, login page, and footer for client deployments. Your main app stays as-is until you change these. Changes are saved locally for this deployment.
+              </p>
+              <div className="grid gap-6 sm:grid-cols-2">
+                <div className="space-y-4">
+                  <h4 className="font-medium text-gray-800">Login page</h4>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Product name (title)</label>
+                    <input
+                      type="text"
+                      value={tempSettings.branding?.loginTitle ?? ''}
+                      onChange={e => setTempSettings(prev => ({ ...prev, branding: { ...prev.branding, loginTitle: e.target.value } }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      placeholder="Creative Curriculum Designer"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Subtitle</label>
+                    <input
+                      type="text"
+                      value={tempSettings.branding?.loginSubtitle ?? ''}
+                      onChange={e => setTempSettings(prev => ({ ...prev, branding: { ...prev.branding, loginSubtitle: e.target.value } }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      placeholder="From Forward Thinking"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Login background color</label>
+                    <input
+                      type="text"
+                      value={tempSettings.branding?.loginBackgroundColor ?? ''}
+                      onChange={e => setTempSettings(prev => ({ ...prev, branding: { ...prev.branding, loginBackgroundColor: e.target.value } }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      placeholder="rgb(77, 181, 168)"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Login button color</label>
+                    <input
+                      type="text"
+                      value={tempSettings.branding?.loginButtonColor ?? ''}
+                      onChange={e => setTempSettings(prev => ({ ...prev, branding: { ...prev.branding, loginButtonColor: e.target.value } }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      placeholder="#008272"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <h4 className="font-medium text-gray-800">Footer</h4>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Company name</label>
+                    <input
+                      type="text"
+                      value={tempSettings.branding?.footerCompanyName ?? ''}
+                      onChange={e => setTempSettings(prev => ({ ...prev, branding: { ...prev.branding, footerCompanyName: e.target.value } }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      placeholder="Forward Thinking"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Copyright year</label>
+                    <input
+                      type="text"
+                      value={tempSettings.branding?.footerCopyrightYear ?? ''}
+                      onChange={e => setTempSettings(prev => ({ ...prev, branding: { ...prev.branding, footerCopyrightYear: e.target.value } }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      placeholder="2026"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Contact email</label>
+                    <input
+                      type="email"
+                      value={tempSettings.branding?.footerContactEmail ?? ''}
+                      onChange={e => setTempSettings(prev => ({ ...prev, branding: { ...prev.branding, footerContactEmail: e.target.value } }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      placeholder="info@rhythmstix.co.uk"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Privacy policy URL</label>
+                    <input
+                      type="url"
+                      value={tempSettings.branding?.footerPrivacyUrl ?? ''}
+                      onChange={e => setTempSettings(prev => ({ ...prev, branding: { ...prev.branding, footerPrivacyUrl: e.target.value } }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      placeholder="https://..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Footer background color</label>
+                    <input
+                      type="text"
+                      value={tempSettings.branding?.footerBackgroundColor ?? ''}
+                      onChange={e => setTempSettings(prev => ({ ...prev, branding: { ...prev.branding, footerBackgroundColor: e.target.value } }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      placeholder="#128c7e"
+                    />
+                  </div>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={tempSettings.branding?.showSocialMedia !== false}
+                      onChange={e => setTempSettings(prev => ({ ...prev, branding: { ...prev.branding, showSocialMedia: e.target.checked } }))}
+                    />
+                    <span className="text-sm text-gray-600">Show social media icons in footer</span>
+                  </label>
+                  <div className="mt-4">
+                    <h5 className="text-sm font-medium text-gray-700 mb-2">Social media links</h5>
+                    <p className="text-xs text-gray-500 mb-2">Add, edit, or remove links. Each link shows its platform icon in the footer.</p>
+                    {(tempSettings.branding?.footerSocialLinks ?? []).map((link, idx) => (
+                      <div key={idx} className="flex items-center gap-2 mb-2">
+                        <select
+                          value={link.platform}
+                          onChange={e => {
+                            const next = [...(tempSettings.branding?.footerSocialLinks ?? [])];
+                            next[idx] = { ...next[idx], platform: e.target.value };
+                            setTempSettings(prev => ({ ...prev, branding: { ...prev.branding, footerSocialLinks: next } }));
+                          }}
+                          className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm w-36"
+                        >
+                          {SOCIAL_PLATFORMS.map(p => (
+                            <option key={p.id} value={p.id}>{p.label}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="url"
+                          value={link.url}
+                          onChange={e => {
+                            const next = [...(tempSettings.branding?.footerSocialLinks ?? [])];
+                            next[idx] = { ...next[idx], url: e.target.value };
+                            setTempSettings(prev => ({ ...prev, branding: { ...prev.branding, footerSocialLinks: next } }));
+                          }}
+                          placeholder="https://..."
+                          className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = (tempSettings.branding?.footerSocialLinks ?? []).filter((_, i) => i !== idx);
+                            setTempSettings(prev => ({ ...prev, branding: { ...prev.branding, footerSocialLinks: next } }));
+                          }}
+                          className="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                          aria-label="Remove link"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = [...(tempSettings.branding?.footerSocialLinks ?? []), { platform: 'youtube', url: '' }];
+                        setTempSettings(prev => ({ ...prev, branding: { ...prev.branding, footerSocialLinks: next } }));
+                      }}
+                      className="flex items-center gap-1.5 text-sm text-teal-600 hover:text-teal-700"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add social link
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <p className="mt-4 text-xs text-gray-500">
+                Click &quot;Save Settings&quot; below to apply. Changes persist for this browser/deployment.
+              </p>
             </div>
           )}
         </div>

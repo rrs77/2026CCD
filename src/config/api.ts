@@ -5,16 +5,16 @@ import type { Activity, LessonData, LessonPlan } from '../contexts/DataContext';
 // Helper function to get current user ID
 const getCurrentUserId = () => {
   let userId = localStorage.getItem('rhythmstix_user_id');
-  
-  // If no user ID exists, create a default one
   if (!userId) {
-    userId = '1'; // Default user ID for single-user mode
+    userId = '1';
     localStorage.setItem('rhythmstix_user_id', userId);
     console.log('🔑 Created default user ID:', userId);
   }
-  
   return userId;
 };
+
+/** True if id looks like a Supabase auth UUID (used for RLS user_id). */
+const isAuthUserId = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
 export const activitiesApi = {
   getAll: async () => {
@@ -429,17 +429,19 @@ export const lessonsApi = {
         throw checkError;
       }
       
-      const lessonData = {
-          sheet_name: sheet,
+      const userId = getCurrentUserId();
+      const lessonData: Record<string, unknown> = {
+        sheet_name: sheet,
         academic_year: year,
-          data: data.allLessonsData,
-          lesson_numbers: data.lessonNumbers,
-          teaching_units: data.teachingUnits,
-        // Note: lesson_standards_map and eyfs_statements_map columns don't exist in the lessons table
-        // Standards are stored within the lesson data itself, not as separate columns
-          notes: data.notes || ''
+        data: data.allLessonsData,
+        lesson_numbers: data.lessonNumbers,
+        teaching_units: data.teachingUnits,
+        notes: data.notes || ''
       };
-      
+      if (isAuthUserId(userId)) {
+        lessonData.user_id = userId;
+      }
+
       if (existingRecord) {
         // Update existing record
         const { error: updateError } = await supabase
@@ -570,24 +572,28 @@ export const lessonPlansApi = {
   
   create: async (plan: LessonPlan) => {
     try {
-      // Convert to snake_case for database
+      const userId = getCurrentUserId();
+      const row: Record<string, unknown> = {
+        date: plan.date.toISOString(),
+        week: plan.week,
+        class_name: plan.className,
+        activities: plan.activities,
+        duration: plan.duration,
+        notes: plan.notes,
+        status: plan.status,
+        unit_id: plan.unitId,
+        unit_name: plan.unitName,
+        lesson_number: plan.lessonNumber,
+        title: plan.title,
+        term: plan.term,
+        time: plan.time
+      };
+      if (isAuthUserId(userId)) {
+        row.user_id = userId;
+      }
       const { data, error } = await supabase
         .from(TABLES.LESSON_PLANS)
-        .insert([{
-          date: plan.date.toISOString(),
-          week: plan.week,
-          class_name: plan.className,
-          activities: plan.activities,
-          duration: plan.duration,
-          notes: plan.notes,
-          status: plan.status,
-          unit_id: plan.unitId,
-          unit_name: plan.unitName,
-          lesson_number: plan.lessonNumber,
-          title: plan.title,
-          term: plan.term,
-          time: plan.time
-        }])
+        .insert([row])
         .select()
         .single();
       
@@ -1098,18 +1104,15 @@ export const yearGroupsApi = {
   },
 
   delete: async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from(TABLES.YEAR_GROUPS)
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
-      return { success: true };
-    } catch (error) {
-      console.warn('Failed to delete year group from Supabase:', error);
+    const { error } = await supabase
+      .from(TABLES.YEAR_GROUPS)
+      .delete()
+      .eq('id', id);
+    if (error) {
+      console.error('Supabase year_groups delete error:', error.message, error.code);
       throw error;
     }
+    return { success: true };
   }
 };
 
