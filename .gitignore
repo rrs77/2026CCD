@@ -49,3 +49,4 @@ tmp/
 
 # Reference clone (cursorchanges) - do not commit
 _cursorchanges_ref/
+.env

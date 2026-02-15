@@ -74,7 +74,7 @@ export function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative" style={{ backgroundColor: 'rgb(77, 181, 168)' }}>
+    <div className="min-h-screen flex items-center justify-center p-4 relative" style={{ backgroundColor: loginBgColor }}>
       <div className="w-full max-w-md">
         {/* Install Button - Top Right */}
         {canInstall && !isInstalled && (
@@ -163,16 +163,16 @@ export function LoginForm() {
               disabled={isSubmitting}
               className="w-full text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
               style={{
-                backgroundColor: isSubmitting ? '#6B7280' : '#008272'
+                backgroundColor: isSubmitting ? '#6B7280' : loginButtonColor
               }}
               onMouseEnter={(e) => {
                 if (!isSubmitting) {
-                  e.currentTarget.style.backgroundColor = '#007366';
+                  e.currentTarget.style.opacity = '0.9';
                 }
               }}
               onMouseLeave={(e) => {
                 if (!isSubmitting) {
-                  e.currentTarget.style.backgroundColor = '#008272';
+                  e.currentTarget.style.opacity = '1';
                 }
               }}
             >
@@ -192,7 +192,7 @@ export function LoginForm() {
         {/* Footer */}
         <div className="mt-8 text-center">
           <p className="text-sm font-light tracking-wide" style={{ color: 'rgba(255, 255, 255, 0.85)' }}>
-            Creative Curriculum Designer • From Forward Thinking
+            {loginTitle} • {loginSubtitle}
           </p>
         </div>
       </div>

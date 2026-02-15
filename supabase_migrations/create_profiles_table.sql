@@ -6,7 +6,7 @@
 -- 1. Create profiles table (one row per auth.users id)
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  email TEXT,a
+  email TEXT,
   display_name TEXT,
   role TEXT NOT NULL DEFAULT 'teacher' CHECK (role IN ('admin', 'teacher', 'viewer')),
   can_edit_activities BOOLEAN NOT NULL DEFAULT false,
