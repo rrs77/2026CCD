@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-import type { Profile, ProfileRole } from '../../types/auth';
+import type { Profile, ProfileRole, ProfileStatus } from '../../types/auth';
 
 interface EditUserModalProps {
   user: Profile;
@@ -12,8 +12,14 @@ interface EditUserModalProps {
 
 const BASE_ROLES: { value: ProfileRole; label: string }[] = [
   { value: 'viewer', label: 'Viewer' },
+  { value: 'student', label: 'Student' },
   { value: 'teacher', label: 'Teacher' },
   { value: 'admin', label: 'Admin' }
+];
+
+const STATUS_OPTIONS: { value: ProfileStatus; label: string }[] = [
+  { value: 'active', label: 'Active' },
+  { value: 'suspended', label: 'Suspended' }
 ];
 
 export function EditUserModal({ user, yearGroupNames, onSave, onClose }: EditUserModalProps) {
@@ -23,6 +29,7 @@ export function EditUserModal({ user, yearGroupNames, onSave, onClose }: EditUse
 
   const [role, setRole] = useState<ProfileRole>(user.role);
   const [displayName, setDisplayName] = useState(user.display_name ?? '');
+  const [status, setStatus] = useState<ProfileStatus>(user.status ?? 'active');
   const [canEditActivities, setCanEditActivities] = useState(user.can_edit_activities);
   const [canEditLessons, setCanEditLessons] = useState(user.can_edit_lessons);
   const [canManageYearGroups, setCanManageYearGroups] = useState(user.can_manage_year_groups);
@@ -44,6 +51,7 @@ export function EditUserModal({ user, yearGroupNames, onSave, onClose }: EditUse
       await onSave({
         display_name: displayName || null,
         role,
+        status,
         can_edit_activities: canEditActivities,
         can_edit_lessons: canEditLessons,
         can_manage_year_groups: canManageYearGroups,
@@ -77,12 +85,13 @@ export function EditUserModal({ user, yearGroupNames, onSave, onClose }: EditUse
           <p className="text-sm text-gray-600">{user.email ?? user.id}</p>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Display name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
             <input
               type="text"
               value={displayName}
               onChange={e => setDisplayName(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2"
+              placeholder="Display name"
             />
           </div>
 
@@ -95,6 +104,19 @@ export function EditUserModal({ user, yearGroupNames, onSave, onClose }: EditUse
             >
               {roles.map(r => (
                 <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <select
+              value={status}
+              onChange={e => setStatus(e.target.value as ProfileStatus)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2"
+            >
+              {STATUS_OPTIONS.map(s => (
+                <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </select>
           </div>

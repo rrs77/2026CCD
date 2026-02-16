@@ -10,7 +10,8 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const ROLES = ['viewer', 'teacher', 'admin', 'superuser'];
+const ROLES = ['viewer', 'student', 'teacher', 'admin', 'superuser'];
+const STATUSES = ['active', 'invited', 'suspended'];
 
 function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -38,7 +39,7 @@ export async function OPTIONS() {
 export async function POST(request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const { email, password, display_name, role } = body || {};
+    const { email, password, display_name, role, status, send_invite_email } = body || {};
 
     const emailTrimmed = typeof email === 'string' ? email.trim() : '';
     if (!emailTrimmed) {
@@ -46,7 +47,9 @@ export async function POST(request) {
     }
 
     const roleVal = role && ROLES.includes(role) ? role : 'viewer';
+    const statusVal = status && STATUSES.includes(status) ? status : 'invited';
     const displayName = typeof display_name === 'string' ? display_name.trim() || null : null;
+    const useInvite = send_invite_email === true || (!password && statusVal === 'invited');
 
     const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://wiudrzdkbpyziaodqoog.supabase.co';
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -62,7 +65,7 @@ export async function POST(request) {
     });
 
     let user;
-    if (password && typeof password === 'string' && password.length >= 6) {
+    if (!useInvite && password && typeof password === 'string' && password.length >= 6) {
       const { data, error } = await supabase.auth.admin.createUser({
         email: emailTrimmed,
         password,
@@ -90,19 +93,18 @@ export async function POST(request) {
       return jsonResponse({ error: 'User could not be created.' }, 500);
     }
 
-    // Ensure profile has correct role and display_name (trigger may have created it)
+    // Ensure profile has correct role, display_name, status (trigger may have created it)
+    const profileRow = {
+      id: user.id,
+      email: user.email ?? emailTrimmed,
+      display_name: displayName,
+      role: roleVal,
+      status: statusVal,
+      updated_at: new Date().toISOString(),
+    };
     const { error: profileError } = await supabase
       .from('profiles')
-      .upsert(
-        {
-          id: user.id,
-          email: user.email ?? emailTrimmed,
-          display_name: displayName,
-          role: roleVal,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'id' }
-      );
+      .upsert(profileRow, { onConflict: 'id' });
 
     if (profileError) {
       console.warn('Profile upsert warning:', profileError.message);
@@ -117,7 +119,7 @@ export async function POST(request) {
         display_name: displayName,
         role: roleVal,
       },
-      invited: !password,
+      invited: useInvite,
     });
   } catch (e) {
     console.error('create-user error:', e);

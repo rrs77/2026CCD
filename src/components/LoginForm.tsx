@@ -19,6 +19,11 @@ export function LoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authStatus, setAuthStatus] = useState<'checking' | 'ok' | 'fail' | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
+  const [forgotSubmitting, setForgotSubmitting] = useState(false);
+  const [forgotError, setForgotError] = useState('');
   
   // Get branding settings with defaults
   const branding = settings.branding || {};
@@ -89,6 +94,25 @@ export function LoginForm() {
     }
   }, [canInstall, isInstalled]);
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const emailTrimmed = forgotEmail.trim();
+    if (!emailTrimmed) return;
+    setForgotError('');
+    setForgotSubmitting(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(emailTrimmed, {
+        redirectTo: `${window.location.origin}/reset-password`
+      });
+      if (error) throw new Error(error.message);
+      setForgotSent(true);
+    } catch (err) {
+      setForgotError(err instanceof Error ? err.message : 'Failed to send');
+    } finally {
+      setForgotSubmitting(false);
+    }
+  };
+
   const handleInstall = async () => {
     // Automatically trigger installation - browser will handle the prompt
     await install();
@@ -121,8 +145,47 @@ export function LoginForm() {
           <LogoSVG size="lg" showText={true} className="justify-center" boldCurriculumDesigner={true} letters={logoLetters} />
         </div>
 
-        {/* Login Form */}
+        {/* Login Form or Forgot Password */}
         <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+          {showForgotPassword ? (
+            <div className="space-y-6">
+              <h2 className="text-lg font-semibold text-gray-900">Forgot password?</h2>
+              {forgotSent ? (
+                <p className="text-sm text-green-700 bg-green-50 p-4 rounded-lg">Check your email. We sent a link to reset your password.</p>
+              ) : (
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <div>
+                    <label htmlFor="forgot-email" className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                    <input
+                      id="forgot-email"
+                      type="email"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      required
+                      className="block w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      placeholder="Enter your email"
+                    />
+                  </div>
+                  {forgotError && <p className="text-sm text-red-600">{forgotError}</p>}
+                  <button
+                    type="submit"
+                    disabled={forgotSubmitting}
+                    className="w-full text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200"
+                    style={{ backgroundColor: forgotSubmitting ? '#9CA3AF' : loginButtonColor }}
+                  >
+                    {forgotSubmitting ? 'Sending…' : 'Send reset link'}
+                  </button>
+                </form>
+              )}
+              <button
+                type="button"
+                onClick={() => { setShowForgotPassword(false); setForgotSent(false); setForgotError(''); }}
+                className="w-full text-sm text-gray-600 hover:text-gray-900"
+              >
+                Back to sign in
+              </button>
+            </div>
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Username Field */}
             <div>
@@ -171,6 +234,18 @@ export function LoginForm() {
                 </button>
               </div>
             </div>
+            {isSupabaseAuthEnabled() && (
+              <div className="text-right">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-sm font-medium hover:underline"
+                  style={{ color: loginButtonColor }}
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
 
             {/* Supabase Auth status (when using Supabase auth) */}
             {isSupabaseAuthEnabled() && authStatus && (
@@ -231,6 +306,7 @@ export function LoginForm() {
               )}
             </button>
           </form>
+          )}
 
         </div>
 

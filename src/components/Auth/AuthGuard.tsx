@@ -35,10 +35,11 @@ export function AuthGuard({
   }
 
   if (requiredRole) {
-    const roleOrder: ProfileRole[] = ['viewer', 'teacher', 'admin', 'superuser'];
+    const roleOrder: ProfileRole[] = ['viewer', 'student', 'teacher', 'admin', 'superuser'];
     const userRole = (profile?.role ?? user.role) as ProfileRole;
-    const requiredIndex = roleOrder.indexOf(requiredRole);
-    const userIndex = roleOrder.indexOf(userRole);
+    const roleForLevel = userRole === 'student' ? 'viewer' : userRole;
+    const requiredIndex = roleOrder.indexOf(requiredRole === 'student' ? 'viewer' : requiredRole);
+    const userIndex = roleOrder.indexOf(roleForLevel);
     if (userIndex < requiredIndex) return <>{fallback}</>;
   }
 

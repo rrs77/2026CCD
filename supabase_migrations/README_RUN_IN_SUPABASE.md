@@ -87,8 +87,17 @@ STEP 9 (optional) - Make your login show as superuser in Users
 After you have signed in at least once (so your profile exists):
 
 1. Open the file:  set_first_superuser.sql
-2. Replace 'your-email@example.com' with the email you use to sign in.
+2. The file is set to rob.reichstorer@gmail.com; to use another email, edit that line.
 3. Select ALL text in that file (Cmd+A or Ctrl+A), copy and paste into Supabase Dashboard → SQL Editor
 4. Click Run
 
-Your account will then appear in Settings → Admin → Users with role Superuser, and you can add/edit other users.
+Your account will then appear in Settings → Admin → Users with role Superuser. You can change who is a superuser at any time from Settings → Admin → Users → Edit User → Role (choose Superuser).
+
+-------------------------------------------------------------------------------
+STEP 10 (optional) - Users & access: status and purchases table
+-------------------------------------------------------------------------------
+1. Open the file:  profiles_status_and_purchases.sql
+2. Select ALL text, copy and paste into Supabase Dashboard → SQL Editor
+3. Click Run
+
+This adds a **status** column to profiles (Active / Invited / Suspended), allows the **student** role, and creates the **user_purchases** table for "View Purchases" in Settings → Admin → Users. Run this if you use the full Users & access feature (status, View Purchases, Create User with status).

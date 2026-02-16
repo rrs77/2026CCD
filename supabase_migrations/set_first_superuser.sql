@@ -2,11 +2,11 @@
 -- Set your account as superuser (run once after first login)
 -- Run in Supabase SQL Editor after you have signed in at least once.
 -- ============================================
--- Replace 'your-email@example.com' with the email you use to sign in, then run.
+-- To use a different email, change the address below and run.
 
 UPDATE public.profiles
 SET role = 'superuser', updated_at = NOW()
-WHERE email = 'your-email@example.com';
+WHERE email = 'rob.reichstorer@gmail.com';
 
 -- Optional: confirm the update (should return 1 row)
--- SELECT id, email, role FROM public.profiles WHERE email = 'your-email@example.com';
+-- SELECT id, email, role FROM public.profiles WHERE email = 'rob.reichstorer@gmail.com';
