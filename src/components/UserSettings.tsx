@@ -848,6 +848,36 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                 className="fixed py-1 w-52 bg-white rounded-lg border border-gray-200 shadow-xl z-[100]"
                 style={{ top: adminDropdownPosition.top, left: adminDropdownPosition.left }}
               >
+                {showUserManagement && (
+                  <button
+                    type="button"
+                    onClick={() => { setActiveTab('users'); setAdminMenuOpen(false); }}
+                    className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'users' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
+                  >
+                    <Users className="h-4 w-4" />
+                    Users
+                  </button>
+                )}
+                {isAdmin && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => { setActiveTab('manage-packs'); setAdminMenuOpen(false); }}
+                      className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'manage-packs' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
+                    >
+                      <Package className="h-4 w-4" />
+                      Manage Packs
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setActiveTab('branding'); setAdminMenuOpen(false); }}
+                      className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'branding' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
+                    >
+                      <Palette className="h-4 w-4" />
+                      Branding
+                    </button>
+                  </>
+                )}
                 <button
                   type="button"
                   onClick={() => { setActiveTab('resource-links'); setAdminMenuOpen(false); }}
@@ -856,6 +886,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                   <LinkIcon className="h-4 w-4" />
                   Resource Links
                 </button>
+                <div className="border-t border-gray-100 my-1" />
                 <button
                   type="button"
                   onClick={() => { setActiveTab('data'); setAdminMenuOpen(false); }}
@@ -864,41 +895,6 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                   <Database className="h-4 w-4" />
                   Data & Backup
                 </button>
-                {(isAdmin || showUserManagement) && (
-                  <>
-                    <div className="border-t border-gray-100 my-1" />
-                    {showUserManagement && (
-                      <button
-                        type="button"
-                        onClick={() => { setActiveTab('users'); setAdminMenuOpen(false); }}
-                        className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'users' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
-                      >
-                        <Users className="h-4 w-4" />
-                        Users
-                      </button>
-                    )}
-                    {isAdmin && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => { setActiveTab('manage-packs'); setAdminMenuOpen(false); }}
-                          className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'manage-packs' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
-                        >
-                          <Package className="h-4 w-4" />
-                          Manage Packs
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { setActiveTab('branding'); setAdminMenuOpen(false); }}
-                          className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'branding' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
-                        >
-                          <Palette className="h-4 w-4" />
-                          Branding
-                        </button>
-                      </>
-                    )}
-                  </>
-                )}
               </div>
             )}
           </div>
