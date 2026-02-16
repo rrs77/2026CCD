@@ -32,7 +32,17 @@ STEP 3 (optional) - If year group delete fails with "Failed to delete year group
 This adds a fallback policy so any authenticated user can delete year groups.
 
 -------------------------------------------------------------------------------
-STEP 4 (optional) - If Activity Library shows "0 activities" after local login
+STEP 4 - If you get "infinite recursion detected in policy for relation profiles"
+-------------------------------------------------------------------------------
+1. Open the file:  fix_profiles_rls_recursion.sql
+2. Select ALL text in that file (Cmd+A or Ctrl+A)
+3. Copy and paste into Supabase Dashboard → SQL Editor
+4. Click Run
+
+This fixes RLS policies that caused recursion when checking profiles.
+
+-------------------------------------------------------------------------------
+STEP 5 (optional) - If Activity Library shows "0 activities" after local login
 -------------------------------------------------------------------------------
 1. Open the file:  activities_lessons_allow_anon_read.sql
 2. Select ALL text in that file (Cmd+A or Ctrl+A)

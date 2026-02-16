@@ -2,35 +2,33 @@ import React from 'react';
 
 interface LogoProps {
   className?: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xs';
   showText?: boolean;
   boldCurriculumDesigner?: boolean;
+  /** Custom letters in logo circle, max 3 chars (e.g., "CCD") */
+  letters?: string;
+}
+
+// Normalise logo letters: max 3 chars, uppercase
+function normaliseLogoLetters(val: string | undefined): string {
+  if (!val || typeof val !== 'string') return 'CCD';
+  const s = val.slice(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return s || 'CCD';
 }
 
 // Main Logo Component - matches the shared design
-export function Logo({ className = '', size = 'md', showText = true, boldCurriculumDesigner = false }: LogoProps) {
-  const sizeClasses = {
-    sm: { 
-      container: 'h-12 w-12',
-      text: 'text-lg',
-      subtext: 'text-xs',
-      iconSize: 48
-    },
-    md: { 
-      container: 'h-16 w-16',
-      text: 'text-xl',
-      subtext: 'text-sm',
-      iconSize: 64
-    },
-    lg: { 
-      container: 'h-20 w-20',
-      text: 'text-2xl',
-      subtext: 'text-base',
-      iconSize: 80
-    }
+export function Logo({ className = '', size = 'md', showText = true, boldCurriculumDesigner = false, letters }: LogoProps) {
+  const sizeClasses: Record<string, { container: string; text: string; subtext: string; iconSize: number }> = {
+    xs: { container: 'h-10 w-10', text: 'text-base', subtext: 'text-xs', iconSize: 40 },
+    'xs-sm': { container: 'h-10 w-10 sm:h-12 sm:w-12', text: 'text-base', subtext: 'text-xs', iconSize: 40 },
+    sm: { container: 'h-12 w-12', text: 'text-lg', subtext: 'text-xs', iconSize: 48 },
+    md: { container: 'h-16 w-16', text: 'text-xl', subtext: 'text-sm', iconSize: 64 },
+    lg: { container: 'h-20 w-20', text: 'text-2xl', subtext: 'text-base', iconSize: 80 }
   };
 
-  const currentSize = sizeClasses[size];
+  const currentSize = sizeClasses[size] ?? sizeClasses.md;
+  const displayLetters = normaliseLogoLetters(letters);
+  const fontSize = displayLetters.length === 1 ? 36 : displayLetters.length === 2 ? 30 : 28;
 
   return (
     <div className={`flex items-center space-x-4 ${className}`}>
@@ -56,12 +54,12 @@ export function Logo({ className = '', size = 'md', showText = true, boldCurricu
             textAnchor="middle"
             dominantBaseline="central"
             fill="white"
-            fontSize="28"
+            fontSize={fontSize}
             fontWeight="700"
             fontFamily="Inter, -apple-system, BlinkMacSystemFont, sans-serif"
             letterSpacing="-1"
           >
-            CCD
+            {displayLetters}
           </text>
           
           {/* Gradient definitions */}

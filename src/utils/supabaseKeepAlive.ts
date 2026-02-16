@@ -9,7 +9,7 @@ const PING_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
  */
 async function pingSupabase(): Promise<boolean> {
   if (!isSupabaseConfigured()) {
-    console.log('⏭️ Supabase not configured, skipping keep-alive ping');
+    if (import.meta.env.DEV) console.log('⏭️ Supabase not configured, skipping keep-alive ping');
     return false;
   }
 
@@ -60,8 +60,10 @@ export async function checkAndPingSupabase(): Promise<boolean> {
   }
 
   // Not time yet
-  const hoursRemaining = Math.floor((PING_INTERVAL_MS - timeSinceLastPing) / (60 * 60 * 1000));
-  console.log(`⏰ Supabase keep-alive: Next ping in ${hoursRemaining} hours`);
+  if (import.meta.env.DEV) {
+    const hoursRemaining = Math.floor((PING_INTERVAL_MS - timeSinceLastPing) / (60 * 60 * 1000));
+    console.log(`⏰ Supabase keep-alive: Next ping in ${hoursRemaining} hours`);
+  }
   return false;
 }
 
@@ -71,7 +73,7 @@ export async function checkAndPingSupabase(): Promise<boolean> {
  * Also checks immediately on initialization
  */
 export function initializeSupabaseKeepAlive(): () => void {
-  console.log('🚀 Initializing Supabase keep-alive service');
+  if (import.meta.env.DEV) console.log('🚀 Initializing Supabase keep-alive service');
 
   // Check immediately
   checkAndPingSupabase();

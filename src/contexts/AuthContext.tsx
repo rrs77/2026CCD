@@ -112,11 +112,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => subscription.unsubscribe();
   }, [fetchSupabaseProfile]);
 
-  const AUTH_CHECK_TIMEOUT_MS = 5000; // Stop spinning after 5s if auth check hangs (e.g. Supabase unreachable)
+  const AUTH_CHECK_TIMEOUT_MS = 5000; // 5s – give getSession time to complete when Supabase is slow
 
   const checkAuthStatus = async () => {
     const timeoutId = setTimeout(() => {
-      console.warn('Auth check timed out – showing login form');
+      if (import.meta.env.DEV) console.warn('Auth check timed out – showing login form');
       setLoading(false);
       setUser(null);
       setProfile(null);

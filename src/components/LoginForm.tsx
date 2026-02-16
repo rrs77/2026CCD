@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { BookOpen, Mail, Lock, Eye, EyeOff, AlertCircle, Download, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Mail, Lock, Eye, EyeOff, AlertCircle, Download, X, RefreshCw } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { LoadingSpinner } from './LoadingSpinner';
 import { LogoSVG } from './Logo';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { useSettings } from '../contexts/SettingsContextNew';
+import { supabase, isSupabaseAuthEnabled, checkSupabaseAuthHealth } from '../config/supabase';
 
 export function LoginForm() {
   const { login } = useAuth();
@@ -16,11 +17,14 @@ export function LoginForm() {
   const [error, setError] = useState('');
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [authStatus, setAuthStatus] = useState<'checking' | 'ok' | 'fail' | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
   
   // Get branding settings with defaults
   const branding = settings.branding || {};
   const loginBgColor = branding.loginBackgroundColor || 'rgb(77, 181, 168)';
   const loginButtonColor = branding.loginButtonColor || '#008272';
+  const logoLetters = branding.logoLetters || 'CCD';
   const loginTitle = branding.loginTitle || 'Creative Curriculum Designer';
   const loginSubtitle = branding.loginSubtitle || 'From Forward Thinking';
 
@@ -28,16 +32,16 @@ export function LoginForm() {
   const wordpressUrl = import.meta.env.VITE_WORDPRESS_URL;
   const isWordPressConfigured = wordpressUrl && wordpressUrl !== 'https://your-wordpress-site.com';
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setError('');
     setIsSubmitting(true);
     try {
-      const LOGIN_TIMEOUT_MS = 15000;
+      const LOGIN_TIMEOUT_MS = 60000; // 60s – Supabase free tier can take 30–60s to wake from sleep
       await Promise.race([
         login(username, password),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Connection timed out. Check your network and try again.')), LOGIN_TIMEOUT_MS)
+          setTimeout(() => reject(new Error('Connection timed out. The server may be waking up – please try again in a moment.')), LOGIN_TIMEOUT_MS)
         ),
       ]);
     } catch (err) {
@@ -46,6 +50,25 @@ export function LoginForm() {
       setIsSubmitting(false);
     }
   };
+
+  // Check Supabase Auth connectivity when login form mounts
+  useEffect(() => {
+    if (!isSupabaseAuthEnabled()) {
+      setAuthStatus(null);
+      return;
+    }
+    setAuthStatus('checking');
+    checkSupabaseAuthHealth()
+      .then(({ ok, error }) => {
+        setAuthStatus(ok ? 'ok' : 'fail');
+        setAuthError(error ?? null);
+      })
+      .catch(() => {
+        setAuthStatus('fail');
+        setAuthError('Check failed');
+      });
+    supabase.auth.getSession().catch(() => {});
+  }, []);
 
   // Show install prompt after a short delay if available
   React.useEffect(() => {
@@ -95,7 +118,7 @@ export function LoginForm() {
 
         {/* Header with Logo */}
         <div className="mb-6 w-full flex items-center justify-center">
-          <LogoSVG size="lg" showText={true} className="justify-center" boldCurriculumDesigner={true} />
+          <LogoSVG size="lg" showText={true} className="justify-center" boldCurriculumDesigner={true} letters={logoLetters} />
         </div>
 
         {/* Login Form */}
@@ -149,11 +172,33 @@ export function LoginForm() {
               </div>
             </div>
 
+            {/* Supabase Auth status (when using Supabase auth) */}
+            {isSupabaseAuthEnabled() && authStatus && (
+              <div className={`p-2 rounded-lg text-xs ${authStatus === 'ok' ? 'bg-green-50 text-green-800' : authStatus === 'fail' ? 'bg-amber-50 text-amber-800' : 'bg-gray-50 text-gray-600'}`}>
+                {authStatus === 'checking' && 'Checking Supabase…'}
+                {authStatus === 'ok' && '✓ Supabase Auth connected'}
+                {authStatus === 'fail' && `✗ Supabase Auth: ${authError || 'Not reachable'}. Check Supabase Dashboard → Project paused?`}
+              </div>
+            )}
+
             {/* Error Message */}
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center space-x-2">
-                <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
-                <p className="text-sm text-red-700">{error}</p>
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg space-y-2">
+                <div className="flex items-center space-x-2">
+                  <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
+                  <p className="text-sm text-red-700 flex-1">{error}</p>
+                </div>
+                {error.includes('timed out') && (
+                  <button
+                    type="button"
+                    onClick={() => handleSubmit()}
+                    disabled={isSubmitting || !username.trim()}
+                    className="flex items-center gap-2 text-sm font-medium text-teal-700 hover:text-teal-800"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Try again
+                  </button>
+                )}
               </div>
             )}
 

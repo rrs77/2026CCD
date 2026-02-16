@@ -5,7 +5,7 @@ export const activityStacksApi = {
   // Get all activity stacks
   getAll: async (): Promise<ActivityStack[]> => {
     try {
-      console.log('🔍 Fetching activity stacks from Supabase...');
+      if (import.meta.env.DEV) console.log('🔍 Fetching activity stacks from Supabase...');
       const { data, error } = await supabase
         .from(TABLES.ACTIVITY_STACKS)
         .select('*')

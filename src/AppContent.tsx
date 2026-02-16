@@ -7,7 +7,7 @@ import { Footer } from './components/Footer';
 import { useAuth } from './hooks/useAuth';
 import { HelpGuide } from './components/HelpGuide';
 
-console.log('🔥 NEW AppContent.tsx loaded at:', new Date().toISOString());
+if (import.meta.env.DEV) console.log('🔥 NEW AppContent.tsx loaded at:', new Date().toISOString());
 
 function AppContent() {
   const { user, loading } = useAuth();

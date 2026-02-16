@@ -66,15 +66,30 @@ let configCheckLogged = false;
 export const isSupabaseConfigured = () => {
   const configured = !!supabaseUrl && !!supabaseAnonKey;
   
-  // Only log once
   if (!configCheckLogged) {
-    console.log('🔍 Supabase configuration check:', {
-      hasUrl: !!supabaseUrl,
-      hasKey: !!supabaseAnonKey,
-      configured
-    });
+    if (import.meta.env.DEV) console.log('🔍 Supabase configuration check:', { hasUrl: !!supabaseUrl, hasKey: !!supabaseAnonKey, configured });
     configCheckLogged = true;
   }
   
   return configured;
 };
+
+/** Check if Supabase Auth is reachable – useful for login diagnostics */
+export async function checkSupabaseAuthHealth(): Promise<{ ok: boolean; error?: string }> {
+  if (!supabaseUrl || !supabaseAnonKey) return { ok: false, error: 'Missing Supabase URL or key' };
+  const controller = new AbortController();
+  const to = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(`${supabaseUrl}/auth/v1/health`, {
+      headers: { apikey: supabaseAnonKey },
+      signal: controller.signal,
+    });
+    clearTimeout(to);
+    if (!res.ok) return { ok: false, error: `Auth returned ${res.status}` };
+    return { ok: true };
+  } catch (e) {
+    clearTimeout(to);
+    const msg = e instanceof Error ? e.message : 'Network error';
+    return { ok: false, error: msg.includes('abort') ? 'Connection timed out' : msg };
+  }
+}

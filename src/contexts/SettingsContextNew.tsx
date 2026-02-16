@@ -3,28 +3,11 @@ import { supabase, isSupabaseConfigured } from '../config/supabase';
 import { yearGroupsApi, customCategoriesApi, categoryGroupsApi } from '../config/api';
 import { useAuth } from '../hooks/useAuth';
 
-// Production logging control
-const isDevelopment = import.meta.env.DEV;
-const shouldLog = (level: 'debug' | 'info' | 'warn' | 'error') => {
-  if (!isDevelopment && level === 'debug') return false;
-  return true;
-};
-
-if (shouldLog('info')) {
-console.log('🔥 NEW SettingsContextNew loaded at:', new Date().toISOString());
-}
-
 // Safari detection for enhanced sync handling
 const isSafari = () => {
   const ua = navigator.userAgent.toLowerCase();
   return ua.includes('safari') && !ua.includes('chrome');
 };
-
-console.log('🔍 Browser detection:', {
-  isSafari: isSafari(),
-  userAgent: navigator.userAgent,
-  timestamp: new Date().toISOString()
-});
 
 interface Theme {
   primary: string;
@@ -57,6 +40,7 @@ export interface ResourceLinkConfig {
 export interface BrandingSettings {
   // Login page customization
   loginLogoUrl?: string; // URL to custom logo image (if empty, uses default Logo component)
+  logoLetters?: string; // Letters in logo circle, max 3 (e.g., "CCD")
   loginTitle?: string; // Custom title text (e.g., "Creative Curriculum Designer")
   loginSubtitle?: string; // Custom subtitle text (e.g., "From Forward Thinking")
   loginBackgroundColor?: string; // Background color for login page (default: rgb(77, 181, 168))
@@ -265,6 +249,7 @@ const FIXED_CATEGORIES: Category[] = [
 
 // Default branding settings
 const DEFAULT_BRANDING: BrandingSettings = {
+  logoLetters: 'CCD',
   loginTitle: 'Creative Curriculum Designer',
   loginSubtitle: 'From Forward Thinking',
   loginBackgroundColor: 'rgb(77, 181, 168)',
@@ -521,7 +506,7 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
   const [realTimePaused, setRealTimePaused] = useState<boolean>(false);
 
   useEffect(() => {
-    console.log('🎯 NEW SettingsProviderNew useEffect running...');
+    if (import.meta.env.DEV) console.log('🎯 NEW SettingsProviderNew useEffect running...');
 
     const savedViewMode = localStorage.getItem('defaultViewMode') as
       | 'grid'
@@ -629,7 +614,7 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
               })()
             : parsed;
           setCategories(merged);
-          console.log('📦 Loading saved categories from localStorage:', merged.length, missingFixed.length ? `(added ${missingFixed.map(c => c.name).join(', ')})` : '');
+          if (import.meta.env.DEV) console.log('📦 Loading saved categories from localStorage:', merged.length, missingFixed.length ? `(added ${missingFixed.map(c => c.name).join(', ')})` : '');
         }
       }
       
@@ -640,7 +625,7 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
           const parsed = JSON.parse(deletedCats);
           if (Array.isArray(parsed)) {
             setDeletedFixedCategories(new Set(parsed));
-            console.log('🗑️ Loaded deleted fixed categories:', parsed);
+            if (import.meta.env.DEV) console.log('🗑️ Loaded deleted fixed categories:', parsed);
           }
         } catch (e) {
           console.warn('Failed to parse deleted fixed categories:', e);
@@ -656,9 +641,9 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
         loadingFromSupabase.current = true;
         try {
           // Load categories FIRST so activities show immediately on refresh (don't wait for year groups retries)
-          console.log('🔄 Loading categories from Supabase first...');
+          if (import.meta.env.DEV) console.log('🔄 Loading categories from Supabase first...');
           const supabaseCategories = await customCategoriesApi.getAll();
-          console.log('📦 Raw categories from Supabase:', supabaseCategories);
+          if (import.meta.env.DEV) console.log('📦 Raw categories from Supabase:', supabaseCategories);
 
           if (supabaseCategories && supabaseCategories.length > 0) {
             isCurrentlyLoading.current = true;
@@ -1070,7 +1055,7 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
     // Fallback timeout to ensure isInitialLoad is set to false
     setTimeout(() => {
       if (isInitialLoad) {
-        console.log('⏰ Timeout fallback: Setting isInitialLoad to false');
+        if (import.meta.env.DEV) console.log('⏰ Timeout fallback: Setting isInitialLoad to false');
         setIsInitialLoad(false);
         dataLoadedFromSupabase.current = true; // Allow saves even after timeout
         loadingFromSupabase.current = false;
@@ -1127,14 +1112,10 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
       
       // Real-time subscriptions removed to prevent race conditions
       // Using visibility change detection and queue-based saves instead
-      console.log('✅ Real-time subscriptions disabled - using queue-based sync instead');
+      if (import.meta.env.DEV) console.log('✅ Real-time subscriptions disabled - using queue-based sync instead');
     }
 
-    console.log(
-      '✅ NEW SettingsContext loaded with',
-      categories.length,
-      'categories'
-    );
+    if (import.meta.env.DEV) console.log('✅ NEW SettingsContext loaded with', categories.length, 'categories');
 
     // Cleanup function
     return () => {
@@ -1197,17 +1178,15 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
   
   // Save year groups using queue-based system to prevent race conditions
   useEffect(() => {
-    console.log('🔄 Year groups useEffect triggered - dataLoadedFromSupabase:', dataLoadedFromSupabase.current, 'customYearGroups length:', customYearGroups.length);
+    if (import.meta.env.DEV) console.log('🔄 Year groups useEffect triggered - dataLoadedFromSupabase:', dataLoadedFromSupabase.current, 'customYearGroups length:', customYearGroups.length);
     
-    // Don't save if data hasn't loaded from Supabase yet
     if (!dataLoadedFromSupabase.current) {
-      console.log('⏭️ Skipping year groups save - data not loaded from Supabase yet');
+      if (import.meta.env.DEV) console.log('⏭️ Skipping year groups save - data not loaded from Supabase yet');
       return;
     }
     
-    // Don't save while loading from Supabase
     if (loadingFromSupabase.current) {
-      console.log('⏭️ Skipping year groups save - currently loading from Supabase');
+      if (import.meta.env.DEV) console.log('⏭️ Skipping year groups save - currently loading from Supabase');
       return;
     }
     
@@ -1221,23 +1200,20 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
 
   // Save categories using queue-based system to prevent race conditions
   useEffect(() => {
-    console.log('🔄 Categories useEffect triggered - dataLoadedFromSupabase:', dataLoadedFromSupabase.current, 'isCurrentlyLoading:', isCurrentlyLoading.current, 'categories length:', categories.length);
+    if (import.meta.env.DEV) console.log('🔄 Categories useEffect triggered - dataLoadedFromSupabase:', dataLoadedFromSupabase.current, 'isCurrentlyLoading:', isCurrentlyLoading.current, 'categories length:', categories.length);
     
-    // Don't save if data hasn't loaded from Supabase yet
     if (!dataLoadedFromSupabase.current) {
-      console.log('⏭️ Skipping categories save - data not loaded from Supabase yet');
+      if (import.meta.env.DEV) console.log('⏭️ Skipping categories save - data not loaded from Supabase yet');
       return;
     }
     
-    // Don't save while loading from Supabase
     if (loadingFromSupabase.current) {
-      console.log('⏭️ Skipping categories save - currently loading from Supabase');
+      if (import.meta.env.DEV) console.log('⏭️ Skipping categories save - currently loading from Supabase');
       return;
     }
     
-    // Don't save while currently loading (prevents race conditions during initial load)
     if (isCurrentlyLoading.current) {
-      console.log('⏭️ Skipping categories save - currently loading categories');
+      if (import.meta.env.DEV) console.log('⏭️ Skipping categories save - currently loading categories');
       return;
     }
     
@@ -1357,21 +1333,18 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     console.log('🔄 Category groups useEffect triggered - dataLoadedFromSupabase:', dataLoadedFromSupabase.current, 'categoryGroups length:', categoryGroups.groups.length);
     
-    // Don't save if data hasn't loaded from Supabase yet
     if (!dataLoadedFromSupabase.current) {
-      console.log('⏭️ Skipping category groups save - data not loaded from Supabase yet');
+      if (import.meta.env.DEV) console.log('⏭️ Skipping category groups save - data not loaded from Supabase yet');
       return;
     }
     
-    // Don't save while loading from Supabase
     if (loadingFromSupabase.current) {
-      console.log('⏭️ Skipping category groups save - currently loading from Supabase');
+      if (import.meta.env.DEV) console.log('⏭️ Skipping category groups save - currently loading from Supabase');
       return;
     }
     
-    // Don't save empty arrays to prevent infinite loop
     if (!categoryGroups.groups || categoryGroups.groups.length === 0) {
-      console.log('🚨 Skipping save of empty category groups to prevent infinite loop');
+      if (import.meta.env.DEV) console.log('🚨 Skipping save of empty category groups to prevent infinite loop');
       return;
     }
     

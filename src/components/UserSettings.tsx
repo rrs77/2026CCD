@@ -2220,6 +2220,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                   onClick={() => {
                     if (confirm('Reset branding to defaults (Rhythmstix/Forward Thinking)?')) {
                       const defaults = {
+                        logoLetters: 'CCD',
                         loginTitle: 'Creative Curriculum Designer',
                         loginSubtitle: 'From Forward Thinking',
                         loginBackgroundColor: 'rgb(77, 181, 168)',
@@ -2253,6 +2254,20 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
               <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-4">
                   <h4 className="font-medium text-gray-800">Login page</h4>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Logo letters (max 3)</label>
+                    <input
+                      type="text"
+                      maxLength={3}
+                      value={(tempSettings.branding?.logoLetters ?? '').slice(0, 3)}
+                      onChange={e => {
+                        const val = e.target.value.slice(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, '');
+                        setTempSettings(prev => ({ ...prev, branding: { ...prev.branding, logoLetters: val || 'CCD' } }));
+                      }}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 max-w-[6rem]"
+                      placeholder="CCD"
+                    />
+                  </div>
                   <div>
                     <label className="block text-sm text-gray-600 mb-1">Product name (title)</label>
                     <input

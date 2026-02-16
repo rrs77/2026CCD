@@ -418,14 +418,14 @@ export function DataProvider({ children }: DataProviderProps) {
       const saved = localStorage.getItem('currentSheetInfo');
       if (saved) {
         const parsed = JSON.parse(saved);
-        console.log('📌 Loaded currentSheetInfo from localStorage:', parsed);
+        if (import.meta.env.DEV) console.log('📌 Loaded currentSheetInfo from localStorage:', parsed);
         return parsed;
       }
     } catch (error) {
       console.error('Failed to load currentSheetInfo from localStorage:', error);
     }
     // Default to LKG if nothing saved
-    console.log('📌 Using default currentSheetInfo: LKG');
+    if (import.meta.env.DEV) console.log('📌 Using default currentSheetInfo: LKG');
     return {
       sheet: 'LKG',
       display: 'Lower Kindergarten Music',
@@ -536,7 +536,7 @@ export function DataProvider({ children }: DataProviderProps) {
   // Synchronize legacy halfTerms state with year-specific data when academic year changes
   useEffect(() => {
     if (halfTermsByYear[currentAcademicYear]) {
-      console.log('🔄 DATACONTEXT - Syncing legacy halfTerms with year-specific data:', {
+      if (import.meta.env.DEV) console.log('🔄 DATACONTEXT - Syncing legacy halfTerms with year-specific data:', {
         currentAcademicYear,
         yearDataExists: !!halfTermsByYear[currentAcademicYear],
         yearDataLength: halfTermsByYear[currentAcademicYear]?.length || 0,
@@ -549,7 +549,7 @@ export function DataProvider({ children }: DataProviderProps) {
       });
       setHalfTerms(halfTermsByYear[currentAcademicYear]);
     } else {
-      console.log('⚠️ DATACONTEXT - No year-specific data found for:', {
+      if (import.meta.env.DEV) console.log('⚠️ DATACONTEXT - No year-specific data found for:', {
         currentAcademicYear,
         availableYears: Object.keys(halfTermsByYear),
         halfTermsByYear
@@ -557,7 +557,7 @@ export function DataProvider({ children }: DataProviderProps) {
       
       // CRITICAL FIX: If no year-specific data exists, initialize it with current halfTerms
       if (halfTerms.length > 0) {
-        console.log('🔄 DATACONTEXT - Initializing year-specific data with current halfTerms');
+        if (import.meta.env.DEV) console.log('🔄 DATACONTEXT - Initializing year-specific data with current halfTerms');
         setHalfTermsByYear(prev => ({
           ...prev,
           [currentAcademicYear]: halfTerms
@@ -1086,7 +1086,7 @@ console.log('🏁 Set subjectsLoading to FALSE'); // ADD THIS DEBUG LINE
 
   // Load half-terms for the current class and academic year
   const loadHalfTerms = () => {
-    console.log('🔍 loadHalfTerms called', { currentSheetInfo, currentAcademicYear, dataWasCleared });
+    if (import.meta.env.DEV) console.log('🔍 loadHalfTerms called', { currentSheetInfo, currentAcademicYear, dataWasCleared });
     try {
       // If data was cleared, set empty state
       if (dataWasCleared) {
@@ -1103,17 +1103,12 @@ console.log('🏁 Set subjectsLoading to FALSE'); // ADD THIS DEBUG LINE
       // Load from localStorage with academic year in the key
       const localStorageKey = `half-terms-${currentSheetInfo.sheet}-${currentAcademicYear}`;
       const savedHalfTerms = localStorage.getItem(localStorageKey);
-      console.log('🔍 localStorage half-terms:', { 
-        savedHalfTerms, 
-        sheet: currentSheetInfo.sheet, 
-        academicYear: currentAcademicYear,
-        localStorageKey 
-      });
-      console.log('🔍 DEFAULT_HALF_TERMS:', DEFAULT_HALF_TERMS);
+      if (import.meta.env.DEV) console.log('🔍 localStorage half-terms:', { savedHalfTerms, sheet: currentSheetInfo.sheet, academicYear: currentAcademicYear, localStorageKey });
+      if (import.meta.env.DEV) console.log('🔍 DEFAULT_HALF_TERMS:', DEFAULT_HALF_TERMS);
       if (savedHalfTerms) {
         try {
           const parsedHalfTerms = JSON.parse(savedHalfTerms);
-          console.log('🔍 Parsed half-terms from localStorage:', parsedHalfTerms);
+          if (import.meta.env.DEV) console.log('🔍 Parsed half-terms from localStorage:', parsedHalfTerms);
           
           // Ensure all half-terms have the stacks field
           const formattedHalfTerms = parsedHalfTerms.map((term: any) => ({
@@ -1121,7 +1116,7 @@ console.log('🏁 Set subjectsLoading to FALSE'); // ADD THIS DEBUG LINE
             stacks: term.stacks || [] // Ensure stacks field exists
           }));
           
-          console.log('🔍 Setting half-terms state with data:', formattedHalfTerms.map(ht => ({ id: ht.id, name: ht.name, lessonsCount: ht.lessons?.length || 0, stacksCount: ht.stacks?.length || 0 })));
+          if (import.meta.env.DEV) console.log('🔍 Setting half-terms state with data:', formattedHalfTerms.map(ht => ({ id: ht.id, name: ht.name, lessonsCount: ht.lessons?.length || 0, stacksCount: ht.stacks?.length || 0 })));
           setHalfTerms(formattedHalfTerms);
           // Also update the year-specific state
           setHalfTermsByYear(prev => ({
@@ -1162,7 +1157,7 @@ console.log('🏁 Set subjectsLoading to FALSE'); // ADD THIS DEBUG LINE
   // Load half-terms from Supabase
   const loadHalfTermsFromSupabase = async () => {
     try {
-      console.log('Loading half-terms from Supabase for sheet:', currentSheetInfo.sheet, 'academic year:', currentAcademicYear);
+      if (import.meta.env.DEV) console.log('Loading half-terms from Supabase for sheet:', currentSheetInfo.sheet, 'academic year:', currentAcademicYear);
       const supabaseHalfTerms = await halfTermsApi.getBySheet(currentSheetInfo.sheet, currentAcademicYear);
       
       if (supabaseHalfTerms && supabaseHalfTerms.length > 0) {
@@ -1478,7 +1473,7 @@ console.log('🏁 Set subjectsLoading to FALSE'); // ADD THIS DEBUG LINE
       // Try to load from Supabase if connected
       if (isSupabaseConfigured()) {
         try {
-          console.log('🔄 Attempting to load activities from Supabase...');
+          if (import.meta.env.DEV) console.log('🔄 Attempting to load activities from Supabase...');
           const activities = await activitiesApi.getAll();
           console.log('📦 Activities received from API:', activities?.length || 0);
           
@@ -2398,7 +2393,7 @@ const updateLessonData = async (lessonNumber: string, updatedData: any) => {
       const saved = localStorage.getItem(`trash-lessons-${currentSheetInfo.sheet}`);
       const parsed = saved ? JSON.parse(saved) : {};
       setTrashLessons(parsed);
-      console.log(`🗑️ Loaded trash for ${currentSheetInfo.sheet}:`, Object.keys(parsed).length, 'lessons');
+      if (import.meta.env.DEV) console.log(`🗑️ Loaded trash for ${currentSheetInfo.sheet}:`, Object.keys(parsed).length, 'lessons');
     } catch (error) {
       console.error('Failed to load trash:', error);
       setTrashLessons({});
@@ -2525,7 +2520,7 @@ const updateLessonData = async (lessonNumber: string, updatedData: any) => {
   };
 
   const loadData = async () => {
-    console.log('🔄 DataContext.loadData CALLED:', {
+    if (import.meta.env.DEV) console.log('🔄 DataContext.loadData CALLED:', {
       currentSheet: currentSheetInfo.sheet,
       currentAcademicYear,
       dataWasCleared
@@ -2548,7 +2543,7 @@ const updateLessonData = async (lessonNumber: string, updatedData: any) => {
       // Try to load from Supabase if connected
       if (isSupabaseConfigured()) {
         try {
-          console.log('📡 Loading from Supabase:', {
+          if (import.meta.env.DEV) console.log('📡 Loading from Supabase:', {
             sheet: currentSheetInfo.sheet,
             academicYear: currentAcademicYear
           });

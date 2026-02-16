@@ -8,7 +8,7 @@ const getCurrentUserId = () => {
   if (!userId) {
     userId = '1';
     localStorage.setItem('rhythmstix_user_id', userId);
-    console.log('🔑 Created default user ID:', userId);
+    if (import.meta.env.DEV) console.log('🔑 Created default user ID:', userId);
   }
   return userId;
 };
@@ -21,7 +21,7 @@ export const activitiesApi = {
     try {
       const userId = getCurrentUserId();
       
-      console.log('🔄 Loading activities from Supabase...', { userId, hasUserId: !!userId });
+      if (import.meta.env.DEV) console.log('🔄 Loading activities from Supabase...', { userId, hasUserId: !!userId });
       
       // Always load ALL activities (for backwards compatibility and shared activities)
       // This ensures activities are visible even if user_id filtering would hide them
@@ -289,7 +289,7 @@ export const activitiesApi = {
 export const lessonsApi = {
   getBySheet: async (sheet: string, academicYear?: string) => {
     try {
-      console.log(`🔍 Fetching lessons for ${sheet} (${academicYear || 'default'}) from Supabase...`);
+      if (import.meta.env.DEV) console.log(`🔍 Fetching lessons for ${sheet} (${academicYear || 'default'}) from Supabase...`);
       
       // Determine which academic years to query
       const academicYearsToQuery: string[] = [];
@@ -744,7 +744,7 @@ export const eyfsApi = {
 export const halfTermsApi = {
   getBySheet: async (sheet: string, academicYear?: string) => {
     try {
-      console.log(`🔍 Fetching half-terms for ${sheet} (${academicYear || 'default'}) from Supabase...`);
+      if (import.meta.env.DEV) console.log(`🔍 Fetching half-terms for ${sheet} (${academicYear || 'default'}) from Supabase...`);
       
       const query = supabase
         .from('half_terms')
