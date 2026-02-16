@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, ChevronRight, ChevronLeft, HelpCircle, Info, BookOpen, Calendar, Edit3, FolderOpen, Tag, Search, Filter, Download, Plus, Save, Check, Clock, Users } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, HelpCircle, Home, Info, BookOpen, Calendar, Edit3, FolderOpen, Tag, Search, Filter, Download, Plus, Save, Check, Clock, Users, Link2, Layers } from 'lucide-react';
+import { useSettings } from '../contexts/SettingsContextNew';
 
 interface GuideStep {
   title: string;
@@ -8,48 +9,35 @@ interface GuideStep {
   highlightSelector?: string;
 }
 
+export type HelpGuideSection = 'activity' | 'lesson' | 'unit' | 'assign' | 'print' | 'share';
+
 interface HelpGuideProps {
   isOpen: boolean;
   onClose: () => void;
-  initialSection?: 'activity' | 'lesson' | 'unit' | 'assign';
+  initialSection?: HelpGuideSection;
 }
 
 export function HelpGuide({ isOpen, onClose, initialSection }: HelpGuideProps) {
-  const [activeSection, setActiveSection] = useState<'activity' | 'lesson' | 'unit' | 'assign'>(initialSection || 'activity');
+  const { settings } = useSettings();
+  const productName = settings?.branding?.loginTitle || 'Creative Curriculum Designer';
+  const [activeSection, setActiveSection] = useState<HelpGuideSection>(initialSection || 'activity');
   const [currentStep, setCurrentStep] = useState(0);
+  const [isHomeView, setIsHomeView] = useState(true);
   const [highlightedElement, setHighlightedElement] = useState<HTMLElement | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
   const [tooltipArrowPosition, setTooltipArrowPosition] = useState('top');
   const [isAnimating, setIsAnimating] = useState(false);
-  const [isOverviewMinimized, setIsOverviewMinimized] = useState(false);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
-  // Trigger animation when modal opens
+  // Trigger animation and reset to home when modal opens
   useEffect(() => {
     if (isOpen) {
       setIsAnimating(true);
-      setIsOverviewMinimized(false); // Reset on open
-      // Reset animation after it completes
-      const timer = setTimeout(() => {
-        setIsAnimating(false);
-      }, 600); // Animation duration
+      setIsHomeView(true);
+      const timer = setTimeout(() => setIsAnimating(false), 600);
       return () => clearTimeout(timer);
     }
   }, [isOpen]);
-
-  // Handle scroll to minimize overview
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    const handleScroll = () => {
-      const scrollTop = container.scrollTop;
-      setIsOverviewMinimized(scrollTop > 50);
-    };
-
-    container.addEventListener('scroll', handleScroll);
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, []);
 
   // Define guide steps for each section
   const activitySteps: GuideStep[] = [
@@ -437,6 +425,96 @@ export function HelpGuide({ isOpen, onClose, initialSection }: HelpGuideProps) {
     }
   ];
 
+  const printSteps: GuideStep[] = [
+    {
+      title: "Print & Export Overview",
+      content: (
+        <div className="space-y-3">
+          <p>Export your plans as PDFs or print directly from the <strong>Calendar</strong> or <strong>Lesson Library</strong>.</p>
+          <div className="bg-teal-50 border-l-4 border-teal-500 p-3 rounded">
+            <p className="text-sm text-teal-900"><strong>Where to find it:</strong> Use the <strong>Export PDF</strong> button on the Calendar tab to generate a branded PDF of your week or month. Lesson plans can also be printed from the lesson detail view.</p>
+          </div>
+        </div>
+      ),
+      highlightSelector: '[data-tab="calendar"]'
+    },
+    {
+      title: "Exporting the Calendar",
+      content: (
+        <div className="space-y-3">
+          <p>From the <strong>Calendar</strong> tab:</p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li><strong>Export PDF:</strong> Click the button to generate a PDF of the current view (week or month)</li>
+            <li><strong>Branding:</strong> The PDF uses your school name, logo letters, and colours from Settings → Branding</li>
+            <li><strong>Lesson links:</strong> Activity and resource links in lesson entries are included as clickable links in the PDF</li>
+            <li><strong>Layout:</strong> Choose week or month view before exporting to get the layout you want</li>
+          </ul>
+          <div className="bg-amber-50 border-l-4 border-amber-500 p-3 rounded mt-3">
+            <p className="text-sm text-amber-900"><strong>Tip:</strong> Set up branding in User Settings first so your exported calendars look professional and on-brand.</p>
+          </div>
+        </div>
+      )
+    },
+    {
+      title: "Printing Lesson Plans",
+      content: (
+        <div className="space-y-3">
+          <p>Print individual lesson plans or half-term overviews:</p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li>Open a lesson from the Lesson Library or Calendar and use the print option</li>
+            <li>From the Unit Planner you can export a half-term or unit plan</li>
+            <li>Printed plans include activities, notes, and curriculum objectives</li>
+          </ul>
+        </div>
+      )
+    }
+  ];
+
+  const shareSteps: GuideStep[] = [
+    {
+      title: "Sharing Plans with a Web Link",
+      content: (
+        <div className="space-y-3">
+          <p>Share any lesson or half-term plan with colleagues or substitutes via a <strong>shareable web link</strong>.</p>
+          <div className="bg-teal-50 border-l-4 border-teal-500 p-3 rounded">
+            <p className="text-sm text-teal-900"><strong>How it works:</strong> In the <strong>Lesson Library</strong>, each lesson card has a <strong>Copy Link</strong> (or link) button. Click it to generate a unique URL that opens a read-only view of that lesson plan.</p>
+          </div>
+        </div>
+      )
+    },
+    {
+      title: "Creating & Using Share Links",
+      content: (
+        <div className="space-y-3">
+          <p>Steps to share a plan:</p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li><strong>Lesson Library:</strong> Find the lesson, then click the <strong>Copy Link</strong> button on the card (coral/red button)</li>
+            <li><strong>Link generated:</strong> The first time you click, a PDF may be generated and the link is copied to your clipboard</li>
+            <li><strong>Paste & send:</strong> Paste the link into an email, message, or document; anyone with the link can view the lesson (read-only)</li>
+            <li><strong>Reuse:</strong> The same link can be used again; later clicks copy the existing link without regenerating</li>
+          </ul>
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-3 rounded mt-3">
+            <p className="text-sm text-teal-900"><strong>Use cases:</strong> Share with cover teachers, send to colleagues for feedback, or keep a link in your timetable for quick access.</p>
+          </div>
+        </div>
+      )
+    },
+    {
+      title: "Multi-Class & Year Groups",
+      content: (
+        <div className="space-y-3">
+          <p>Manage multiple year groups or classes in one place:</p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li><strong>Year group selector:</strong> Use the dropdown in the header to switch between year groups (e.g. Reception, Year 1, Year 2)</li>
+            <li><strong>Separate data:</strong> Lessons, units, and calendar are stored per year group so each class has its own plan</li>
+            <li><strong>Copy lessons:</strong> Use <strong>Copy Lesson</strong> in the Lesson Library to copy lessons from one year group to another</li>
+            <li><strong>Settings:</strong> Add or edit year groups in User Settings → Year Groups</li>
+          </ul>
+        </div>
+      )
+    }
+  ];
+
   // Get the current steps based on active section
   const getCurrentSteps = () => {
     switch (activeSection) {
@@ -448,6 +526,10 @@ export function HelpGuide({ isOpen, onClose, initialSection }: HelpGuideProps) {
         return unitSteps;
       case 'assign':
         return assignSteps;
+      case 'print':
+        return printSteps;
+      case 'share':
+        return shareSteps;
       default:
         return activitySteps;
     }
@@ -501,24 +583,31 @@ export function HelpGuide({ isOpen, onClose, initialSection }: HelpGuideProps) {
 
   if (!isOpen) return null;
 
+  const sectionOrder: HelpGuideSection[] = ['activity', 'lesson', 'unit', 'assign', 'print', 'share'];
+
   const handleNext = () => {
     if (currentStep < currentSteps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      // If we're at the last step, move to the next section or close
-      if (activeSection === 'activity') {
-        setActiveSection('lesson');
-        setCurrentStep(0);
-      } else if (activeSection === 'lesson') {
-        setActiveSection('unit');
-        setCurrentStep(0);
-      } else if (activeSection === 'unit') {
-        setActiveSection('assign');
+      const idx = sectionOrder.indexOf(activeSection);
+      if (idx >= 0 && idx < sectionOrder.length - 1) {
+        setActiveSection(sectionOrder[idx + 1]);
         setCurrentStep(0);
       } else {
-        // We're at the end of the last section
         onClose();
       }
+    }
+  };
+
+  const getStepsForSection = (section: HelpGuideSection) => {
+    switch (section) {
+      case 'activity': return activitySteps;
+      case 'lesson': return lessonSteps;
+      case 'unit': return unitSteps;
+      case 'assign': return assignSteps;
+      case 'print': return printSteps;
+      case 'share': return shareSteps;
+      default: return activitySteps;
     }
   };
 
@@ -526,21 +615,17 @@ export function HelpGuide({ isOpen, onClose, initialSection }: HelpGuideProps) {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
     } else {
-      // If we're at the first step, move to the previous section
-      if (activeSection === 'lesson') {
-        setActiveSection('activity');
-        setCurrentStep(activitySteps.length - 1);
-      } else if (activeSection === 'unit') {
-        setActiveSection('lesson');
-        setCurrentStep(lessonSteps.length - 1);
-      } else if (activeSection === 'assign') {
-        setActiveSection('unit');
-        setCurrentStep(unitSteps.length - 1);
+      const idx = sectionOrder.indexOf(activeSection);
+      if (idx > 0) {
+        const prevSection = sectionOrder[idx - 1];
+        const prevSteps = getStepsForSection(prevSection);
+        setActiveSection(prevSection);
+        setCurrentStep(prevSteps.length - 1);
       }
     }
   };
 
-  const getSectionIcon = (section: 'activity' | 'lesson' | 'unit' | 'assign') => {
+  const getSectionIcon = (section: HelpGuideSection) => {
     switch (section) {
       case 'activity':
         return <Tag className="h-5 w-5" />;
@@ -550,6 +635,12 @@ export function HelpGuide({ isOpen, onClose, initialSection }: HelpGuideProps) {
         return <FolderOpen className="h-5 w-5" />;
       case 'assign':
         return <Calendar className="h-5 w-5" />;
+      case 'print':
+        return <Download className="h-5 w-5" />;
+      case 'share':
+        return <Link2 className="h-5 w-5" />;
+      default:
+        return <Tag className="h-5 w-5" />;
     }
   };
 
@@ -585,7 +676,17 @@ export function HelpGuide({ isOpen, onClose, initialSection }: HelpGuideProps) {
         <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-teal-500 to-teal-600 text-white">
           <div className="flex items-center space-x-3">
             <HelpCircle className="h-6 w-6" />
-            <h2 className="text-xl font-bold">Creative Curriculum Designer</h2>
+            <h2 className="text-xl font-bold">{productName}</h2>
+            {!isHomeView && (
+              <button
+                onClick={() => setIsHomeView(true)}
+                className="ml-2 p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors duration-200 flex items-center space-x-1.5"
+                title="Back to overview"
+              >
+                <Home className="h-5 w-5" />
+                <span className="text-sm font-medium">Home</span>
+              </button>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -595,100 +696,158 @@ export function HelpGuide({ isOpen, onClose, initialSection }: HelpGuideProps) {
           </button>
         </div>
 
-        {/* Overview Section */}
-        <div className={`transition-all duration-300 overflow-hidden bg-gradient-to-r from-teal-50 to-blue-50 border-b border-gray-200 ${
-          isOverviewMinimized ? 'max-h-0 opacity-0' : 'max-h-96'
-        }`}>
-          <div className="p-6 max-w-4xl mx-auto">
-            <p className="text-sm text-gray-700 leading-relaxed mb-4">
-              A comprehensive planning platform to streamline your curriculum development. Build reusable activities, organise them into structured lessons, group lessons into thematic units, and schedule everything across your academic year.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-              <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200">
-                <div className="flex items-center space-x-1.5 text-teal-600">
-                  <Tag className="h-3.5 w-3.5" />
-                  <h4 className="font-semibold text-xs">Activity Library</h4>
-                </div>
-              </div>
-              <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200">
-                <div className="flex items-center space-x-1.5 text-teal-600">
-                  <Edit3 className="h-3.5 w-3.5" />
-                  <h4 className="font-semibold text-xs">Lesson Builder</h4>
-                </div>
-              </div>
-              <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200">
-                <div className="flex items-center space-x-1.5 text-indigo-600">
-                  <FolderOpen className="h-3.5 w-3.5" />
-                  <h4 className="font-semibold text-xs">Unit Planner</h4>
-                </div>
-              </div>
-              <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200">
-                <div className="flex items-center space-x-1.5 text-purple-600">
-                  <Calendar className="h-3.5 w-3.5" />
-                  <h4 className="font-semibold text-xs">Half-Term Scheduling</h4>
-                </div>
-              </div>
-              <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200">
-                <div className="flex items-center space-x-1.5 text-green-600">
-                  <Download className="h-3.5 w-3.5" />
-                  <h4 className="font-semibold text-xs">Print & Export</h4>
-                </div>
-              </div>
-              <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200">
-                <div className="flex items-center space-x-1.5 text-orange-600">
-                  <Users className="h-3.5 w-3.5" />
-                  <h4 className="font-semibold text-xs">Multi-Class Support</h4>
-                </div>
+        {/* Home: Overview (intro + index) – only on home */}
+        {isHomeView && (
+          <div className="flex-1 overflow-y-auto bg-gradient-to-r from-teal-50 to-blue-50 border-b border-gray-200">
+            <div className="p-6 max-w-4xl mx-auto">
+              <p className="text-sm text-gray-700 leading-relaxed mb-4">
+                A comprehensive planning platform to streamline your curriculum development. Build reusable activities, organise them into structured lessons, group lessons into units and stacks, schedule everything on the calendar, and print or share your plans.
+              </p>
+              <p className="text-xs text-gray-500 mb-3">Click a topic to open that section:</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setActiveSection('activity'); setCurrentStep(0); setIsHomeView(false); }}
+                  className="rounded-lg p-2 shadow-sm border border-gray-200 bg-white text-left transition-colors duration-200 hover:ring-2 hover:ring-teal-400"
+                >
+                  <div className="flex items-center space-x-1.5 text-teal-600">
+                    <Tag className="h-3.5 w-3.5" />
+                    <h4 className="font-semibold text-xs">Activity Library</h4>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setActiveSection('lesson'); setCurrentStep(0); setIsHomeView(false); }}
+                  className="rounded-lg p-2 shadow-sm border border-gray-200 bg-white text-left transition-colors duration-200 hover:ring-2 hover:ring-teal-400"
+                >
+                  <div className="flex items-center space-x-1.5 text-teal-600">
+                    <Edit3 className="h-3.5 w-3.5" />
+                    <h4 className="font-semibold text-xs">Lesson Builder</h4>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setActiveSection('unit'); setCurrentStep(0); setIsHomeView(false); }}
+                  className="rounded-lg p-2 shadow-sm border border-gray-200 bg-white text-left transition-colors duration-200 hover:ring-2 hover:ring-indigo-400"
+                >
+                  <div className="flex items-center space-x-1.5 text-indigo-600">
+                    <FolderOpen className="h-3.5 w-3.5" />
+                    <h4 className="font-semibold text-xs">Unit Planner & Stacks</h4>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setActiveSection('assign'); setCurrentStep(0); setIsHomeView(false); }}
+                  className="rounded-lg p-2 shadow-sm border border-gray-200 bg-white text-left transition-colors duration-200 hover:ring-2 hover:ring-purple-400"
+                >
+                  <div className="flex items-center space-x-1.5 text-purple-600">
+                    <Calendar className="h-3.5 w-3.5" />
+                    <h4 className="font-semibold text-xs">Calendar & Half-Terms</h4>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setActiveSection('print'); setCurrentStep(0); setIsHomeView(false); }}
+                  className="rounded-lg p-2 shadow-sm border border-gray-200 bg-white text-left transition-colors duration-200 hover:ring-2 hover:ring-green-400"
+                >
+                  <div className="flex items-center space-x-1.5 text-green-600">
+                    <Download className="h-3.5 w-3.5" />
+                    <h4 className="font-semibold text-xs">Print & Export</h4>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setActiveSection('share'); setCurrentStep(0); setIsHomeView(false); }}
+                  className="rounded-lg p-2 shadow-sm border border-gray-200 bg-white text-left transition-colors duration-200 hover:ring-2 hover:ring-orange-400"
+                >
+                  <div className="flex items-center space-x-1.5 text-orange-600">
+                    <Link2 className="h-3.5 w-3.5" />
+                    <h4 className="font-semibold text-xs">Share Plans & Multi-Class</h4>
+                  </div>
+                </button>
               </div>
             </div>
+            <div className="p-4 border-t border-gray-200 bg-white/60 flex justify-end">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-lg transition-colors duration-200"
+              >
+                Close
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
+        {/* Section view: tabs + content + footer – only when not on home */}
+        {!isHomeView && (
+          <>
         {/* Section Tabs */}
-        <div className="flex border-b border-gray-200 bg-gray-50">
+        <div className="flex flex-wrap border-b border-gray-200 bg-gray-50 gap-x-1">
           <button
             onClick={() => { setActiveSection('activity'); setCurrentStep(0); }}
-            className={`flex items-center space-x-2 px-4 py-3 font-medium text-sm transition-colors duration-200 ${
+            className={`flex items-center space-x-2 px-3 py-3 font-medium text-sm transition-colors duration-200 ${
               activeSection === 'activity' 
                 ? 'border-b-2 border-teal-600 text-teal-600 bg-white' 
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            <Tag className="h-4 w-4" />
-            <span>1. Create Activity</span>
+            <Tag className="h-4 w-4 flex-shrink-0" />
+            <span className="whitespace-nowrap">1. Activities</span>
           </button>
           <button
             onClick={() => { setActiveSection('lesson'); setCurrentStep(0); }}
-            className={`flex items-center space-x-2 px-4 py-3 font-medium text-sm transition-colors duration-200 ${
+            className={`flex items-center space-x-2 px-3 py-3 font-medium text-sm transition-colors duration-200 ${
               activeSection === 'lesson' 
                 ? 'border-b-2 border-teal-600 text-teal-600 bg-white' 
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            <Edit3 className="h-4 w-4" />
-            <span>2. Create Lesson</span>
+            <Edit3 className="h-4 w-4 flex-shrink-0" />
+            <span className="whitespace-nowrap">2. Lessons</span>
           </button>
           <button
             onClick={() => { setActiveSection('unit'); setCurrentStep(0); }}
-            className={`flex items-center space-x-2 px-4 py-3 font-medium text-sm transition-colors duration-200 ${
+            className={`flex items-center space-x-2 px-3 py-3 font-medium text-sm transition-colors duration-200 ${
               activeSection === 'unit' 
                 ? 'border-b-2 border-teal-600 text-teal-600 bg-white' 
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            <FolderOpen className="h-4 w-4" />
-            <span>3. Create Unit</span>
+            <FolderOpen className="h-4 w-4 flex-shrink-0" />
+            <span className="whitespace-nowrap">3. Units & Stacks</span>
           </button>
           <button
             onClick={() => { setActiveSection('assign'); setCurrentStep(0); }}
-            className={`flex items-center space-x-2 px-4 py-3 font-medium text-sm transition-colors duration-200 ${
+            className={`flex items-center space-x-2 px-3 py-3 font-medium text-sm transition-colors duration-200 ${
               activeSection === 'assign' 
                 ? 'border-b-2 border-teal-600 text-teal-600 bg-white' 
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            <Calendar className="h-4 w-4" />
-            <span>4. Assign to Half-Term</span>
+            <Calendar className="h-4 w-4 flex-shrink-0" />
+            <span className="whitespace-nowrap">4. Calendar</span>
+          </button>
+          <button
+            onClick={() => { setActiveSection('print'); setCurrentStep(0); }}
+            className={`flex items-center space-x-2 px-3 py-3 font-medium text-sm transition-colors duration-200 ${
+              activeSection === 'print' 
+                ? 'border-b-2 border-teal-600 text-teal-600 bg-white' 
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Download className="h-4 w-4 flex-shrink-0" />
+            <span className="whitespace-nowrap">5. Print & Export</span>
+          </button>
+          <button
+            onClick={() => { setActiveSection('share'); setCurrentStep(0); }}
+            className={`flex items-center space-x-2 px-3 py-3 font-medium text-sm transition-colors duration-200 ${
+              activeSection === 'share' 
+                ? 'border-b-2 border-teal-600 text-teal-600 bg-white' 
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Link2 className="h-4 w-4 flex-shrink-0" />
+            <span className="whitespace-nowrap">6. Share & Classes</span>
           </button>
         </div>
 
@@ -703,8 +862,10 @@ export function HelpGuide({ isOpen, onClose, initialSection }: HelpGuideProps) {
               <h3 className="text-xl font-bold text-gray-900">
                 {activeSection === 'activity' && 'Creating Activities'}
                 {activeSection === 'lesson' && 'Building Lessons'}
-                {activeSection === 'unit' && 'Managing Units'}
-                {activeSection === 'assign' && 'Assigning to Half-Terms'}
+                {activeSection === 'unit' && 'Units & Stacks'}
+                {activeSection === 'assign' && 'Calendar & Half-Terms'}
+                {activeSection === 'print' && 'Print & Export'}
+                {activeSection === 'share' && 'Share Plans & Multi-Class'}
               </h3>
             </div>
 
@@ -766,10 +927,12 @@ export function HelpGuide({ isOpen, onClose, initialSection }: HelpGuideProps) {
             onClick={handleNext}
             className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center space-x-2"
           >
-            <span>{currentStep < currentSteps.length - 1 || activeSection !== 'assign' ? 'Next' : 'Finish'}</span>
+            <span>{currentStep < currentSteps.length - 1 || activeSection !== 'share' ? 'Next' : 'Finish'}</span>
             <ChevronRight className="h-5 w-5" />
           </button>
         </div>
+          </>
+        )}
       </div>
     </div>
   );

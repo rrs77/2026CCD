@@ -197,7 +197,7 @@ export function ActivityCard({
     return (
       <div
         ref={draggable ? drag : undefined}
-className={`bg-white rounded-card shadow-soft border-l-4 p-3 transition-all duration-200 hover:shadow-hover cursor-pointer h-full ${
+className={`bg-white rounded-md shadow-soft border-l-4 p-3 transition-all duration-200 hover:shadow-hover cursor-pointer h-full ${
           isDragging ? 'opacity-50' : ''
         }`}
         style={{ borderLeftColor: cardColor }}
@@ -238,7 +238,7 @@ className={`bg-white rounded-card shadow-soft border-l-4 p-3 transition-all dura
     return (
       <div
         ref={draggable ? drag : undefined}
-        className={`bg-white rounded-card shadow-soft border transition-all duration-200 hover:shadow-hover cursor-pointer ${
+        className={`bg-white rounded-md shadow-soft border transition-all duration-200 hover:shadow-hover cursor-pointer ${
           isEditing ? 'ring-2 ring-blue-300' : 'border-gray-200 hover:border-gray-300'
         } ${isDragging ? 'opacity-50' : ''} ${isExpanded ? 'border-teal-300' : ''} flex flex-col`}
         style={{ borderLeftColor: cardColor, borderLeftWidth: '4px' }}

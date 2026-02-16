@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { X, Download, Smartphone, Monitor } from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { useSettings } from '../contexts/SettingsContextNew';
 
 export function PWAInstallPrompt() {
+  const { settings } = useSettings();
+  const productName = settings?.branding?.loginTitle || 'Creative Curriculum Designer';
   const { canInstall, isInstalled, install } = usePWAInstall();
   const [showPrompt, setShowPrompt] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
@@ -81,7 +84,7 @@ export function PWAInstallPrompt() {
             <div>
               <h3 className="font-semibold text-gray-900">Install App</h3>
               <p className="text-sm text-gray-600 mt-1">
-                Install Creative Curriculum Designer for quick access and offline use
+                Install {productName} for quick access and offline use
               </p>
             </div>
           </div>

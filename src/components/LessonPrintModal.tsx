@@ -66,7 +66,11 @@ export function LessonPrintModal({
     getTermSpecificLessonNumber,
     getLessonDisplayTitle
   } = useData();
-  const { getCategoryColor } = useSettings();
+  const { getCategoryColor, settings } = useSettings();
+  const branding = settings?.branding || {};
+  const productName = branding.loginTitle || 'Creative Curriculum Designer';
+  const footerCompany = branding.footerCompanyName || 'Forward Thinking';
+  const footerYear = branding.footerCopyrightYear || new Date().getFullYear().toString();
   const { shareLesson: shareSingleLesson, isSharing: isSharingSingle, getStoredShareUrl } = useShareLesson();
   const [isExporting, setIsExporting] = useState(false);
   const [exportSuccess, setExportSuccess] = useState(false);
@@ -1140,10 +1144,10 @@ export function LessonPrintModal({
     const headerContent = '<div></div>';
 
     // Create footer template for PDFBolt (use custom footer when set)
-    // Match design: Left (Creative Curriculum Designer), Center (Curriculum • Copyright), Right (Lesson • Page in pill)
+    // Match design: Left (product name), Center (Curriculum • Copyright), Right (Lesson • Page in pill)
     const footerCenterText = (exportUseCustomHeaderFooter && exportCustomFooter)
       ? exportCustomFooter
-      : [currentSheetInfo.display || '', '© Forward Thinking 2026'].filter(Boolean).join(' • ');
+      : [currentSheetInfo.display || '', `© ${footerCompany} ${footerYear}`].filter(Boolean).join(' • ');
     
     // Get lesson number for footer (first lesson if multiple)
     const firstLessonNum = lessonsToRender[0];
@@ -1155,7 +1159,7 @@ export function LessonPrintModal({
     
     const footerContent = `
       <div style="width: 100%; font-size: 9px; padding: 8px 20px; display: flex; justify-content: space-between; align-items: center; color: #5F6368; font-family: 'Inter', sans-serif;">
-        <span style="color: #5F6368;">Creative Curriculum Designer</span>
+        <span style="color: #5F6368;">${productName.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
         <span style="color: #5F6368;">${footerCenterText}</span>
         <span style="background: #E8EAEF; color: #0f766e; padding: 4px 12px; border-radius: 50px; font-weight: 500;">Lesson ${lessonDisplayNum} • Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
       </div>
@@ -1740,7 +1744,7 @@ export function LessonPrintModal({
                       type="text"
                       value={exportCustomFooter}
                       onChange={(e) => setExportCustomFooter(e.target.value)}
-                      placeholder="e.g. Creative Curriculum Designer • Lesson 3 • © 2026"
+                      placeholder={`e.g. ${productName} • Lesson 3 • © ${footerYear}`}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                     />
                   </div>

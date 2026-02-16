@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Settings, Palette, RotateCcw, X, Plus, Trash2, GripVertical, Edit3, Save, Users, Database, AlertTriangle, GraduationCap, Package, Filter, Video, Music, Volume2, FileText, Link as LinkIcon, Image, FileVideo, FileMusic, File, Globe, ExternalLink, Share2, Download, Upload, Eye, Play, Pause, Headphones, Mic, Speaker, Film, Camera, BookOpen, Book, Folder, Cloud, Network, Target } from 'lucide-react';
+import { Settings, Palette, RotateCcw, X, Plus, Trash2, GripVertical, Edit3, Save, Users, Database, AlertTriangle, GraduationCap, Package, Filter, Video, Music, Volume2, FileText, Link as LinkIcon, Image, FileVideo, FileMusic, File, Globe, ExternalLink, Share2, Download, Upload, Eye, Play, Pause, Headphones, Mic, Speaker, Film, Camera, BookOpen, Book, Folder, Cloud, Network, Target, HelpCircle } from 'lucide-react';
 import { useSettings, Category, ResourceLinkConfig, SOCIAL_PLATFORMS } from '../contexts/SettingsContextNew';
 import { DataSourceSettings } from './DataSourceSettings';
 import { CustomObjectivesAdmin } from './CustomObjectivesAdmin';
@@ -135,7 +135,7 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
   tempCategoriesRef.current = tempCategories;
   tempYearGroupsRef.current = tempYearGroups;
   const [tempResourceLinks, setTempResourceLinks] = useState(resourceLinks);
-  const [activeTab, setActiveTab] = useState<'yeargroups' | 'categories' | 'purchases' | 'manage-packs' | 'data' | 'admin' | 'resource-links' | 'users' | 'branding'>('yeargroups');
+  const [activeTab, setActiveTab] = useState<'general' | 'yeargroups' | 'categories' | 'purchases' | 'manage-packs' | 'data' | 'admin' | 'resource-links' | 'users' | 'branding'>('general');
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [editingCategoryYearGroups, setEditingCategoryYearGroups] = useState<string | null>(null); // Track which category's year groups are being edited
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -160,8 +160,9 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
 
   const isAdmin = user?.email === 'rob.reichstorer@gmail.com' || 
                   user?.role === 'administrator' ||
-                  profile?.role === 'admin';
-  const showUserManagement = isSupabaseAuthEnabled() && (isAdmin || profile?.role === 'admin' || profile?.can_manage_users === true);
+                  profile?.role === 'admin' ||
+                  profile?.role === 'superuser';
+  const showUserManagement = isSupabaseAuthEnabled() && (isAdmin || profile?.role === 'admin' || profile?.role === 'superuser' || profile?.can_manage_users === true);
 
   // Update temp settings when settings change
   React.useEffect(() => {
@@ -188,7 +189,7 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
 
   // Clear notification when switching away from yeargroups tab (except when going to admin)
   React.useEffect(() => {
-    if (activeTab !== 'yeargroups' && activeTab !== 'admin' && newlyAddedYearGroup) {
+    if (activeTab !== 'general' && activeTab !== 'yeargroups' && activeTab !== 'admin' && newlyAddedYearGroup) {
       setNewlyAddedYearGroup(null);
     }
   }, [activeTab]);
@@ -707,6 +708,19 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
             minHeight: '48px'
           }}
         >
+          {/* General */}
+          <button
+            onClick={() => setActiveTab('general')}
+            className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
+              activeTab === 'general'
+                ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
+            }`}
+            style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif', border: 'none', borderLeft: 'none', borderRight: 'none' }}
+          >
+            General
+          </button>
+
           {/* Year Groups */}
           <button
             onClick={() => setActiveTab('yeargroups')}
@@ -865,6 +879,35 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
                 <span className="text-sm font-medium">Settings saved successfully!</span>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'general' && (
+            <div className="bg-gradient-to-br from-teal-50 to-cyan-50 rounded-xl p-6">
+              <div className="flex items-center space-x-3 mb-6">
+                <HelpCircle className="h-6 w-6 text-teal-600" />
+                <h3 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
+                  General
+                </h3>
+              </div>
+              <div className="bg-white rounded-lg border border-teal-200 p-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.showButtonHelp !== false}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setTempSettings(prev => ({ ...prev, showButtonHelp: checked }));
+                      updateSettings({ showButtonHelp: checked });
+                    }}
+                    className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                  />
+                  <span className="text-sm font-medium text-gray-900">Show hover help for buttons</span>
+                </label>
+                <p className="mt-2 text-xs text-gray-500">
+                  When on, hovering over toolbar buttons (e.g. in Lesson Library) shows a short explanation. Turn off to hide these tooltips.
+                </p>
               </div>
             </div>
           )}
@@ -1429,8 +1472,6 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                       if (isSelected) newSelected.delete(yearGroupKey);
                                       else newSelected.add(yearGroupKey);
                                       setSelectedYearGroupsForBulk(newSelected);
-                                      // Minimise Step 1 as soon as at least one year group is selected
-                                      if (newSelected.size > 0) setBulkStep1Collapsed(true);
                                     }}
                                     className={`px-3 py-2 text-sm font-medium rounded-lg transition-all ${
                                       isSelected ? 'bg-teal-600 hover:bg-teal-700 text-white shadow-md' : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'

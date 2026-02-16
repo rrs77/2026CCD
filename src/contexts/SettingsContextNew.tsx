@@ -84,6 +84,8 @@ interface UserSettings {
   customTheme: boolean;
   resourceLinks?: ResourceLinkConfig[]; // Custom resource link configurations
   branding?: BrandingSettings; // White-label branding settings
+  /** When true, show hover tooltips on toolbar buttons (e.g. Lesson Library sort/view). */
+  showButtonHelp?: boolean;
 }
 
 interface YearGroup {
@@ -278,7 +280,8 @@ const DEFAULT_SETTINGS: UserSettings = {
   secondaryColor: '#2563EB',
   accentColor: '#60A5FA',
   customTheme: false,
-  branding: DEFAULT_BRANDING
+  branding: DEFAULT_BRANDING,
+  showButtonHelp: true
 };
 
 // Default year groups

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
 import type { Profile, ProfileRole } from '../../types/auth';
 
 interface EditUserModalProps {
@@ -9,13 +10,17 @@ interface EditUserModalProps {
   onClose: () => void;
 }
 
-const ROLES: { value: ProfileRole; label: string }[] = [
+const BASE_ROLES: { value: ProfileRole; label: string }[] = [
   { value: 'viewer', label: 'Viewer' },
   { value: 'teacher', label: 'Teacher' },
   { value: 'admin', label: 'Admin' }
 ];
 
 export function EditUserModal({ user, yearGroupNames, onSave, onClose }: EditUserModalProps) {
+  const { profile: currentProfile } = useAuth();
+  const isSuperuser = currentProfile?.role === 'superuser';
+  const roles = isSuperuser ? [...BASE_ROLES, { value: 'superuser' as const, label: 'Superuser' }] : BASE_ROLES;
+
   const [role, setRole] = useState<ProfileRole>(user.role);
   const [displayName, setDisplayName] = useState(user.display_name ?? '');
   const [canEditActivities, setCanEditActivities] = useState(user.can_edit_activities);
@@ -88,7 +93,7 @@ export function EditUserModal({ user, yearGroupNames, onSave, onClose }: EditUse
               onChange={e => setRole(e.target.value as ProfileRole)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2"
             >
-              {ROLES.map(r => (
+              {roles.map(r => (
                 <option key={r.value} value={r.value}>{r.label}</option>
               ))}
             </select>

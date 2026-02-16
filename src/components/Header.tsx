@@ -25,6 +25,13 @@ export function Header() {
   // Get theme colors for current class
   const theme = getThemeForClass(currentSheetInfo.sheet);
 
+  // Keep document title in sync with branding (tab/window title)
+  const productName = settings.branding?.loginTitle || 'Creative Curriculum Designer';
+  useEffect(() => {
+    document.title = productName;
+    return () => { document.title = 'Creative Curriculum Designer'; };
+  }, [productName]);
+
   return (
     <>
       <header className="bg-white fixed top-0 left-0 right-0 z-50" style={{ boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)' }}>
@@ -36,8 +43,8 @@ export function Header() {
               <LogoSVG size="xs-sm" showText={false} letters={settings.branding?.logoLetters} className="flex-shrink-0" />
               <div className="min-w-0 flex-1 flex items-center space-x-2">
                 <h1 className="text-sm sm:text-lg lg:text-xl font-bold text-gray-900 truncate" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
-                  <span className="hidden sm:inline">Creative Curriculum Designer</span>
-                  <span className="sm:hidden">CCD</span>
+                  <span className="hidden sm:inline">{settings.branding?.loginTitle || 'Creative Curriculum Designer'}</span>
+                  <span className="sm:hidden">{settings.branding?.logoLetters || 'CCD'}</span>
                 </h1>
                 {isViewOnly && (
                   <span className="px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-md border border-yellow-200">

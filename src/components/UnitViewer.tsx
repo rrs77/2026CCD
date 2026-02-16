@@ -100,7 +100,10 @@ export function UnitViewer() {
     allActivities,
     updateLessonData
   } = useData();
-  const { getThemeForClass } = useSettings();
+  const { getThemeForClass, settings } = useSettings();
+  const productName = settings?.branding?.loginTitle || 'Creative Curriculum Designer';
+  const footerCompany = settings?.branding?.footerCompanyName || 'Forward Thinking';
+  const footerYear = settings?.branding?.footerCopyrightYear || new Date().getFullYear().toString();
   const { stacks } = useLessonStacks();
   const [units, setUnits] = useState<Unit[]>([]);
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
@@ -937,7 +940,7 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                       />
                       <p className="mt-1 text-xs text-gray-500">
-                        Default: Creative Curriculum Designer • Lesson {editingLessonNumber} • {currentSheetInfo.display} • © Forward Thinking 2026
+                        Default: {productName} • Lesson {editingLessonNumber} • {currentSheetInfo.display} • © {footerCompany} {footerYear}
                       </p>
                     </div>
                   </div>

@@ -30,12 +30,12 @@ export function AuthGuard({
 
   if (requireCanManageUsers) {
     const isSuperAdmin = user?.email === 'rob.reichstorer@gmail.com' || user?.role === 'administrator';
-    const canManage = isSuperAdmin || profile?.role === 'admin' || profile?.can_manage_users === true;
+    const canManage = isSuperAdmin || profile?.role === 'admin' || profile?.role === 'superuser' || profile?.can_manage_users === true;
     if (!canManage) return <>{fallback}</>;
   }
 
   if (requiredRole) {
-    const roleOrder: ProfileRole[] = ['viewer', 'teacher', 'admin'];
+    const roleOrder: ProfileRole[] = ['viewer', 'teacher', 'admin', 'superuser'];
     const userRole = (profile?.role ?? user.role) as ProfileRole;
     const requiredIndex = roleOrder.indexOf(requiredRole);
     const userIndex = roleOrder.indexOf(userRole);

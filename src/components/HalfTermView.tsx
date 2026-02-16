@@ -28,7 +28,8 @@ export function HalfTermView({
   onPrintHalfTerm
 }: HalfTermViewProps) {
   const { allLessonsData, currentSheetInfo, getTermSpecificLessonNumber } = useData();
-  const { getThemeForClass, getCategoryColor } = useSettings();
+  const { getThemeForClass, getCategoryColor, settings } = useSettings();
+  const productName = settings?.branding?.loginTitle || 'Creative Curriculum Designer';
   const theme = getThemeForClass('LKG'); // Default theme
 
   // Helper function to convert hex color to RGB
@@ -182,7 +183,7 @@ export function HalfTermView({
             
             {/* Print-only footer */}
             <div className="hidden print:block mt-8 pt-4 border-t border-gray-200 text-center text-xs text-gray-500">
-              <p>Creative Curriculum Designer - {currentSheetInfo.display} - {halfTermName}</p>
+              <p>{productName} - {currentSheetInfo.display} - {halfTermName}</p>
               <p className="pageNumber">Page 1</p>
             </div>
           </>

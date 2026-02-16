@@ -7,7 +7,7 @@ import type { Activity } from '../contexts/DataContext';
 
 export function useShareLesson() {
   const { allLessonsData, currentSheetInfo, lessonStandards, halfTerms, getTermSpecificLessonNumber, getLessonDisplayTitle } = useData();
-  const { getCategoryColor } = useSettings();
+  const { getCategoryColor, settings } = useSettings();
   const [isSharing, setIsSharing] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareError, setShareError] = useState<string | null>(null);
@@ -373,8 +373,12 @@ export function useShareLesson() {
     `;
 
     // Footer content
+    const branding = settings?.branding || {};
+    const productName = branding.loginTitle || 'Creative Curriculum Designer';
+    const footerCompany = branding.footerCompanyName || 'Forward Thinking';
+    const footerYear = branding.footerCopyrightYear || new Date().getFullYear().toString();
     const footerText = lessonData.customFooter || 
-      ['Creative Curriculum Designer', `Lesson ${termSpecificNumber}`, currentSheetInfo.display, halfTermName, '© Forward Thinking 2026']
+      [productName, `Lesson ${termSpecificNumber}`, currentSheetInfo.display, halfTermName, `© ${footerCompany} ${footerYear}`]
         .filter(Boolean)
         .join(' • ');
     

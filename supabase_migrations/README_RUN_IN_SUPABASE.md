@@ -70,3 +70,13 @@ STEP 7 (optional) - If year group Lesson Library does not sync with Supabase
 4. Click Run
 
 This allows the app to save lesson library data per year group when using local auth (no Supabase session). Run after activities_lessons_allow_anon_read.sql.
+
+-------------------------------------------------------------------------------
+STEP 8 (optional) - User Management: superuser role and RLS for admins
+-------------------------------------------------------------------------------
+1. Open the file:  profiles_superuser_and_rls.sql
+2. Select ALL text in that file (Cmd+A or Ctrl+A)
+3. Copy and paste into Supabase Dashboard → SQL Editor
+4. Click Run
+
+This adds a "superuser" role to profiles, lets admins/superusers read and update all users, syncs email from auth into profiles, and backfills missing emails. Run this if you use Supabase Auth and want the Users tab in Settings to work (view all users, edit roles, send password reset emails).

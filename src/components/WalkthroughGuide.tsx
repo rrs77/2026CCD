@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, ChevronRight, ChevronLeft, HelpCircle, Info, BookOpen, Calendar, Edit3, FolderOpen, Tag, Search, Filter, Download, Plus, Save } from 'lucide-react';
+import { useSettings } from '../contexts/SettingsContextNew';
 
 interface WalkthroughStep {
   title: string;
@@ -15,6 +16,8 @@ interface WalkthroughGuideProps {
 }
 
 export function WalkthroughGuide({ isOpen, onClose }: WalkthroughGuideProps) {
+  const { settings } = useSettings();
+  const productName = settings?.branding?.loginTitle || 'Creative Curriculum Designer';
   const [currentStep, setCurrentStep] = useState(0);
   const [targetElement, setTargetElement] = useState<HTMLElement | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
@@ -23,7 +26,7 @@ export function WalkthroughGuide({ isOpen, onClose }: WalkthroughGuideProps) {
   // Define the walkthrough steps
   const steps: WalkthroughStep[] = [
     {
-      title: 'Welcome to Creative Curriculum Designer',
+      title: `Welcome to ${productName}`,
       description: 'This guide will walk you through the key features of the application. Let\'s get started!',
       target: 'body',
       position: 'top',

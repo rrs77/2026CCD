@@ -2,7 +2,7 @@
  * Profile row from public.profiles (Supabase Auth).
  * id matches auth.users(id).
  */
-export type ProfileRole = 'admin' | 'teacher' | 'viewer';
+export type ProfileRole = 'admin' | 'teacher' | 'viewer' | 'superuser';
 
 export interface Profile {
   id: string;

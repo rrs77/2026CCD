@@ -102,7 +102,8 @@ export function LessonLibrary({
     restoreLesson,
     permanentDeleteFromTrash
   } = useData();
-  const { getThemeForClass, categories, customYearGroups } = useSettings();
+  const { getThemeForClass, categories, customYearGroups, settings } = useSettings();
+  const showButtonHelp = settings.showButtonHelp !== false;
   const {
     stacks,
     createStack,
@@ -818,6 +819,7 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
             {/* Toggle between Library and Trash */}
             <button
               onClick={() => setShowTrash(!showTrash)}
+              title={showButtonHelp ? (showTrash ? 'Back to Lesson Library' : 'View deleted lessons (Trash)') : undefined}
               className={`px-4 py-2 rounded-lg transition-colors duration-200 flex items-center space-x-2 ${
                 showTrash 
                   ? 'bg-white bg-opacity-20 hover:bg-opacity-30' 
@@ -843,6 +845,7 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
             <div className="flex items-center space-x-1">
               <button
                 onClick={() => setViewMode('compact')}
+                title={showButtonHelp ? 'Compact view: small cards in a dense grid' : undefined}
                 className={`p-2 rounded-lg transition-colors duration-200 ${
                   viewMode === 'compact' ? 'bg-white bg-opacity-20' : 'hover:bg-white hover:bg-opacity-10'
                 }`}
@@ -851,6 +854,7 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
               </button>
               <button
                 onClick={() => setViewMode('list')}
+                title={showButtonHelp ? 'List view: one lesson per row with details' : undefined}
                 className={`p-2 rounded-lg transition-colors duration-200 ${
                   viewMode === 'list' ? 'bg-white bg-opacity-20' : 'hover:bg-white hover:bg-opacity-10'
                 }`}
@@ -859,6 +863,7 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
               </button>
               <button
                 onClick={() => setViewMode('grid')}
+                title={showButtonHelp ? 'Grid view: large cards with full lesson info' : undefined}
                 className={`p-2 rounded-lg transition-colors duration-200 ${
                   viewMode === 'grid' ? 'bg-white bg-opacity-20' : 'hover:bg-white hover:bg-opacity-10'
                 }`}
@@ -905,6 +910,7 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => toggleSort('number')}
+              title={showButtonHelp ? 'Sort by lesson number' : undefined}
               className={`flex items-center justify-center space-x-1 h-10 px-3 rounded-lg transition-colors duration-200 ${
                 sortBy === 'number' ? 'bg-teal-600 text-white border border-teal-600' : 'bg-white text-gray-700 hover:bg-gray-50 border border-transparent'
               }`}
@@ -914,6 +920,7 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
             </button>
             <button
               onClick={() => toggleSort('time')}
+              title={showButtonHelp ? 'Sort by duration (time)' : undefined}
               className={`flex items-center justify-center space-x-1 h-10 px-3 rounded-lg transition-colors duration-200 ${
                 sortBy === 'time' ? 'bg-teal-600 text-white border border-teal-600' : 'bg-white text-gray-700 hover:bg-gray-50 border border-transparent'
               }`}
@@ -923,6 +930,7 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
             </button>
             <button
               onClick={() => toggleSort('activities')}
+              title={showButtonHelp ? 'Sort by number of activities' : undefined}
               className={`flex items-center justify-center space-x-1 h-10 px-3 rounded-lg transition-colors duration-200 ${
                 sortBy === 'activities' ? 'bg-teal-600 text-white border border-teal-600' : 'bg-white text-gray-700 hover:bg-gray-50 border border-transparent'
               }`}
@@ -938,7 +946,7 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
                 setShowStandaloneLessonCreator(true);
               }}
               className="flex items-center justify-center space-x-2 h-10 px-5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 whitespace-nowrap"
-              title="Create a new lesson"
+              title={showButtonHelp ? 'Create a new lesson from scratch' : undefined}
             >
               <FileText className="h-4 w-4" />
               <span>Create Lesson</span>
@@ -948,7 +956,7 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
             <button
               onClick={() => setShowClassCopyModal(true)}
               className="flex items-center justify-center space-x-2 h-10 px-5 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-lg transition-colors duration-200 whitespace-nowrap"
-              title="Copy lessons to another class"
+              title={showButtonHelp ? 'Copy lessons to another year group' : undefined}
             >
               <Copy className="h-4 w-4" />
               <span>Copy Lesson</span>
@@ -1268,7 +1276,7 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                     />
                     <p className="mt-1 text-xs text-gray-500">
-                      Default: Creative Curriculum Designer • Lesson {editingLessonNumber} • {currentSheetInfo.display} • © Forward Thinking 2026
+                      Default: {settings?.branding?.loginTitle || 'Creative Curriculum Designer'} • Lesson {editingLessonNumber} • {currentSheetInfo.display} • © {settings?.branding?.footerCompanyName || 'Forward Thinking'} {settings?.branding?.footerCopyrightYear || new Date().getFullYear()}
                     </p>
                   </div>
                 </div>
