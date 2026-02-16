@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from '../config/supabase';
-import { yearGroupsApi, customCategoriesApi, categoryGroupsApi } from '../config/api';
+import { yearGroupsApi, customCategoriesApi, categoryGroupsApi, brandingApi } from '../config/api';
 import { useAuth } from '../hooks/useAuth';
 
 // Safari detection for enhanced sync handling
@@ -880,6 +880,20 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
             }
           }
 
+          // Load branding from Supabase (footer, login page - persists across devices)
+          try {
+            const supabaseBranding = await brandingApi.get();
+            if (supabaseBranding && typeof supabaseBranding === 'object' && Object.keys(supabaseBranding).length > 0) {
+              setSettings(prev => ({
+                ...prev,
+                branding: { ...DEFAULT_BRANDING, ...(prev.branding || {}), ...supabaseBranding }
+              }));
+              if (import.meta.env.DEV) console.log('📦 Loaded branding from Supabase');
+            }
+          } catch (e) {
+            if (import.meta.env.DEV) console.warn('Failed to load branding from Supabase:', e);
+          }
+
           // If we had no categories from Supabase, sync custom categories from localStorage to Supabase
           if (!supabaseCategories || supabaseCategories.length === 0) {
             const localStorageCategories = localStorage.getItem('saved-categories');
@@ -1456,7 +1470,14 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const updateSettings = (newSettings: Partial<UserSettings>) => {
-    setSettings(prev => ({ ...prev, ...newSettings }));
+    setSettings(prev => {
+      const next = { ...prev, ...newSettings };
+      // Persist branding to Supabase when it changes (survives cache clears, different devices)
+      if (newSettings.branding && isSupabaseConfigured()) {
+        brandingApi.upsert(newSettings.branding).catch(() => {});
+      }
+      return next;
+    });
   };
 
   const updateResourceLinks = (links: ResourceLinkConfig[]) => {
@@ -1938,6 +1959,20 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
         setCategoryGroups({ groups: groupNames });
         localStorage.setItem('category-groups', JSON.stringify({ groups: groupNames }));
         console.log('✅ Category groups refreshed from Supabase:', groupNames);
+      }
+
+      // Refresh branding from Supabase
+      try {
+        const supabaseBranding = await brandingApi.get();
+        if (supabaseBranding && typeof supabaseBranding === 'object' && Object.keys(supabaseBranding).length > 0) {
+          setSettings(prev => ({
+            ...prev,
+            branding: { ...DEFAULT_BRANDING, ...(prev.branding || {}), ...supabaseBranding }
+          }));
+          console.log('✅ Branding refreshed from Supabase');
+        }
+      } catch (e) {
+        if (import.meta.env.DEV) console.warn('Failed to refresh branding from Supabase:', e);
       }
       
       console.log('✅ All settings refreshed from Supabase successfully');

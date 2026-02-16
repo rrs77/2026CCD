@@ -161,7 +161,7 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
   const isAdmin = user?.email === 'rob.reichstorer@gmail.com' || 
                   user?.role === 'administrator' ||
                   profile?.role === 'admin';
-  const showUserManagement = isSupabaseAuthEnabled() && (profile?.role === 'admin' || profile?.can_manage_users === true);
+  const showUserManagement = isSupabaseAuthEnabled() && (isAdmin || profile?.role === 'admin' || profile?.can_manage_users === true);
 
   // Update temp settings when settings change
   React.useEffect(() => {
@@ -699,19 +699,18 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
 
         {/* Tabs - Scrollable on mobile */}
         <div 
-          className="flex bg-gray-100 overflow-x-auto relative z-10 border-b border-gray-200 shadow-sm" 
+          className="flex gap-1 sm:gap-3 px-3 sm:px-4 bg-gray-100 overflow-x-auto relative z-10 border-b border-gray-200 shadow-sm" 
           style={{ 
             WebkitOverflowScrolling: 'touch',
             scrollbarWidth: 'thin',
             scrollbarColor: '#9CA3AF #F3F4F6',
-            minHeight: '48px',
-            gap: 0
+            minHeight: '48px'
           }}
         >
           {/* Year Groups */}
           <button
             onClick={() => setActiveTab('yeargroups')}
-            className={`px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
+            className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
               activeTab === 'yeargroups' 
                 ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600' 
                 : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
@@ -724,7 +723,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
           {/* Categories */}
           <button
             onClick={() => setActiveTab('categories')}
-            className={`px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
+            className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
               activeTab === 'categories' 
                 ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600' 
                 : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
@@ -749,7 +748,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
           {/* Custom Objectives */}
           <button
             onClick={() => setActiveTab('admin')}
-            className={`px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
+            className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
               activeTab === 'admin' 
                 ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600' 
                 : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
@@ -762,7 +761,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
           {/* Data & Backup */}
             <button
               onClick={() => setActiveTab('data')}
-            className={`px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
+            className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
                 activeTab === 'data' 
                 ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600' 
                 : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
@@ -775,7 +774,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
           {/* Purchases - Different background for admin/seller */}
                           <button
             onClick={() => setActiveTab('purchases')}
-            className={`px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
+            className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
               activeTab === 'purchases' 
                 ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600' 
                 : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
@@ -789,7 +788,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
           {isAdmin && (
                           <button
               onClick={() => setActiveTab('manage-packs')}
-              className={`px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
+              className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
                 activeTab === 'manage-packs' 
                   ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600' 
                   : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
@@ -807,7 +806,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
           {isAdmin && (
             <button
               onClick={() => setActiveTab('branding')}
-              className={`px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
+              className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
                 activeTab === 'branding'
                   ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
@@ -825,7 +824,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
           {showUserManagement && (
             <button
               onClick={() => setActiveTab('users')}
-              className={`px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
+              className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
                 activeTab === 'users'
                   ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
@@ -842,7 +841,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
           {/* Resource Links */}
           <button
             onClick={() => setActiveTab('resource-links')}
-            className={`px-4 sm:px-6 py-3 mr-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
+            className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
               activeTab === 'resource-links' 
                 ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600' 
                 : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
@@ -1122,7 +1121,6 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                             ></div>
                             <div className="flex-1">
                               <div className="font-medium text-gray-900">{yearGroup.name}</div>
-                              <div className="text-sm text-gray-500">{yearGroup.id}</div>
                             </div>
                             <div className="flex items-center space-x-1">
                               <button

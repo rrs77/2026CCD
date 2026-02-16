@@ -385,9 +385,9 @@ export function TimetableBuilder({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-hidden flex">
+        <div className="flex-1 min-h-0 overflow-hidden flex">
           {/* Left Sidebar - Class List */}
-          <div className="w-80 border-r border-gray-200 bg-gray-50 flex flex-col">
+          <div className="w-80 flex-shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col">
             {/* Semester/Term Selection */}
             <div className="p-4 border-b border-gray-200 bg-white">
               <h3 className="text-xs font-semibold text-gray-500 uppercase mb-2">Semester</h3>
@@ -554,25 +554,31 @@ export function TimetableBuilder({
             </div>
           </div>
 
-          {/* Timetable Grid - continuous time strip */}
-          <div className="flex-1 overflow-auto bg-white flex flex-col">
-            {/* Header row: Rotation | Day 1 | Day 2 ... */}
-            <div className="flex flex-shrink-0 border-b-2 border-gray-300 bg-gray-50 sticky top-0 z-30">
-              <div className="w-20 flex-shrink-0 p-3 border-r border-gray-300 flex items-center">
+          {/* Timetable Grid - use CSS Grid for full width and aligned columns */}
+          <div className="flex-1 min-w-0 w-full overflow-auto bg-white flex flex-col">
+            {/* Header row: Rotation | Day 1 | Day 2 ... - grid aligns with columns below */}
+            <div
+              className="flex-shrink-0 border-b-2 border-gray-300 bg-gray-50 sticky top-0 z-30 grid"
+              style={{ gridTemplateColumns: `80px repeat(${displayDayIndices.length}, minmax(0, 1fr))` }}
+            >
+              <div className="p-3 border-r border-gray-300 flex items-center">
                 <button className="px-2 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors flex items-center">
                   Rotation
                   <ChevronDown className="ml-1 h-4 w-4" />
                 </button>
               </div>
               {displayDayIndices.map((dayIndex, index) => (
-                <div key={dayIndex} className="flex-1 min-w-[140px] p-3 text-center text-sm font-semibold text-gray-700 border-r border-gray-300">
+                <div key={dayIndex} className="p-3 text-center text-sm font-semibold text-gray-700 border-r border-gray-300 last:border-r-0">
                   {viewMode === 'days' ? `Day ${index + 1}` : displayDays[index]}
                 </div>
               ))}
             </div>
-            <div className="flex flex-1 overflow-auto min-h-0">
+            <div
+              className="flex-1 overflow-auto min-h-0 grid"
+              style={{ gridTemplateColumns: `80px repeat(${displayDayIndices.length}, minmax(0, 1fr))` }}
+            >
               {/* Time ruler column */}
-              <div className="w-20 flex-shrink-0 sticky left-0 z-20 bg-gray-50 border-r border-gray-300" style={{ height: GRID_HEIGHT_PX }}>
+              <div className="sticky left-0 z-20 bg-gray-50 border-r border-gray-300" style={{ height: GRID_HEIGHT_PX }}>
                 <div className="relative" style={{ height: GRID_HEIGHT_PX }}>
                   {HOUR_LABELS.map(({ hour, label, topPx }) => (
                     <div key={hour} className="absolute left-1 text-xs text-gray-600 font-medium" style={{ top: topPx }}>
@@ -717,7 +723,7 @@ function TimetableDayColumn({
     <div
       ref={drop}
       data-day-column
-      className={`flex-1 min-w-[140px] border-r border-gray-200 relative transition-colors ${
+      className={`min-w-0 border-r border-gray-200 relative transition-colors last:border-r-0 ${
         showDropHint ? 'bg-teal-100 ring-2 ring-teal-400 ring-inset' : isOver ? 'bg-teal-50' : 'bg-white'
       }`}
       style={{ height: gridHeightPx }}

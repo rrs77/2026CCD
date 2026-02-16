@@ -50,3 +50,23 @@ STEP 5 (optional) - If Activity Library shows "0 activities" after local login
 4. Click Run
 
 This allows reading activities/lessons when using local auth (no Supabase session).
+
+-------------------------------------------------------------------------------
+STEP 6 (optional) - Persist footer and app branding across devices
+-------------------------------------------------------------------------------
+1. Open the file:  create_branding_settings.sql
+2. Select ALL text in that file (Cmd+A or Ctrl+A)
+3. Copy and paste into Supabase Dashboard → SQL Editor
+4. Click Run
+
+This stores custom footer/login branding in Supabase so it survives cache clears and different browsers/devices. Run after fix_profiles_rls_recursion.sql.
+
+-------------------------------------------------------------------------------
+STEP 7 (optional) - If year group Lesson Library does not sync with Supabase
+-------------------------------------------------------------------------------
+1. Open the file:  lessons_allow_anon_sync.sql
+2. Select ALL text in that file (Cmd+A or Ctrl+A)
+3. Copy and paste into Supabase Dashboard → SQL Editor
+4. Click Run
+
+This allows the app to save lesson library data per year group when using local auth (no Supabase session). Run after activities_lessons_allow_anon_read.sql.

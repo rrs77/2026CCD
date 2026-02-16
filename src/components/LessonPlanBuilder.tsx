@@ -98,20 +98,24 @@ export function LessonPlanBuilder({
     }
     
     if (yearGroup) {
-      // Return both the ID and name as potential keys to check
-      // This handles cases where category.yearGroups might use either format
-      const keys = [yearGroup.id];
-      // Also add common year group names that might be in category.yearGroups
+      // Return both the ID and name as potential keys to check (must match ActivityLibrary logic)
+      const keys: string[] = [];
+      const primaryKey = yearGroup.id || yearGroup.name;
+      if (primaryKey) keys.push(primaryKey);
+      if (yearGroup.id && yearGroup.name && yearGroup.id !== yearGroup.name) {
+        keys.push(yearGroup.name);
+      }
+      // Also add derived codes for backward compatibility
       if (yearGroup.name.toLowerCase().includes('reception')) {
-        keys.push('Reception');
+        if (!keys.includes('Reception')) keys.push('Reception');
       }
       if (yearGroup.name.toLowerCase().includes('lower kindergarten') || yearGroup.name.toLowerCase().includes('lkg')) {
-        keys.push('LKG');
+        if (!keys.includes('LKG')) keys.push('LKG');
       }
       if (yearGroup.name.toLowerCase().includes('upper kindergarten') || yearGroup.name.toLowerCase().includes('ukg')) {
-        keys.push('UKG');
+        if (!keys.includes('UKG')) keys.push('UKG');
       }
-      return keys;
+      return keys.filter(Boolean);
     }
     return [];
   };
@@ -819,6 +823,7 @@ export function LessonPlanBuilder({
     }
     
     // Filter activities by search query, category, AND year group assignment
+    const yearGroupKeys = getCurrentYearGroupKeys();
     let filtered = allActivities.filter(activity => {
       const matchesSearch = searchQuery === '' || 
         activity.activity.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -827,10 +832,31 @@ export function LessonPlanBuilder({
       // Filter by selected category if one is chosen (but still show all if 'all' is selected)
       const matchesCategory = selectedCategory === 'all' || activity.category === selectedCategory;
       
-      // CRITICAL: Only show activities whose categories are assigned to the current year group
+      // Category must be assigned to year group
       const categoryIsAssignedToYearGroup = availableCategoriesForYearGroup.includes(activity.category);
       
-      return matchesSearch && matchesCategory && categoryIsAssignedToYearGroup;
+      // Activity must be EXPLICITLY assigned to this year group (same logic as ActivityLibrary)
+      let activityIsAssignedToYearGroup = false;
+      if (yearGroupKeys.length === 0) {
+        activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup;
+      } else {
+        const ygRaw = activity.yearGroups;
+        const ygList: string[] = Array.isArray(ygRaw)
+          ? ygRaw.map(y => String(y))
+          : (ygRaw && typeof ygRaw === 'object' && !Array.isArray(ygRaw))
+            ? Object.keys(ygRaw).filter(k => (ygRaw as Record<string, unknown>)[k] === true)
+            : [];
+        if (ygList.length > 0) {
+          const normalized = ygList.map(yg => yg.toLowerCase().trim());
+          const yearGroupsMatch = yearGroupKeys.some(key => {
+            const keyLower = key.toLowerCase().trim();
+            return normalized.includes(keyLower) || normalized.some(ayg => ayg.includes(keyLower) || keyLower.includes(ayg));
+          });
+          activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup && yearGroupsMatch;
+        }
+      }
+      
+      return matchesSearch && matchesCategory && categoryIsAssignedToYearGroup && activityIsAssignedToYearGroup;
     });
 
     // Sort activities within each category
@@ -877,7 +903,7 @@ export function LessonPlanBuilder({
       );
 
     return { grouped, sortedCategories };
-  }, [allActivities, searchQuery, selectedCategory, sortBy, sortOrder, availableCategoriesForYearGroup, categories]);
+  }, [allActivities, searchQuery, selectedCategory, sortBy, sortOrder, availableCategoriesForYearGroup, categories, currentSheetInfo, customYearGroups]);
 
   const toggleSort = (field: typeof sortBy) => {
     if (sortBy === field) {

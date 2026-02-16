@@ -166,6 +166,9 @@ export const activitiesApi = {
         activity: activityData.activity,
         description: activityData.description,
         activity_text: activityData.activityText,
+        description_heading: activityData.descriptionHeading || 'Introduction/Context',
+        activity_heading: activityData.activityHeading || 'Activity',
+        link_heading: activityData.linkHeading || 'Additional Link',
         time: activityData.time,
         video_link: activityData.videoLink,
         music_link: activityData.musicLink,
@@ -206,6 +209,9 @@ export const activitiesApi = {
         activity: data.activity,
         description: data.description,
         activityText: data.activity_text,
+        descriptionHeading: data.description_heading || 'Introduction/Context',
+        activityHeading: data.activity_heading || 'Activity',
+        linkHeading: data.link_heading || 'Additional Link',
         time: data.time,
         videoLink: data.video_link,
         musicLink: data.music_link,
@@ -433,10 +439,10 @@ export const lessonsApi = {
       const lessonData: Record<string, unknown> = {
         sheet_name: sheet,
         academic_year: year,
-        data: data.allLessonsData,
-        lesson_numbers: data.lessonNumbers,
-        teaching_units: data.teachingUnits,
-        notes: data.notes || ''
+        data: data.allLessonsData ?? {},
+        lesson_numbers: data.lessonNumbers ?? [],
+        teaching_units: data.teachingUnits ?? [],
+        notes: data.notes ?? ''
       };
       if (isAuthUserId(userId)) {
         lessonData.user_id = userId;
@@ -1420,6 +1426,40 @@ export const categoryGroupsApi = {
     } catch (error) {
       console.warn('Failed to delete category group from Supabase:', error);
       throw error;
+    }
+  }
+};
+
+// API for branding settings (footer, login page - persists across devices)
+export const brandingApi = {
+  get: async (): Promise<Record<string, unknown> | null> => {
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.BRANDING_SETTINGS)
+        .select('data')
+        .eq('key', 'default')
+        .maybeSingle();
+      if (error) throw error;
+      return (data?.data as Record<string, unknown>) ?? null;
+    } catch (error) {
+      if (import.meta.env.DEV) console.warn('Failed to load branding from Supabase:', error);
+      return null;
+    }
+  },
+
+  upsert: async (branding: Record<string, unknown>): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from(TABLES.BRANDING_SETTINGS)
+        .upsert(
+          { key: 'default', data: branding, updated_at: new Date().toISOString() },
+          { onConflict: 'key' }
+        );
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Failed to save branding to Supabase:', error);
+      return false;
     }
   }
 };

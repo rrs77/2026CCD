@@ -162,7 +162,7 @@ export function LessonLibraryCard({
           style={isUserCreated ? { borderLeftColor: '#60A5FA' } : { borderLeftColor: theme.primary }}
           onClick={onClick}
         >
-          <div className="flex items-center justify-between h-full">
+          <div className="flex items-center justify-between h-full gap-2">
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-2">
                 <h4 className="font-medium text-gray-900 text-sm truncate" dir="ltr">{safeLessonData.title}</h4>
@@ -178,13 +178,9 @@ export function LessonLibraryCard({
                 <span>{totalActivities} activities</span>
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Action buttons - Share, Assign, Edit, and Duplicate buttons */}
-        {((onAssignToUnit && halfTerms.length > 0) || onEdit || onDuplicate || true) && (
-          <div className="absolute top-0 right-0 h-full flex items-center pr-2">
-            <div className="flex items-center space-x-1">
+            {/* Action buttons in flow so they don't overlap content */}
+            {((onAssignToUnit && halfTerms.length > 0) || onEdit || onDuplicate || true) && (
+            <div className="flex items-center space-x-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
               {/* Share button - always available */}
               <button
                 type="button"
@@ -262,8 +258,9 @@ export function LessonLibraryCard({
                 </button>
               )}
             </div>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Assign Modal */}
         {showAssignModal && (
@@ -292,16 +289,16 @@ export function LessonLibraryCard({
           style={isUserCreated ? { borderLeftColor: '#60A5FA' } : {}}
           onClick={onClick}
         >
-          <div className="flex items-start">
-            <div 
-              className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 mr-4"
-              style={{ backgroundColor: theme.primary }}
-            >
-              {displayNumber}
-            </div>
-            
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-1 min-w-0">
+              <div 
+                className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 mr-4"
+                style={{ backgroundColor: theme.primary }}
+              >
+                {displayNumber}
+              </div>
+              
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center space-x-2">
                   <h4 className="font-semibold text-gray-900 text-base truncate" dir="ltr">{safeLessonData.title}</h4>
                   {isUserCreated && (
@@ -310,30 +307,26 @@ export function LessonLibraryCard({
                     </span>
                   )}
                 </div>
-              </div>
-              
-              <div className="flex items-center space-x-3 mt-1 text-sm text-gray-600">
-                <div className="flex items-center space-x-1">
-                  <Clock className="h-4 w-4 text-gray-500" />
-                  <span>{safeLessonData.totalTime} mins</span>
+                
+                <div className="flex items-center space-x-3 mt-1 text-sm text-gray-600">
+                  <div className="flex items-center space-x-1">
+                    <Clock className="h-4 w-4 text-gray-500" />
+                    <span>{safeLessonData.totalTime} mins</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <Users className="h-4 w-4 text-gray-500" />
+                    <span>{totalActivities} activities</span>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-1">
-                  <Users className="h-4 w-4 text-gray-500" />
-                  <span>{totalActivities} activities</span>
-                </div>
+                
+                <p className="mt-2 text-sm text-gray-600 line-clamp-1" dir="ltr">
+                  {(safeLessonData as any).description || ''}
+                </p>
               </div>
-              
-              <p className="mt-2 text-sm text-gray-600 line-clamp-1" dir="ltr">
-                {(safeLessonData as any).description || ''}
-              </p>
             </div>
-          </div>
-        </div>
-        
-
-        {/* Action buttons - Share, Assign, Duplicate, and Edit buttons */}
-        {((onAssignToUnit && halfTerms.length > 0) || onEdit || onDuplicate || true) && (
-          <div className="absolute top-2 right-2 flex items-center space-x-2">
+            {/* Action buttons in flow so they don't overlap content */}
+            {((onAssignToUnit && halfTerms.length > 0) || onEdit || onDuplicate || true) && (
+            <div className="flex items-center space-x-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
             {/* Share button - always available */}
             <button
               type="button"
@@ -414,8 +407,10 @@ export function LessonLibraryCard({
                 <span className="text-xs">Edit</span>
               </button>
             )}
+            </div>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Assign Modal */}
         {showAssignModal && (

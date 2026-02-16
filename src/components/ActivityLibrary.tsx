@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { 
   Search, 
@@ -213,6 +213,11 @@ export function ActivityLibrary({
   
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearchQuery(searchQuery), 250);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
   const [localSelectedCategory, setLocalSelectedCategory] = useState(selectedCategory);
   const [sortBy, setSortBy] = useState<'name' | 'category' | 'time' | 'level'>('category');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -307,9 +312,11 @@ export function ActivityLibrary({
     );
     
     // Filter activities - filter by year group AND allow category/level filtering
+    const query = debouncedSearchQuery;
     let filteredActivities = allActivities.filter(activity => {
-      const matchesSearch = activity.activity.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           activity.description.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch = query === '' ||
+                           activity.activity.toLowerCase().includes(query.toLowerCase()) ||
+                           activity.description.toLowerCase().includes(query.toLowerCase());
       
       // Filter by category if one is selected
       const matchesCategory = localSelectedCategory === 'all' || activity.category === localSelectedCategory;
@@ -317,42 +324,34 @@ export function ActivityLibrary({
       // Level filtering removed - show all levels
       const matchesLevel = true;
       
-      // CRITICAL: Check BOTH category assignment AND activity's yearGroups field
+      // CRITICAL: Category must be assigned to year group AND activity must be explicitly assigned
       // If availableCategoriesForYearGroup is null, show all activities (fallback)
       const categoryIsAssignedToYearGroup = availableCategoriesForYearGroup === null || 
                                              availableCategoriesForYearGroup.includes(activity.category);
       
-      // Check activity's yearGroups field
-      // Logic: Show activity if EITHER category is assigned OR activity's yearGroups includes current year group
-      let activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup; // Start with category check
-      
-      // If activity has explicit yearGroups with values, also check those
-      if (activity.yearGroups && Array.isArray(activity.yearGroups) && activity.yearGroups.length > 0 && yearGroupKeys.length > 0) {
-        // Activity has explicit yearGroups - check if current year group is included
-        const normalizedActivityYearGroups = activity.yearGroups.map(yg => yg.toLowerCase().trim());
-        const yearGroupsMatch = yearGroupKeys.some(key => {
-          const keyLower = key.toLowerCase().trim();
-          return normalizedActivityYearGroups.includes(keyLower) ||
-                 normalizedActivityYearGroups.some(ayg => ayg.includes(keyLower) || keyLower.includes(ayg));
-        });
-        
-        // Show if EITHER category matches OR yearGroups matches
-        activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup || yearGroupsMatch;
-        
-        if (!activityIsAssignedToYearGroup) {
-          console.log('❌ Activity filtered out:', {
-            activityName: activity.activity,
-            category: activity.category,
-            activityYearGroups: activity.yearGroups,
-            yearGroupKeys,
-            currentYearGroup: currentYearGroup?.name,
-            categoryMatches: categoryIsAssignedToYearGroup,
-            yearGroupsMatch
-          });
-        }
+      // Activity must be EXPLICITLY assigned to this year group (activity.yearGroups must include it)
+      // This ensures "Reception Drama" only shows drama games the user has assigned, not all 203
+      let activityIsAssignedToYearGroup = false;
+      if (yearGroupKeys.length === 0) {
+        activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup; // No year group selected
       } else {
-        // No yearGroups field OR empty array = rely on category assignment (backward compatibility)
-        // activityIsAssignedToYearGroup already set to categoryIsAssignedToYearGroup above
+        // Normalize yearGroups: can be array ["Reception Drama"] or object { "Reception Drama": true }
+        const ygRaw = activity.yearGroups;
+        const ygList: string[] = Array.isArray(ygRaw)
+          ? ygRaw.map(y => String(y))
+          : (ygRaw && typeof ygRaw === 'object' && !Array.isArray(ygRaw))
+            ? Object.keys(ygRaw).filter(k => (ygRaw as Record<string, unknown>)[k] === true)
+            : [];
+        if (ygList.length > 0) {
+          const normalizedActivityYearGroups = ygList.map(yg => yg.toLowerCase().trim());
+          const yearGroupsMatch = yearGroupKeys.some(key => {
+            const keyLower = key.toLowerCase().trim();
+            return normalizedActivityYearGroups.includes(keyLower) ||
+                   normalizedActivityYearGroups.some(ayg => ayg.includes(keyLower) || keyLower.includes(ayg));
+          });
+          activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup && yearGroupsMatch;
+        }
+        // Activities with no/empty yearGroups: don't show for a specific year group (not explicitly assigned)
       }
       
       // Check if user owns required pack (if activity requires one)
@@ -362,15 +361,15 @@ export function ActivityLibrary({
     });
 
     // Filter stacks - only show stacks with activities for the current year group
+    const stackQuery = query.toLowerCase();
     let filteredStacks = activityStacks.filter(stack => {
-      const query = searchQuery.toLowerCase();
-      const matchesSearch = query === '' || 
-                           stack.name.toLowerCase().includes(query) ||
-                           stack.description?.toLowerCase().includes(query) ||
+      const matchesSearch = stackQuery === '' || 
+                           stack.name.toLowerCase().includes(stackQuery) ||
+                           stack.description?.toLowerCase().includes(stackQuery) ||
                            stack.activities.some(activity => 
-                             activity.activity.toLowerCase().includes(query) ||
-                             activity.description.toLowerCase().includes(query) ||
-                             activity.category.toLowerCase().includes(query)
+                             activity.activity.toLowerCase().includes(stackQuery) ||
+                             activity.description.toLowerCase().includes(stackQuery) ||
+                             activity.category.toLowerCase().includes(stackQuery)
                            );
       
       // Show ALL stacks regardless of year group
@@ -437,7 +436,7 @@ export function ActivityLibrary({
     });
 
     return { filteredAndSortedActivities: filteredActivities, filteredAndSortedStacks: filteredStacks };
-  }, [allActivities, activityStacks, searchQuery, localSelectedCategory, sortBy, sortOrder, categories, className, mapActivityLevelToYearGroup, userOwnedPacks, availableCategoriesForYearGroup, getCurrentYearGroupKeys, customYearGroups, currentSheetInfo]);
+  }, [allActivities, activityStacks, debouncedSearchQuery, localSelectedCategory, sortBy, sortOrder, categories, className, mapActivityLevelToYearGroup, userOwnedPacks, availableCategoriesForYearGroup, getCurrentYearGroupKeys, customYearGroups, currentSheetInfo]);
 
   // Calculate total activities available for the current year group (without search/category filters)
   const totalActivitiesForYearGroup = useMemo(() => {
@@ -448,27 +447,29 @@ export function ActivityLibrary({
     );
     
     return allActivities.filter(activity => {
-      // CRITICAL: Check BOTH category assignment AND activity's yearGroups field
-      // If availableCategoriesForYearGroup is null, show all activities (fallback)
+      // CRITICAL: Category must be assigned AND activity must be explicitly assigned to this year group
       const categoryIsAssignedToYearGroup = availableCategoriesForYearGroup === null || 
                                              availableCategoriesForYearGroup.includes(activity.category);
       
-      // Check activity's yearGroups field
-      // Logic: Show activity if EITHER category is assigned OR activity's yearGroups includes current year group
-      let activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup; // Start with category check
-      
-      // If activity has explicit yearGroups with values, also check those
-      if (activity.yearGroups && Array.isArray(activity.yearGroups) && activity.yearGroups.length > 0 && yearGroupKeys.length > 0) {
-        // Activity has explicit yearGroups - check if current year group is included
-        const normalizedActivityYearGroups = activity.yearGroups.map(yg => yg.toLowerCase().trim());
-        const yearGroupsMatch = yearGroupKeys.some(key => {
-          const keyLower = key.toLowerCase().trim();
-          return normalizedActivityYearGroups.includes(keyLower) ||
-                 normalizedActivityYearGroups.some(ayg => ayg.includes(keyLower) || keyLower.includes(ayg));
-        });
-        
-        // Show if EITHER category matches OR yearGroups matches
-        activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup || yearGroupsMatch;
+      let activityIsAssignedToYearGroup = false;
+      if (yearGroupKeys.length === 0) {
+        activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup;
+      } else {
+        const ygRaw = activity.yearGroups;
+        const ygList: string[] = Array.isArray(ygRaw)
+          ? ygRaw.map(y => String(y))
+          : (ygRaw && typeof ygRaw === 'object' && !Array.isArray(ygRaw))
+            ? Object.keys(ygRaw).filter(k => (ygRaw as Record<string, unknown>)[k] === true)
+            : [];
+        if (ygList.length > 0) {
+          const normalizedActivityYearGroups = ygList.map(yg => yg.toLowerCase().trim());
+          const yearGroupsMatch = yearGroupKeys.some(key => {
+            const keyLower = key.toLowerCase().trim();
+            return normalizedActivityYearGroups.includes(keyLower) ||
+                   normalizedActivityYearGroups.some(ayg => ayg.includes(keyLower) || keyLower.includes(ayg));
+          });
+          activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup && yearGroupsMatch;
+        }
       }
       
       // Check if user owns required pack (if activity requires one)
@@ -712,7 +713,9 @@ export function ActivityLibrary({
             <div className="min-w-0">
               <h2 className="text-lg sm:text-xl lg:text-2xl font-bold truncate">Activity Library</h2>
               <p className="text-white text-xs sm:text-sm">
-                {filteredAndSortedActivities.length} of {totalActivitiesForYearGroup} activities
+                {getCurrentYearGroupKeys().length > 0
+                  ? `${filteredAndSortedActivities.length} of ${totalActivitiesForYearGroup} activities`
+                  : `${filteredAndSortedActivities.length} activities`}
               </p>
             </div>
           </div>

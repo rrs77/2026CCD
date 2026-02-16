@@ -51,6 +51,7 @@ export const TABLES = {
   LESSON_STACKS: 'lesson_stacks',
   ACTIVITY_STACKS: 'activity_stacks',
   TIMETABLE_CLASSES: 'timetable_classes',
+  BRANDING_SETTINGS: 'branding_settings',
   
   // Unused tables (commented out for safety - can be deleted later)
   // ACTIVITIES_ROWS: 'activities_rows',

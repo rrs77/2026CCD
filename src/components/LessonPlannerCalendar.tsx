@@ -66,6 +66,7 @@ import { CalendarLessonAssignmentModal } from './CalendarLessonAssignmentModal';
 import { TimeSlotLessonModal } from './TimeSlotLessonModal';
 import { WeekLessonView } from './WeekLessonView';
 import { useLessonStacks } from '../hooks/useLessonStacks';
+import { toast } from 'react-hot-toast';
 import type { Activity, LessonPlan } from '../contexts/DataContext';
 
 interface LessonPlannerCalendarProps {
@@ -129,7 +130,7 @@ export function LessonPlannerCalendar({
   className
 }: LessonPlannerCalendarProps) {
   const { allLessonsData, units: dataContextUnits, halfTerms, updateHalfTerm } = useData();
-  const { getThemeForClass, getCategoryColor, customYearGroups } = useSettings();
+  const { getThemeForClass, getCategoryColor, customYearGroups, settings } = useSettings();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day' | 'week-lessons'>('month');
   const [editingPlan, setEditingPlan] = useState<LessonPlan | null>(null);
@@ -154,6 +155,7 @@ export function LessonPlannerCalendar({
   const [showTermTimeConfig, setShowTermTimeConfig] = useState(false);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [assignmentDate, setAssignmentDate] = useState<Date | null>(null);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const { stacks } = useLessonStacks();
   const calendarRef = useRef<HTMLDivElement>(null);
   
@@ -544,6 +546,341 @@ export function LessonPlannerCalendar({
 
       onUpdateLessonPlan(newPlan);
     });
+  };
+
+  // Handle Calendar PDF Export - generates well-designed PDF with branding
+  const handlePrintCalendar = async () => {
+    const PDFBOLT_API_KEY = import.meta.env.VITE_PDFBOLT_API_KEY || '146bdd01-146f-43f8-92aa-26201c38aa11';
+    const PDFBOLT_API_URL = 'https://api.pdfbolt.com/v1/direct';
+    if (!PDFBOLT_API_KEY || PDFBOLT_API_KEY === 'd089165b-e1da-43bb-a7dc-625ce514ed1b') {
+      toast.error('PDF export requires VITE_PDFBOLT_API_KEY in environment.');
+      return;
+    }
+
+    const escape = (s: string) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const escapeUrl = (u: string) => (u || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    const RESOURCE_KEYS: { key: keyof Activity; label: string }[] = [
+      { key: 'videoLink', label: 'Video' },
+      { key: 'musicLink', label: 'Music' },
+      { key: 'backingLink', label: 'Backing' },
+      { key: 'resourceLink', label: 'Resource' },
+      { key: 'link', label: 'Link' },
+      { key: 'vocalsLink', label: 'Vocals' },
+      { key: 'imageLink', label: 'Image' },
+      { key: 'canvaLink', label: 'Canva' }
+    ];
+    const getResourceLinksForPlan = (plan: LessonPlan): { label: string; url: string }[] => {
+      const activities = plan.activities?.length
+        ? plan.activities
+        : (plan.lessonNumber && allLessonsData[plan.lessonNumber])
+          ? (allLessonsData[plan.lessonNumber].orderedActivities || Object.values(allLessonsData[plan.lessonNumber].grouped || {}).flat())
+          : [];
+      const seen = new Set<string>();
+      const links: { label: string; url: string }[] = [];
+      for (const act of activities) {
+        if (!act) continue;
+        for (const { key, label } of RESOURCE_KEYS) {
+          const url = (act as any)[key];
+          if (url && typeof url === 'string' && url.trim() && !seen.has(url.trim())) {
+            seen.add(url.trim());
+            links.push({ label, url: url.trim() });
+          }
+        }
+      }
+      return links;
+    };
+    const renderResourceLinksHtml = (plan: LessonPlan, compact = false) => {
+      const links = getResourceLinksForPlan(plan);
+      if (links.length === 0) return '';
+      if (compact) {
+        return links.slice(0, 3).map(r =>
+          `<a href="${escapeUrl(r.url)}" target="_blank" rel="noopener noreferrer" style="font-size:9px;color:#0d9488;text-decoration:underline;display:block;margin-top:1px">${escape(r.label)}</a>`
+        ).join('');
+      }
+      return `<div class="print-resource-links" style="margin-top:6px;font-size:9px">${links.map(r =>
+        `<a href="${escapeUrl(r.url)}" target="_blank" rel="noopener noreferrer" style="color:#0d9488;text-decoration:underline;margin-right:8px;display:inline-block">${escape(r.label)}</a>`
+      ).join('')}</div>`;
+    };
+    const branding = settings?.branding || {};
+    const productName = branding.loginTitle || settings?.schoolName || 'Creative Curriculum Designer';
+    const productSubtitle = branding.loginSubtitle || 'From Forward Thinking';
+    const companyName = branding.footerCompanyName || 'Forward Thinking';
+    const copyrightYear = branding.footerCopyrightYear || new Date().getFullYear().toString();
+    const contactEmail = branding.footerContactEmail || '';
+    const headerColor = branding.loginButtonColor || branding.loginBackgroundColor || '#0d9488';
+
+    const viewTitle = viewMode === 'month'
+      ? format(currentDate, 'MMMM yyyy')
+      : viewMode === 'week' || viewMode === 'week-lessons'
+        ? `Week of ${format(weekStart, 'MMM d, yyyy')}`
+        : format(dayViewDate, 'MMMM d, yyyy');
+    const viewLabel = viewMode === 'month' ? 'Month' : viewMode === 'week' ? 'Week' : viewMode === 'week-lessons' ? 'Week Lessons' : 'Day';
+
+    const printStyles = `
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: 'Inter', -apple-system, sans-serif; font-size: 11px; line-height: 1.4; color: #1a1a1a; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .brand-header { background: ${escape(headerColor)}; color: white; padding: 20px 24px; border-radius: 8px 8px 0 0; margin-bottom: 0; }
+      .brand-header h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+      .brand-header .subtitle { font-size: 12px; opacity: 0.95; }
+      .brand-header .meta { font-size: 10px; opacity: 0.9; margin-top: 8px; }
+      .print-content { padding: 20px 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; }
+      .print-section-title { font-size: 16px; font-weight: 600; color: #0f766e; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #e5e7eb; }
+      table { width: 100%; border-collapse: collapse; font-size: 11px; }
+      th, td { border: 1px solid #e2e8f0; padding: 8px; text-align: left; }
+      th { background: #f1f5f9; font-weight: 600; }
+      .print-month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0; }
+      .print-day { border: 1px solid #e2e8f0; padding: 8px; min-height: 72px; }
+      .print-day.other-month { background: #f8fafc; color: #94a3b8; }
+      .print-day.today { background: #e0f2fe; border-color: #0ea5e9; }
+      .print-day.holiday { background: #fef2f2; }
+      .print-day.inset { background: #f5f3ff; }
+      .print-day-num { font-weight: 600; margin-bottom: 4px; }
+      .print-day-content { font-size: 10px; }
+      .print-day-content .plan, .print-day-content .event { margin: 2px 0; padding: 2px 4px; border-radius: 4px; }
+      .print-day-content .badge { padding: 1px 4px; border-radius: 4px; font-size: 9px; }
+      .print-lessons-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; }
+      .print-day-col { border: 1px solid #e2e8f0; padding: 12px; }
+      .print-day-col h3 { font-size: 12px; margin: 0 0 8px 0; color: #64748b; }
+      .print-lesson-block { padding: 8px; margin-bottom: 8px; border-radius: 8px; border-left: 4px solid; page-break-inside: avoid; }
+      .print-lesson-block .time { font-size: 10px; color: #64748b; }
+      .print-lesson-block .title { font-weight: 600; }
+      .print-resource-links a { color: #0d9488; text-decoration: underline; }
+      .brand-footer { margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 9px; color: #64748b; text-align: center; }
+    `;
+
+    let bodyHtml = '';
+
+    if (viewMode === 'month') {
+      bodyHtml = `
+        <div class="print-section-title">${escape(viewLabel)} View • ${escape(viewTitle)}</div>
+        <div class="print-month-grid">
+          ${DAY_NAMES.map(d => `<div class="print-day" style="font-weight:600;text-align:center;background:#f1f5f9;padding:6px;">${escape(d)}</div>`).join('')}
+          ${calendarDays.map((date: Date) => {
+            const plans = getLessonPlansForDate(date);
+            const events = getEventsForDate(date);
+            const isHolidayDate = isHoliday(date);
+            const isInsetDayDate = isInsetDay(date);
+            const isCurrentMonth = isSameMonth(date, currentDate);
+            const isTodayDate = isToday(date);
+            let classes = 'print-day';
+            if (!isCurrentMonth) classes += ' other-month';
+            if (isTodayDate) classes += ' today';
+            if (isHolidayDate) classes += ' holiday';
+            if (isInsetDayDate) classes += ' inset';
+            let content = '';
+            if (isHolidayDate) content += '<div class="badge" style="background:#fecaca;color:#b91c1c;">Holiday</div>';
+            if (isInsetDayDate) content += '<div class="badge" style="background:#ddd6fe;color:#6d28d9;">Inset</div>';
+            events.slice(0, 2).forEach(e => {
+              content += `<div class="event" style="background:${escape(e.color)}20;color:${escape(e.color)}">${escape(e.title)}</div>`;
+            });
+            plans.slice(0, 2).forEach(p => {
+              const unitColor = p.unitId ? units.find(u => u.id === p.unitId)?.color || theme.primary : theme.primary;
+              content += `<div class="plan" style="background:${escape(unitColor)}20;color:${escape(unitColor)}">${escape(p.title || `Lesson ${p.lessonNumber || ''}`)}${renderResourceLinksHtml(p, true)}</div>`;
+            });
+            if (plans.length > 2) content += `<div style="font-size:9px;color:#64748b">+${plans.length - 2} more</div>`;
+            return `<div class="${classes}"><div class="print-day-num">${format(date, 'd')}</div><div class="print-day-content">${content}</div></div>`;
+          }).join('')}
+        </div>
+      `;
+    } else if (viewMode === 'week') {
+      const hours = Array.from({ length: 11 }, (_, i) => i + 8);
+      bodyHtml = `
+        <div class="print-section-title">${escape(viewLabel)} View • ${escape(viewTitle)}</div>
+        <table>
+          <thead><tr><th style="width:60px">Time</th>${weekDays.map(d => `<th>${format(d, 'EEE d')}</th>`).join('')}</tr></thead>
+          <tbody>
+            ${hours.map(hour => `
+              <tr>
+                <td style="background:#f1f5f9;font-weight:500">${hour}:00</td>
+                ${weekDays.map(date => {
+                  const plans = getLessonPlansForDate(date);
+                  const dayOfWeek = getDay(date);
+                  const tClasses = timetableClasses.filter(t => t.day === dayOfWeek);
+                  const slotClasses = tClasses.filter(t => {
+                    const sh = parseInt(t.startTime.split(':')[0], 10);
+                    const eh = parseInt(t.endTime.split(':')[0], 10);
+                    return hour >= sh && hour < eh;
+                  });
+                  const slotPlans = plans.filter(p => {
+                    const t = p.time || '00:00';
+                    const ph = parseInt(t.split(':')[0], 10);
+                    return ph === hour;
+                  });
+                  const isH = isHoliday(date);
+                  const isI = isInsetDay(date);
+                  let cell = '';
+                  if (isH) cell = '<span style="color:#b91c1c">Holiday</span>';
+                  else if (isI) cell = '<span style="color:#6d28d9">Inset</span>';
+                  else {
+                    slotClasses.forEach(t => { cell += `<div style="font-size:10px;padding:2px">${escape(t.className)}</div>`; });
+                    slotPlans.forEach(p => {
+                      cell += `<div style="font-size:10px;padding:2px">${escape(p.title || `Lesson ${p.lessonNumber || ''}`)}${renderResourceLinksHtml(p, true)}</div>`;
+                    });
+                  }
+                  return `<td style="vertical-align:top">${cell || '&nbsp;'}</td>`;
+                }).join('')}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } else if (viewMode === 'week-lessons') {
+      const schoolWeekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+      const schoolWeekEnd = endOfWeek(schoolWeekStart, { weekStartsOn: 1 });
+      const schoolWeekDays = eachDayOfInterval({ start: schoolWeekStart, end: schoolWeekEnd }).slice(0, 5);
+      bodyHtml = `
+        <div class="print-section-title">${escape(viewLabel)} View • ${escape(viewTitle)}</div>
+        <div class="print-lessons-grid">
+          ${schoolWeekDays.map((date, idx) => {
+            const plans = getLessonPlansForDate(date).sort((a, b) => (a.time || '00:00').localeCompare(b.time || '00:00'));
+            const tClasses = timetableClasses.filter(t => t.day === getDay(date));
+            const items: Array<{ type: 't' | 'p'; data: any }> = [
+              ...tClasses.map(t => ({ type: 't' as const, data: t })),
+              ...plans.map(p => ({ type: 'p' as const, data: p }))
+            ].sort((a, b) => {
+              const timeA = a.type === 't' ? a.data.startTime : a.data.time || '00:00';
+              const timeB = b.type === 't' ? b.data.startTime : b.data.time || '00:00';
+              return timeA.localeCompare(timeB);
+            });
+            const isH = isHoliday(date);
+            const isI = isInsetDay(date);
+            let colContent = `<h3>Day ${idx + 1} | ${format(date, 'EEE (MMM d)')}</h3>`;
+            if (isH) colContent += '<div style="padding:8px;background:#fef2f2;color:#b91c1c;border-radius:8px">Holiday</div>';
+            else if (isI) colContent += '<div style="padding:8px;background:#f5f3ff;color:#6d28d9;border-radius:8px">Inset Day</div>';
+            else items.forEach(item => {
+              if (item.type === 't') {
+                const color = item.data.color;
+                const time = `${item.data.startTime}-${item.data.endTime}`;
+                const title = item.data.className;
+                colContent += `<div class="print-lesson-block" style="border-left-color:${escape(color)};background:${escape(color)}15"><div class="time">${escape(time)}</div><div class="title">${escape(title)}</div></div>`;
+              } else {
+                const plan = item.data as LessonPlan;
+                const color = plan.unitId ? '#8B5CF6' : '#EC4899';
+                const time = plan.time || '';
+                const title = plan.title || `Lesson ${plan.lessonNumber || ''}`;
+                colContent += `<div class="print-lesson-block" style="border-left-color:${escape(color)};background:${escape(color)}15"><div class="time">${escape(time)}</div><div class="title">${escape(title)}</div>${renderResourceLinksHtml(plan, false)}</div>`;
+              }
+            });
+            return `<div class="print-day-col">${colContent}</div>`;
+          }).join('')}
+        </div>
+      `;
+    } else {
+      const hours = Array.from({ length: 11 }, (_, i) => i + 8);
+      const plans = getLessonPlansForDate(dayViewDate).sort((a, b) => (a.time || '00:00').localeCompare(b.time || '00:00'));
+      const dayOfWeek = getDay(dayViewDate);
+      const tClasses = timetableClasses.filter(t => t.day === dayOfWeek);
+      const isH = isHoliday(dayViewDate);
+      const isI = isInsetDay(dayViewDate);
+      const events = getEventsForDate(dayViewDate);
+      bodyHtml = `
+        <div class="print-section-title">${escape(viewLabel)} View • ${escape(viewTitle)}</div>
+        <table>
+          <thead><tr><th style="width:80px">Time</th><th>Schedule</th></tr></thead>
+          <tbody>
+            ${hours.map(hour => {
+              const slotClasses = tClasses.filter(t => {
+                const sh = parseInt(t.startTime.split(':')[0], 10);
+                const eh = parseInt(t.endTime.split(':')[0], 10);
+                return hour >= sh && hour < eh;
+              });
+              const slotPlans = plans.filter(p => {
+                const ph = parseInt((p.time || '00:00').split(':')[0], 10);
+                return ph === hour;
+              });
+              let cell = '';
+              if (isH && hour === 8) cell = '<span style="color:#b91c1c">Holiday</span>';
+              else if (isI && hour === 8) cell = '<span style="color:#6d28d9">Inset Day</span>';
+              else {
+                slotClasses.forEach(t => { cell += `<div style="margin:4px 0">${escape(t.className)} (${escape(t.startTime)}-${escape(t.endTime)})</div>`; });
+                slotPlans.forEach(p => { cell += `<div style="margin:4px 0">${escape(p.title || `Lesson ${p.lessonNumber || ''}`)}${renderResourceLinksHtml(p, false)}</div>`; });
+              }
+              return `<tr><td style="background:#f1f5f9;font-weight:500">${hour}:00</td><td>${cell || '&nbsp;'}</td></tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+        ${events.length > 0 ? `<div style="margin-top:16px">${events.map(e => `<div style="padding:8px;margin:4px 0;background:${escape(e.color)}20;color:${escape(e.color)};border-radius:8px">${escape(e.title)}</div>`).join('')}</div>` : ''}
+      `;
+    }
+
+    const logoLetters = branding.logoLetters || 'CCD';
+    const logoHtml = branding.loginLogoUrl
+      ? `<img src="${escape(branding.loginLogoUrl)}" alt="" style="height:36px;margin-bottom:8px;" onerror="this.style.display='none'">`
+      : `<div style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;margin-bottom:8px;">${escape(logoLetters.slice(0, 3))}</div>`;
+    const brandHeader = `
+      <div class="brand-header">
+        ${logoHtml}
+        <h1>${escape(productName)}</h1>
+        <div class="subtitle">${escape(productSubtitle)}</div>
+        <div class="meta">${escape(className)} • ${escape(viewLabel)} View • ${escape(viewTitle)}</div>
+      </div>
+    `;
+
+    const brandFooter = `
+      <div class="brand-footer">
+        ${escape(companyName)} • © ${escape(copyrightYear)}${contactEmail ? ` • ${escape(contactEmail)}` : ''}
+      </div>
+    `;
+
+    const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escape(className)} - ${escape(viewTitle)}</title><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"><style>${printStyles}</style></head><body>${brandHeader}<div class="print-content">${bodyHtml}${brandFooter}</div></body></html>`;
+
+    const encodeUnicodeBase64 = (str: string) => {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(str);
+      let binaryString = '';
+      for (let i = 0; i < data.length; i++) binaryString += String.fromCharCode(data[i]);
+      return btoa(binaryString);
+    };
+
+    const footerContent = `
+      <div style="width:100%;font-size:9px;padding:8px 20px;display:flex;justify-content:space-between;align-items:center;color:#5F6368;font-family:'Inter',sans-serif;">
+        <span>${escape(productName)}</span>
+        <span>${escape(className)} • ${escape(viewLabel)}</span>
+        <span style="background:#E8EAEF;color:#0f766e;padding:4px 12px;border-radius:50px;font-weight:500;">Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
+      </div>
+    `;
+
+    setIsExportingPdf(true);
+    try {
+      const response = await fetch(PDFBOLT_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'API_KEY': PDFBOLT_API_KEY },
+        body: JSON.stringify({
+          html: encodeUnicodeBase64(fullHtml),
+          printBackground: true,
+          waitUntil: 'networkidle',
+          format: 'A4',
+          margin: { top: '15px', right: '20px', left: '20px', bottom: '55px' },
+          displayHeaderFooter: true,
+          footerTemplate: encodeUnicodeBase64(footerContent),
+          headerTemplate: encodeUnicodeBase64('<div></div>'),
+          emulateMediaType: 'screen'
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`PDF export failed: ${response.status} - ${errText}`);
+      }
+
+      const pdfBlob = await response.blob();
+      const fileName = `Calendar_${className.replace(/\s+/g, '_')}_${viewLabel.replace(/\s+/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+      const url = window.URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success('PDF exported successfully', { icon: '📄' });
+    } catch (e: any) {
+      console.error('PDF export failed:', e);
+      toast.error(e?.message || 'Failed to export PDF');
+    } finally {
+      setIsExportingPdf(false);
+    }
   };
 
   // Handle assigning a stack to calendar dates
@@ -1728,12 +2065,22 @@ export function LessonPlannerCalendar({
             <div>
               <h2 className="text-xl font-bold">Calendar</h2>
               <p className="text-teal-100 text-sm">
-                {className} • {viewMode === 'month' ? 'Month View' : viewMode === 'week' ? 'Week View' : 'Day View'}
+                {className} • {viewMode === 'month' ? 'Month View' : viewMode === 'week' ? 'Week View' : viewMode === 'week-lessons' ? 'Week Lessons' : 'Day View'}
               </p>
             </div>
           </div>
           
           <div className="flex flex-wrap items-center gap-3">
+            {/* Print / Export PDF Button */}
+            <button
+              onClick={handlePrintCalendar}
+              disabled={isExportingPdf}
+              className="px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 text-white font-medium rounded-lg transition-colors duration-200 flex items-center space-x-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <Printer className="h-4 w-4" />
+              <span>{isExportingPdf ? 'Exporting…' : 'Export PDF'}</span>
+            </button>
+            
             {/* Timetable Builder Button */}
             <button
               onClick={() => setShowTimetableBuilder(true)}

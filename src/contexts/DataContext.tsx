@@ -514,10 +514,10 @@ export function DataProvider({ children }: DataProviderProps) {
     // ADD: Load subjects
     loadSubjects();
 
-    // Stop spinner after 8s if load hangs – user can still use the app and refresh manually
+    // Stop spinner after 4s if load hangs – user can still use the app and refresh manually
     const fallback = setTimeout(() => {
       setLoading(false);
-    }, 8000);
+    }, 4000);
     return () => clearTimeout(fallback);
   }, [currentSheetInfo, currentAcademicYear]);
 
@@ -1462,8 +1462,43 @@ console.log('🏁 Set subjectsLoading to FALSE'); // ADD THIS DEBUG LINE
     return lessonData?.title || `Lesson ${lessonNumber}`;
   };
 
-  // Load all activities
-  const loadActivities = async () => {
+  // Cache key and TTL for stale-while-revalidate
+  const ACTIVITIES_CACHE_KEY = 'activities-cache-v1';
+  const ACTIVITIES_CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
+
+  // Load all activities (with cache for faster initial load)
+  const loadActivities = async (skipCache = false) => {
+    const applyActivities = (activities: any[]) => {
+      const normalizedActivities = activities.map((activity: any) => ({
+        ...activity,
+        yearGroups: Array.isArray(activity.yearGroups) ? activity.yearGroups : 
+                   (activity.level ? [activity.level] : [])
+      }));
+      setAllActivities(normalizedActivities);
+    };
+
+    // Stale-while-revalidate: show cached data immediately if fresh (skip on explicit refresh)
+    if (isSupabaseConfigured() && !skipCache) {
+      try {
+        const cached = localStorage.getItem(ACTIVITIES_CACHE_KEY);
+        if (cached) {
+          const { data, timestamp } = JSON.parse(cached);
+          if (data?.length > 0 && Date.now() - timestamp < ACTIVITIES_CACHE_TTL_MS) {
+            applyActivities(data);
+            if (import.meta.env.DEV) console.log('📦 Activities from cache:', data.length, '(fetching fresh in background)');
+            // Background fetch - don't block
+            activitiesApi.getAll().then(activities => {
+              if (activities?.length > 0) {
+                applyActivities(activities);
+                localStorage.setItem(ACTIVITIES_CACHE_KEY, JSON.stringify({ data: activities, timestamp: Date.now() }));
+              }
+            }).catch(() => {});
+            return;
+          }
+        }
+      } catch (_) {}
+    }
+
     try {
       setLoading(true);
       
@@ -1478,14 +1513,9 @@ console.log('🏁 Set subjectsLoading to FALSE'); // ADD THIS DEBUG LINE
           console.log('📦 Activities received from API:', activities?.length || 0);
           
           if (activities && activities.length > 0) {
-            // Ensure yearGroups is always an array for each activity
-            const normalizedActivities = activities.map((activity: any) => ({
-              ...activity,
-              yearGroups: Array.isArray(activity.yearGroups) ? activity.yearGroups : 
-                         (activity.level ? [activity.level] : [])
-            }));
-            setAllActivities(normalizedActivities);
-            console.log('✅ Activities set in DataContext state:', normalizedActivities.length);
+            applyActivities(activities);
+            localStorage.setItem(ACTIVITIES_CACHE_KEY, JSON.stringify({ data: activities, timestamp: Date.now() }));
+            console.log('✅ Activities set in DataContext state:', activities.length);
             return;
           } else {
             console.warn('⚠️ No activities returned from Supabase API');
@@ -1647,22 +1677,25 @@ console.log('🏁 Set subjectsLoading to FALSE'); // ADD THIS DEBUG LINE
         yearGroupsIsArray: Array.isArray(updatedActivity.yearGroups)
       });
       
-      if (isSupabaseConfigured() && (activity._id)) {
+      const activityId = activity._id || activity.id;
+      if (isSupabaseConfigured() && activityId) {
         try {
-          updatedActivity = await activitiesApi.update(activity._id, { ...updatedActivity, yearGroups: updatedActivity.yearGroups || [] });
+          updatedActivity = await activitiesApi.update(activityId, { ...updatedActivity, yearGroups: updatedActivity.yearGroups || [] });
           console.log('✅ Activity updated in Supabase with year groups:', {
             activityId: updatedActivity._id || updatedActivity.id,
             yearGroups: updatedActivity.yearGroups
           });
         } catch (error) {
           console.error('❌ Failed to update activity in Supabase:', error);
-          console.warn('Failed to update activity in Supabase:', error);
+          throw error; // Rethrow so caller can show user feedback
         }
+      } else if (isSupabaseConfigured() && !activityId) {
+        console.warn('⚠️ Activity missing id - cannot persist to Supabase. Saving locally only.');
       } else {
-        console.log('⚠️ Supabase not configured or activity missing _id, skipping Supabase update');
+        console.log('⚠️ Supabase not configured, skipping Supabase update');
       }
-      // Update local state
-      setAllActivities(prev => prev.map(a => (a._id === activity._id) ? updatedActivity : a));
+      // Update local state (match by _id or id)
+      setAllActivities(prev => prev.map(a => ((a._id && a._id === activityId) || (a.id && a.id === activityId)) ? updatedActivity : a));
       
       // Propagate changes to any lessons/units that reference this activity
       setAllLessonsData(prevLessons => {
@@ -2540,14 +2573,20 @@ const updateLessonData = async (lessonNumber: string, updatedData: any) => {
         return;
       }
       
-      // Try to load from Supabase if connected
+      // Try to load from Supabase if connected (with timeout so app never hangs)
+      const SUPABASE_LOAD_TIMEOUT_MS = 6000;
       if (isSupabaseConfigured()) {
         try {
           if (import.meta.env.DEV) console.log('📡 Loading from Supabase:', {
             sheet: currentSheetInfo.sheet,
             academicYear: currentAcademicYear
           });
-          const lessonData = await lessonsApi.getBySheet(currentSheetInfo.sheet, currentAcademicYear);
+          const lessonData = await Promise.race([
+            lessonsApi.getBySheet(currentSheetInfo.sheet, currentAcademicYear),
+            new Promise<null>((_, reject) =>
+              setTimeout(() => reject(new Error('Supabase load timeout')), SUPABASE_LOAD_TIMEOUT_MS)
+            )
+          ]);
           if (lessonData && Object.keys(lessonData).length > 0) {
             console.log('🔍 DEBUG: Loaded lesson data from Supabase:', {
               sheet: currentSheetInfo.sheet,
@@ -3122,7 +3161,7 @@ const updateLessonData = async (lessonNumber: string, updatedData: any) => {
     await loadData();
     await loadStandards();
     loadUserCreatedLessonPlans();
-    loadActivities();
+    loadActivities(true); // Skip cache on explicit refresh
     loadUnits();
     loadHalfTerms();
     

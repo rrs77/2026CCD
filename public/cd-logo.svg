@@ -1,48 +1,21 @@
-<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <!-- Teal gradient -->
     <linearGradient id="tealGradient" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#14B8A6" />
       <stop offset="50%" stop-color="#0D9488" />
       <stop offset="100%" stop-color="#008272" />
     </linearGradient>
   </defs>
-  
-  <!-- Background circle with gradient - smaller radius for transparency around edges -->
-  <circle cx="256" cy="256" r="220" fill="url(#tealGradient)"/>
-  
-  <!-- Inner highlight circle -->
-  <circle cx="256" cy="256" r="200" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2"/>
-  
-  <!-- Simplified book icon - cleaner design -->
-  <g transform="translate(256, 220)">
-    <!-- Book base -->
-    <rect x="-65" y="-75" width="130" height="150" rx="6" fill="white" opacity="0.95"/>
-    
-    <!-- Book pages/lines -->
-    <line x1="-45" y1="-30" x2="45" y2="-30" stroke="#14B8A6" stroke-width="4" stroke-linecap="round"/>
-    <line x1="-45" y1="0" x2="45" y2="0" stroke="#14B8A6" stroke-width="4" stroke-linecap="round"/>
-    <line x1="-45" y1="30" x2="45" y2="30" stroke="#14B8A6" stroke-width="4" stroke-linecap="round"/>
-    
-    <!-- Book spine -->
-    <rect x="-65" y="-75" width="16" height="150" rx="3" fill="#0D9488"/>
-    
-    <!-- Checkmark badge -->
-    <circle cx="45" cy="-60" r="16" fill="#14B8A6"/>
-    <path d="M 40 -60 L 43 -57 L 52 -66" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-  </g>
-  
-  <!-- CCD text - prominent -->
+  <circle cx="40" cy="40" r="38" fill="url(#tealGradient)"/>
   <text
-    x="256"
-    y="360"
+    x="40"
+    y="40"
     text-anchor="middle"
+    dominant-baseline="central"
     fill="white"
-    font-size="76"
-    font-weight="800"
+    font-size="28"
+    font-weight="700"
     font-family="Inter, -apple-system, BlinkMacSystemFont, sans-serif"
-    letter-spacing="-2"
-  >
-    CCD
-  </text>
+    letter-spacing="-1"
+  >CCD</text>
 </svg>

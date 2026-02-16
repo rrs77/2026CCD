@@ -233,9 +233,12 @@ export function WeekLessonView({
         </div>
       </div>
 
-      {/* Week Columns */}
-      <div className="flex-1 overflow-x-auto">
-        <div className="flex h-full min-w-max">
+      {/* Week Columns - grid fills full width, no horizontal scroll */}
+      <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
+        <div
+          className="flex-1 min-h-0 grid w-full"
+          style={{ gridTemplateColumns: `repeat(${weekDays.length}, minmax(0, 1fr))` }}
+        >
           {weekDays.map((date, index) => {
             const plans = getPlansForDate(date);
             const timetableClassesForDay = getTimetableClassesForDate(date);
@@ -245,7 +248,7 @@ export function WeekLessonView({
             return (
               <div
                 key={dateKey}
-                className="flex-1 min-w-[350px] border-r border-gray-200 bg-white flex flex-col"
+                className="min-w-0 border-r border-gray-200 bg-white flex flex-col last:border-r-0"
               >
                 {/* Day Header */}
                 <div className="p-4 border-b border-gray-200 bg-gray-50">

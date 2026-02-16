@@ -9,6 +9,7 @@ import type { Activity } from '../contexts/DataContext';
 import { useData } from '../contexts/DataContext';
 import { useSettings } from '../contexts/SettingsContextNew';
 import { useIsViewOnly } from '../hooks/useIsViewOnly';
+import toast from 'react-hot-toast';
 
 interface ActivityDetailsProps {
   activity: Activity;
@@ -167,8 +168,11 @@ export function ActivityDetails({
         activityId: updatedActivity.id || updatedActivity._id,
         yearGroups: updatedActivity.yearGroups
       });
-    } catch (error) {
+      toast.success('Changes saved successfully');
+    } catch (error: any) {
       console.error('❌ Failed to update activity globally:', error);
+      toast.error(error?.message || 'Failed to save changes. Please try again.');
+      return; // Don't close or update UI on failure
     }
     
     // Then handle context-specific logic
