@@ -94,6 +94,33 @@ interface YearGroup {
   color?: string;
 }
 
+/** A subheading (e.g. "Year 1") containing one or more classes (e.g. 1s, 1b, 1d). */
+export interface YearGroupBand {
+  id: string;
+  name: string;
+  color: string;
+  classes: { id: string; name: string }[];
+}
+
+function flattenBands(bands: YearGroupBand[]): YearGroup[] {
+  const out: YearGroup[] = [];
+  bands.forEach(band => {
+    band.classes.forEach(c => {
+      out.push({ id: c.id, name: c.name, color: band.color });
+    });
+  });
+  return out;
+}
+
+function flatToBands(flat: YearGroup[]): YearGroupBand[] {
+  return flat.map(g => ({
+    id: g.id,
+    name: g.name,
+    color: g.color || '#14B8A6',
+    classes: [{ id: g.id, name: g.name }]
+  }));
+}
+
 // Simple group management - just an array of group names
 interface CategoryGroups {
   groups: string[];
@@ -115,10 +142,14 @@ interface SettingsContextType {
   setIsAdmin: (admin: boolean) => void;
   settings: UserSettings;
   customYearGroups: YearGroup[];
+  yearGroupBands: YearGroupBand[];
   updateSettings: (newSettings: Partial<UserSettings>) => void;
   updateCategories: (newCategories: Category[]) => void;
   updateYearGroups: (newYearGroups: YearGroup[]) => void;
+  updateYearGroupBands: (bands: YearGroupBand[]) => void;
   deleteYearGroup: (yearGroupId: string) => Promise<void>;
+  deleteYearGroupClass: (bandIndex: number, classIndex: number) => void;
+  addClassToBand: (bandIndex: number, classId: string, className: string) => void;
   forceSyncYearGroups: () => Promise<YearGroup[] | null>;
   cleanupDuplicates: () => Promise<void>;
   forceSyncToSupabase: (override?: { categories?: Category[]; yearGroups?: YearGroup[] }) => Promise<boolean>;
@@ -284,7 +315,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   showButtonHelp: true
 };
 
-// Default year groups
+// Default year groups (flat list for backward compatibility)
 const DEFAULT_YEAR_GROUPS: YearGroup[] = [
   { id: 'LKG', name: 'Lower Kindergarten', color: '#14B8A6' },
   { id: 'UKG', name: 'Upper Kindergarten', color: '#14B8A6' },
@@ -299,6 +330,8 @@ const DEFAULT_YEAR_GROUPS: YearGroup[] = [
   { id: 'Year1Drama', name: 'Year 1 Drama', color: '#8B5CF6' },
   { id: 'Year2Drama', name: 'Year 2 Drama', color: '#8B5CF6' }
 ];
+
+const DEFAULT_YEAR_GROUP_BANDS: YearGroupBand[] = flatToBands(DEFAULT_YEAR_GROUPS);
 
 // Default category groups
 const DEFAULT_CATEGORY_GROUPS: CategoryGroups = {
@@ -348,10 +381,14 @@ export const useSettings = () => {
         customTheme: false
       },
       customYearGroups: [],
+      yearGroupBands: [],
       updateSettings: () => {},
       updateCategories: () => {},
       updateYearGroups: () => {},
+      updateYearGroupBands: () => {},
       deleteYearGroup: async () => {},
+      deleteYearGroupClass: () => {},
+      addClassToBand: () => {},
       forceSyncYearGroups: async () => null,
       cleanupDuplicates: async () => {},
       forceSyncToSupabase: async (_override?) => false,
@@ -387,7 +424,8 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
   const [categories, setCategories] = useState<Category[]>(FIXED_CATEGORIES);
   const [deletedFixedCategories, setDeletedFixedCategories] = useState<Set<string>>(new Set());
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
-  const [customYearGroups, setCustomYearGroups] = useState<YearGroup[]>(DEFAULT_YEAR_GROUPS);
+  const [yearGroupBands, setYearGroupBands] = useState<YearGroupBand[]>(DEFAULT_YEAR_GROUP_BANDS);
+  const customYearGroups = React.useMemo(() => flattenBands(yearGroupBands), [yearGroupBands]);
   const [resourceLinks, setResourceLinks] = useState<ResourceLinkConfig[]>(DEFAULT_RESOURCE_LINKS);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [defaultViewMode, setDefaultViewMode] = useState<
@@ -765,12 +803,30 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
               arr.findIndex(g => g.name === group.name) === index
             );
             
-            // Use Supabase data directly - no need to merge with localStorage
-            // Supabase is the source of truth
-            setCustomYearGroups(deduplicated);
+            // Prefer bands from localStorage if they match Supabase (preserve user grouping)
+            const storedBands = localStorage.getItem('year-group-bands');
+            let bandsToUse: YearGroupBand[];
+            if (storedBands) {
+              try {
+                const parsed = JSON.parse(storedBands) as YearGroupBand[];
+                const flatFromBands = flattenBands(parsed);
+                const supabaseIds = new Set(deduplicated.map(g => g.id));
+                const bandIds = new Set(flatFromBands.map(g => g.id));
+                if (bandIds.size === supabaseIds.size && [...bandIds].every(id => supabaseIds.has(id))) {
+                  bandsToUse = parsed;
+                  console.log('📦 Using stored year group bands (grouping preserved)');
+                } else {
+                  bandsToUse = flatToBands(deduplicated);
+                }
+              } catch {
+                bandsToUse = flatToBands(deduplicated);
+              }
+            } else {
+              bandsToUse = flatToBands(deduplicated);
+            }
+            setYearGroupBands(bandsToUse);
             console.log('📦 Loaded year groups from Supabase:', deduplicated.length, '(deduplicated from', formattedYearGroups.length, ')');
-            
-            // Update localStorage to match Supabase data (use deduplicated data)
+            localStorage.setItem('year-group-bands', JSON.stringify(bandsToUse));
             localStorage.setItem('custom-year-groups', JSON.stringify(deduplicated));
           } else {
             // No year groups in Supabase yet, load from localStorage and sync to Supabase
@@ -792,9 +848,10 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
                 );
                 
                 if (deduplicatedGroups.length > 0) {
-                  setCustomYearGroups(deduplicatedGroups);
+                  const bands = flatToBands(deduplicatedGroups);
+                  setYearGroupBands(bands);
                   console.log('📦 Loaded year groups from localStorage:', deduplicatedGroups.length, '(deduplicated from', filteredGroups.length, ', filtered from', localGroups.length, ')');
-                  
+                  localStorage.setItem('year-group-bands', JSON.stringify(bands));
                   // Sync to Supabase (use deduplicated groups)
                   yearGroupsApi.upsert(deduplicatedGroups)
                     .then(() => console.log('✅ Synced filtered year groups to Supabase'))

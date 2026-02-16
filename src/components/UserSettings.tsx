@@ -1669,7 +1669,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                   )}
                   
                   <DndProvider backend={HTML5Backend}>
-                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto pr-6">
                     {tempCategories.map((category, index) => {
                       // Use index as stable identifier for editing state (not name, which changes)
                       const isEditing = editingCategory === `category-index-${index}`;

@@ -329,20 +329,21 @@ export function ActivityLibrary({
       const categoryIsAssignedToYearGroup = availableCategoriesForYearGroup === null || 
                                              availableCategoriesForYearGroup.includes(activity.category);
       
-      // Activity must be EXPLICITLY assigned to this year group (activity.yearGroups must include it)
-      // This ensures "Reception Drama" only shows drama games the user has assigned, not all 203
+      // Show activity if: (1) no class selected → category assigned is enough; (2) class selected and activity has no yearGroups → show for any class that has this category; (3) activity has yearGroups → show only when current class is in that list
       let activityIsAssignedToYearGroup = false;
       if (yearGroupKeys.length === 0) {
         activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup; // No year group selected
       } else {
-        // Normalize yearGroups: can be array ["Reception Drama"] or object { "Reception Drama": true }
         const ygRaw = activity.yearGroups;
         const ygList: string[] = Array.isArray(ygRaw)
           ? ygRaw.map(y => String(y))
           : (ygRaw && typeof ygRaw === 'object' && !Array.isArray(ygRaw))
             ? Object.keys(ygRaw).filter(k => (ygRaw as Record<string, unknown>)[k] === true)
             : [];
-        if (ygList.length > 0) {
+        if (ygList.length === 0) {
+          // No year groups on activity: show for any class that has this category (show all in category)
+          activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup;
+        } else {
           const normalizedActivityYearGroups = ygList.map(yg => yg.toLowerCase().trim());
           const yearGroupsMatch = yearGroupKeys.some(key => {
             const keyLower = key.toLowerCase().trim();
@@ -351,7 +352,6 @@ export function ActivityLibrary({
           });
           activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup && yearGroupsMatch;
         }
-        // Activities with no/empty yearGroups: don't show for a specific year group (not explicitly assigned)
       }
       
       // Check if user owns required pack (if activity requires one)
@@ -447,7 +447,6 @@ export function ActivityLibrary({
     );
     
     return allActivities.filter(activity => {
-      // CRITICAL: Category must be assigned AND activity must be explicitly assigned to this year group
       const categoryIsAssignedToYearGroup = availableCategoriesForYearGroup === null || 
                                              availableCategoriesForYearGroup.includes(activity.category);
       
@@ -461,7 +460,9 @@ export function ActivityLibrary({
           : (ygRaw && typeof ygRaw === 'object' && !Array.isArray(ygRaw))
             ? Object.keys(ygRaw).filter(k => (ygRaw as Record<string, unknown>)[k] === true)
             : [];
-        if (ygList.length > 0) {
+        if (ygList.length === 0) {
+          activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup;
+        } else {
           const normalizedActivityYearGroups = ygList.map(yg => yg.toLowerCase().trim());
           const yearGroupsMatch = yearGroupKeys.some(key => {
             const keyLower = key.toLowerCase().trim();
@@ -472,9 +473,7 @@ export function ActivityLibrary({
         }
       }
       
-      // Check if user owns required pack (if activity requires one)
       const hasPackAccess = !activity.requiredPack || userOwnedPacks.includes(activity.requiredPack);
-      
       return activityIsAssignedToYearGroup && hasPackAccess;
     }).length;
   }, [allActivities, className, customYearGroups, currentSheetInfo, availableCategoriesForYearGroup, getCurrentYearGroupKeys, userOwnedPacks]);
