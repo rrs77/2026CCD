@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Settings, Palette, RotateCcw, X, Plus, Trash2, GripVertical, Edit3, Save, Users, Database, AlertTriangle, GraduationCap, Package, Filter, Video, Music, Volume2, FileText, Link as LinkIcon, Image, FileVideo, FileMusic, File, Globe, ExternalLink, Share2, Download, Upload, Eye, Play, Pause, Headphones, Mic, Speaker, Film, Camera, BookOpen, Book, Folder, Cloud, Network, Target, HelpCircle } from 'lucide-react';
+import { Settings, Palette, RotateCcw, X, Plus, Trash2, GripVertical, Edit3, Save, Users, Database, AlertTriangle, GraduationCap, Package, Filter, Video, Music, Volume2, FileText, Link as LinkIcon, Image, FileVideo, FileMusic, File, Globe, ExternalLink, Share2, Download, Upload, Eye, Play, Pause, Headphones, Mic, Speaker, Film, Camera, BookOpen, Book, Folder, Cloud, Network, Target, HelpCircle, ChevronDown } from 'lucide-react';
 import { useSettings, Category, ResourceLinkConfig, SOCIAL_PLATFORMS } from '../contexts/SettingsContextNew';
 import { DataSourceSettings } from './DataSourceSettings';
 import { CustomObjectivesAdmin } from './CustomObjectivesAdmin';
@@ -136,6 +136,8 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
   tempYearGroupsRef.current = tempYearGroups;
   const [tempResourceLinks, setTempResourceLinks] = useState(resourceLinks);
   const [activeTab, setActiveTab] = useState<'general' | 'yeargroups' | 'categories' | 'purchases' | 'manage-packs' | 'data' | 'admin' | 'resource-links' | 'users' | 'branding'>('general');
+  const [adminMenuOpen, setAdminMenuOpen] = useState(false);
+  const adminMenuRef = useRef<HTMLDivElement>(null);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [editingCategoryYearGroups, setEditingCategoryYearGroups] = useState<string | null>(null); // Track which category's year groups are being edited
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -158,18 +160,33 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
   const [showYearGroupsModal, setShowYearGroupsModal] = useState(false);
   const [newlyAddedYearGroup, setNewlyAddedYearGroup] = useState<{ id: string; name: string } | null>(null);
 
-  const isAdmin = user?.email === 'rob.reichstorer@gmail.com' || 
+  const isAdmin = user?.email === 'rob.reichstorer@gmail.com' ||
                   user?.role === 'administrator' ||
+                  user?.role === 'admin' ||
+                  user?.role === 'superuser' ||
                   profile?.role === 'admin' ||
                   profile?.role === 'superuser';
   const showUserManagement = isSupabaseAuthEnabled() && (isAdmin || profile?.role === 'admin' || profile?.role === 'superuser' || profile?.can_manage_users === true);
 
   // When modal opens or permissions change, ensure active tab is one we can show (avoid blank content)
   React.useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setAdminMenuOpen(false);
+      return;
+    }
     if (activeTab === 'users' && !showUserManagement) setActiveTab('general');
     if ((activeTab === 'branding' || activeTab === 'manage-packs') && !isAdmin) setActiveTab('general');
   }, [isOpen, activeTab, showUserManagement, isAdmin]);
+
+  // Close admin dropdown when clicking outside
+  React.useEffect(() => {
+    if (!adminMenuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (adminMenuRef.current && !adminMenuRef.current.contains(e.target as Node)) setAdminMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [adminMenuOpen]);
 
   // Update temp settings when settings change
   React.useEffect(() => {
@@ -770,78 +787,85 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
           <button
             onClick={() => setActiveTab('admin')}
             className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
-              activeTab === 'admin' 
-                ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600' 
+              activeTab === 'admin'
+                ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
             }`}
             style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif', border: 'none', borderLeft: 'none', borderRight: 'none' }}
           >
             Custom Objectives
           </button>
-          
-          {/* Data & Backup */}
-            <button
-              onClick={() => setActiveTab('data')}
-            className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
-                activeTab === 'data' 
-                ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600' 
-                : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
-              }`}
-            style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif', border: 'none', borderLeft: 'none', borderRight: 'none' }}
-            >
-            Data & Backup
-            </button>
-          
-          {/* Purchases - Different background for admin/seller */}
-                          <button
+
+          {/* Purchases */}
+          <button
             onClick={() => setActiveTab('purchases')}
             className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
-              activeTab === 'purchases' 
-                ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600' 
+              activeTab === 'purchases'
+                ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
             }`}
             style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif', border: 'none', borderLeft: 'none', borderRight: 'none' }}
           >
             <span className="hidden sm:inline">🛒</span> Purchases
-                          </button>
-          
-          {/* Manage Packs - Admin only, same background color */}
+          </button>
+
+          {/* Resource Links */}
+          <button
+            onClick={() => setActiveTab('resource-links')}
+            className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
+              activeTab === 'resource-links'
+                ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
+            }`}
+            style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif', border: 'none', borderLeft: 'none', borderRight: 'none' }}
+          >
+            <div className="flex items-center space-x-2">
+              <LinkIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span>Resource Links</span>
+            </div>
+          </button>
+
+          {/* Admin – stacked dropdown (Manage Packs, Branding only; Users has its own tab below) */}
           {isAdmin && (
-                          <button
-              onClick={() => setActiveTab('manage-packs')}
-              className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
-                activeTab === 'manage-packs' 
-                  ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600' 
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
-              }`}
-              style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif', border: 'none', borderLeft: 'none', borderRight: 'none' }}
-            >
-              <div className="flex items-center space-x-2">
-                <Package className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span>Manage Packs</span>
-              </div>
-                          </button>
+            <div className="relative flex-shrink-0" ref={adminMenuRef}>
+              <button
+                type="button"
+                onClick={() => setAdminMenuOpen(prev => !prev)}
+                className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex items-center gap-1.5 transition-all duration-200 focus:outline-none ${
+                  (activeTab === 'manage-packs' || activeTab === 'branding')
+                    ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
+                }`}
+                style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif', border: 'none', borderLeft: 'none', borderRight: 'none' }}
+              >
+                <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span>Admin</span>
+                <ChevronDown className={`h-3.5 w-3.5 sm:h-4 sm:w-4 transition-transform ${adminMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {adminMenuOpen && (
+                <div className="absolute left-0 top-full mt-1 py-1 w-48 bg-white rounded-lg border border-gray-200 shadow-lg z-50">
+                  <button
+                    type="button"
+                    onClick={() => { setActiveTab('manage-packs'); setAdminMenuOpen(false); }}
+                    className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'manage-packs' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
+                  >
+                    <Package className="h-4 w-4" />
+                    Manage Packs
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setActiveTab('branding'); setAdminMenuOpen(false); }}
+                    className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'branding' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
+                  >
+                    <Palette className="h-4 w-4" />
+                    Branding
+                  </button>
+                </div>
+              )}
+            </div>
           )}
 
-          {/* Branding - Admin only: white-label for client deployments */}
-          {isAdmin && (
-            <button
-              onClick={() => setActiveTab('branding')}
-              className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
-                activeTab === 'branding'
-                  ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
-              }`}
-              style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif', border: 'none', borderLeft: 'none', borderRight: 'none' }}
-            >
-              <div className="flex items-center space-x-2">
-                <Palette className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span>Branding</span>
-              </div>
-            </button>
-          )}
-
-          {/* User Management - Supabase Auth admins only */}
+          {/* Users – dedicated tab for superuser/admin: user info, types, password reset */}
           {showUserManagement && (
             <button
               onClick={() => setActiveTab('users')}
@@ -859,22 +883,19 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
             </button>
           )}
 
-          {/* Resource Links */}
+          {/* Data & Backup – always last */}
           <button
-            onClick={() => setActiveTab('resource-links')}
+            onClick={() => setActiveTab('data')}
             className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
-              activeTab === 'resource-links' 
-                ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600' 
+              activeTab === 'data'
+                ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
             }`}
             style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif', border: 'none', borderLeft: 'none', borderRight: 'none' }}
           >
-            <div className="flex items-center space-x-2">
-              <LinkIcon className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span>Resource Links</span>
-            </div>
+            Data & Backup
           </button>
-              </div>
+        </div>
 
         {/* Content - Responsive padding */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-8">
@@ -2377,8 +2398,11 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
 
           {activeTab === 'users' && showUserManagement && (
             <AuthGuard requireCanManageUsers fallback={<div className="p-4 text-gray-600">You don’t have permission to manage users.</div>}>
-              <div className="border border-teal-200 bg-gradient-to-br from-teal-50 to-cyan-50 rounded-lg p-6 shadow-sm">
-                <UserManagement />
+              <div className="space-y-3">
+                <p className="text-sm text-gray-600">User information, user types (roles), and password reset. Manage who can access the app and send reset emails from here.</p>
+                <div className="border border-teal-200 bg-gradient-to-br from-teal-50 to-cyan-50 rounded-lg p-6 shadow-sm">
+                  <UserManagement />
+                </div>
               </div>
             </AuthGuard>
           )}

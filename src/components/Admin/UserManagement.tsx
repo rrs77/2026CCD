@@ -112,10 +112,10 @@ export function UserManagement() {
     <div className="space-y-4">
       <div className="flex items-center gap-2 text-gray-700">
         <Users className="h-5 w-5" />
-        <h3 className="text-lg font-semibold">User Management</h3>
+        <h3 className="text-lg font-semibold">Users & access</h3>
       </div>
       <p className="text-sm text-gray-600">
-        View all users, their roles and settings. Change roles and permissions via Edit. Send a password reset email if a user has requested one.
+        View all user accounts, contact details, and <strong>user types</strong> (Viewer, Teacher, Admin, Superuser). Use <strong>Edit</strong> to change a user’s role and permissions. Use <strong>Reset password</strong> to send them a password reset email so they can set a new password.
       </p>
       <div className="border border-gray-200 rounded-lg overflow-x-auto">
         <table className="w-full text-left min-w-[640px]">
@@ -132,7 +132,8 @@ export function UserManagement() {
             {users.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                  No users found. Users appear here after they sign up with Supabase Auth.
+                  <p>No users found.</p>
+                  <p className="mt-2 text-xs max-w-sm mx-auto">Users appear here after they sign up with Supabase Auth. If you are a superuser and expect to see users, ensure the migration <code className="bg-gray-100 px-1 rounded">profiles_superuser_and_rls.sql</code> has been run in Supabase (see <code className="bg-gray-100 px-1 rounded">supabase_migrations/README_RUN_IN_SUPABASE.md</code>).</p>
                 </td>
               </tr>
             ) : (
