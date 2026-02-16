@@ -826,34 +826,12 @@ export function LessonPlanBuilder({
       // Filter by selected category if one is chosen (but still show all if 'all' is selected)
       const matchesCategory = selectedCategory === 'all' || activity.category === selectedCategory;
       
-      // Category must be assigned to year group
+      // Category must be assigned to year group. Once assigned, show ALL activities in that category.
       const categoryIsAssignedToYearGroup = availableCategoriesForYearGroup.includes(activity.category);
-      
-      // Activity must be assigned to this year group (same logic as ActivityLibrary)
-      // If activity has no yearGroups set, show it for any class that has this category assigned
-      let activityIsAssignedToYearGroup = false;
-      if (yearGroupKeys.length === 0) {
-        activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup;
-      } else {
-        const ygRaw = activity.yearGroups;
-        const ygList: string[] = Array.isArray(ygRaw)
-          ? ygRaw.map(y => String(y))
-          : (ygRaw && typeof ygRaw === 'object' && !Array.isArray(ygRaw))
-            ? Object.keys(ygRaw).filter(k => (ygRaw as Record<string, unknown>)[k] === true)
-            : [];
-        if (ygList.length === 0) {
-          // No year groups on activity: show for any class that has this category
-          activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup;
-        } else {
-          const normalized = ygList.map(yg => yg.toLowerCase().trim());
-          const yearGroupsMatch = yearGroupKeys.some(key => {
-            const keyLower = key.toLowerCase().trim();
-            return normalized.includes(keyLower) || normalized.some(ayg => ayg.includes(keyLower) || keyLower.includes(ayg));
-          });
-          activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup && yearGroupsMatch;
-        }
-      }
-      
+
+      // When a category is applied to a year group, that year group sees all activities in the category (no activity-level year filter).
+      const activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup;
+
       return matchesSearch && matchesCategory && categoryIsAssignedToYearGroup && activityIsAssignedToYearGroup;
     });
 

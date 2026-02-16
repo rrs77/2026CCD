@@ -304,14 +304,7 @@ export function ActivityLibrary({
 
   // Filter and sort activities and stacks
   const { filteredAndSortedActivities, filteredAndSortedStacks } = useMemo(() => {
-    // Get current year group keys for activity matching
-    const yearGroupKeys = getCurrentYearGroupKeys();
-    const currentYearGroupName = className || currentSheetInfo?.sheet;
-    const currentYearGroup = customYearGroups?.find(
-      yg => yg.id === currentYearGroupName || yg.name === currentYearGroupName
-    );
-    
-    // Filter activities - filter by year group AND allow category/level filtering
+    // Filter activities by category assignment: when a category is assigned to the year group, show all activities in that category
     const query = debouncedSearchQuery;
     let filteredActivities = allActivities.filter(activity => {
       const matchesSearch = query === '' ||
@@ -324,35 +317,13 @@ export function ActivityLibrary({
       // Level filtering removed - show all levels
       const matchesLevel = true;
       
-      // CRITICAL: Category must be assigned to year group AND activity must be explicitly assigned
-      // If availableCategoriesForYearGroup is null, show all activities (fallback)
-      const categoryIsAssignedToYearGroup = availableCategoriesForYearGroup === null || 
+      // Category must be assigned to year group (if we have a list); then show all activities in that category.
+      // Once a category is applied to a year group, that year group sees ALL activities in the category.
+      const categoryIsAssignedToYearGroup = availableCategoriesForYearGroup === null ||
                                              availableCategoriesForYearGroup.includes(activity.category);
-      
-      // Show activity if: (1) no class selected → category assigned is enough; (2) class selected and activity has no yearGroups → show for any class that has this category; (3) activity has yearGroups → show only when current class is in that list
-      let activityIsAssignedToYearGroup = false;
-      if (yearGroupKeys.length === 0) {
-        activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup; // No year group selected
-      } else {
-        const ygRaw = activity.yearGroups;
-        const ygList: string[] = Array.isArray(ygRaw)
-          ? ygRaw.map(y => String(y))
-          : (ygRaw && typeof ygRaw === 'object' && !Array.isArray(ygRaw))
-            ? Object.keys(ygRaw).filter(k => (ygRaw as Record<string, unknown>)[k] === true)
-            : [];
-        if (ygList.length === 0) {
-          // No year groups on activity: show for any class that has this category (show all in category)
-          activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup;
-        } else {
-          const normalizedActivityYearGroups = ygList.map(yg => yg.toLowerCase().trim());
-          const yearGroupsMatch = yearGroupKeys.some(key => {
-            const keyLower = key.toLowerCase().trim();
-            return normalizedActivityYearGroups.includes(keyLower) ||
-                   normalizedActivityYearGroups.some(ayg => ayg.includes(keyLower) || keyLower.includes(ayg));
-          });
-          activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup && yearGroupsMatch;
-        }
-      }
+
+      // When a category is assigned to a year group, show all activities in that category (no activity-level year filter).
+      const activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup;
       
       // Check if user owns required pack (if activity requires one)
       const hasPackAccess = !activity.requiredPack || userOwnedPacks.includes(activity.requiredPack);
@@ -436,47 +407,18 @@ export function ActivityLibrary({
     });
 
     return { filteredAndSortedActivities: filteredActivities, filteredAndSortedStacks: filteredStacks };
-  }, [allActivities, activityStacks, debouncedSearchQuery, localSelectedCategory, sortBy, sortOrder, categories, className, mapActivityLevelToYearGroup, userOwnedPacks, availableCategoriesForYearGroup, getCurrentYearGroupKeys, customYearGroups, currentSheetInfo]);
+  }, [allActivities, activityStacks, debouncedSearchQuery, localSelectedCategory, sortBy, sortOrder, categories, mapActivityLevelToYearGroup, userOwnedPacks, availableCategoriesForYearGroup]);
 
   // Calculate total activities available for the current year group (without search/category filters)
+  // When a category is assigned to a year group, all activities in that category count.
   const totalActivitiesForYearGroup = useMemo(() => {
-    const yearGroupKeys = getCurrentYearGroupKeys();
-    const currentYearGroupName = className || currentSheetInfo?.sheet;
-    const currentYearGroup = customYearGroups?.find(
-      yg => yg.id === currentYearGroupName || yg.name === currentYearGroupName
-    );
-    
     return allActivities.filter(activity => {
-      const categoryIsAssignedToYearGroup = availableCategoriesForYearGroup === null || 
+      const categoryIsAssignedToYearGroup = availableCategoriesForYearGroup === null ||
                                              availableCategoriesForYearGroup.includes(activity.category);
-      
-      let activityIsAssignedToYearGroup = false;
-      if (yearGroupKeys.length === 0) {
-        activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup;
-      } else {
-        const ygRaw = activity.yearGroups;
-        const ygList: string[] = Array.isArray(ygRaw)
-          ? ygRaw.map(y => String(y))
-          : (ygRaw && typeof ygRaw === 'object' && !Array.isArray(ygRaw))
-            ? Object.keys(ygRaw).filter(k => (ygRaw as Record<string, unknown>)[k] === true)
-            : [];
-        if (ygList.length === 0) {
-          activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup;
-        } else {
-          const normalizedActivityYearGroups = ygList.map(yg => yg.toLowerCase().trim());
-          const yearGroupsMatch = yearGroupKeys.some(key => {
-            const keyLower = key.toLowerCase().trim();
-            return normalizedActivityYearGroups.includes(keyLower) ||
-                   normalizedActivityYearGroups.some(ayg => ayg.includes(keyLower) || keyLower.includes(ayg));
-          });
-          activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup && yearGroupsMatch;
-        }
-      }
-      
       const hasPackAccess = !activity.requiredPack || userOwnedPacks.includes(activity.requiredPack);
-      return activityIsAssignedToYearGroup && hasPackAccess;
+      return categoryIsAssignedToYearGroup && hasPackAccess;
     }).length;
-  }, [allActivities, className, customYearGroups, currentSheetInfo, availableCategoriesForYearGroup, getCurrentYearGroupKeys, userOwnedPacks]);
+  }, [allActivities, availableCategoriesForYearGroup, userOwnedPacks]);
 
   const toggleSort = (field: 'name' | 'category' | 'time' | 'level') => {
     if (sortBy === field) {
