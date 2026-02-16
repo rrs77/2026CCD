@@ -135,7 +135,7 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
   tempCategoriesRef.current = tempCategories;
   tempYearGroupsRef.current = tempYearGroups;
   const [tempResourceLinks, setTempResourceLinks] = useState(resourceLinks);
-  const [activeTab, setActiveTab] = useState<'general' | 'yeargroups' | 'categories' | 'purchases' | 'manage-packs' | 'data' | 'admin' | 'resource-links' | 'users' | 'branding'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'yeargroups' | 'categories' | 'purchases' | 'manage-packs' | 'data' | 'admin' | 'resource-links' | 'users' | 'branding'>('yeargroups');
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
   const adminMenuRef = useRef<HTMLDivElement>(null);
   const adminTriggerRef = useRef<HTMLButtonElement>(null);
@@ -176,8 +176,8 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
       setAdminMenuOpen(false);
       return;
     }
-    if (activeTab === 'users' && !showUserManagement) setActiveTab('general');
-    if ((activeTab === 'branding' || activeTab === 'manage-packs') && !isAdmin) setActiveTab('general');
+    if (activeTab === 'users' && !showUserManagement) setActiveTab('resource-links');
+    if ((activeTab === 'branding' || activeTab === 'manage-packs') && !isAdmin) setActiveTab('resource-links');
     // general, resource-links, data are under Admin for all users – no redirect
   }, [isOpen, activeTab, showUserManagement, isAdmin]);
 
@@ -243,7 +243,7 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
 
   // Clear notification when switching away from yeargroups tab (except when going to admin)
   React.useEffect(() => {
-    if (activeTab !== 'general' && activeTab !== 'yeargroups' && activeTab !== 'admin' && newlyAddedYearGroup) {
+    if (activeTab !== 'yeargroups' && activeTab !== 'admin' && newlyAddedYearGroup) {
       setNewlyAddedYearGroup(null);
     }
   }, [activeTab]);
@@ -833,7 +833,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
               type="button"
               onClick={() => setAdminMenuOpen(prev => !prev)}
               className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex items-center gap-1.5 transition-all duration-200 focus:outline-none ${
-                (activeTab === 'general' || activeTab === 'resource-links' || activeTab === 'data' || activeTab === 'manage-packs' || activeTab === 'branding')
+                (activeTab === 'resource-links' || activeTab === 'data' || activeTab === 'manage-packs' || activeTab === 'branding')
                   ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
               }`}
@@ -848,14 +848,6 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                 className="fixed py-1 w-52 bg-white rounded-lg border border-gray-200 shadow-xl z-[100]"
                 style={{ top: adminDropdownPosition.top, left: adminDropdownPosition.left }}
               >
-                <button
-                  type="button"
-                  onClick={() => { setActiveTab('general'); setAdminMenuOpen(false); }}
-                  className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'general' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
-                >
-                  <HelpCircle className="h-4 w-4" />
-                  General
-                </button>
                 <button
                   type="button"
                   onClick={() => { setActiveTab('resource-links'); setAdminMenuOpen(false); }}
@@ -927,35 +919,6 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
                 <span className="text-sm font-medium">Settings saved successfully!</span>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'general' && (
-            <div className="bg-gradient-to-br from-teal-50 to-cyan-50 rounded-xl p-6">
-              <div className="flex items-center space-x-3 mb-6">
-                <HelpCircle className="h-6 w-6 text-teal-600" />
-                <h3 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
-                  General
-                </h3>
-              </div>
-              <div className="bg-white rounded-lg border border-teal-200 p-4">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={settings.showButtonHelp !== false}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setTempSettings(prev => ({ ...prev, showButtonHelp: checked }));
-                      updateSettings({ showButtonHelp: checked });
-                    }}
-                    className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
-                  />
-                  <span className="text-sm font-medium text-gray-900">Show hover help for buttons</span>
-                </label>
-                <p className="mt-2 text-xs text-gray-500">
-                  When on, hovering over toolbar buttons (e.g. in Lesson Library) shows a short explanation. Turn off to hide these tooltips.
-                </p>
               </div>
             </div>
           )}
@@ -2309,6 +2272,26 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
 
           {activeTab === 'resource-links' && (
             <div className="space-y-6">
+              {/* General option (merged here – only one setting) */}
+              <div className="bg-white rounded-lg border border-teal-200 p-4 shadow-sm">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">General</h3>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.showButtonHelp !== false}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setTempSettings(prev => ({ ...prev, showButtonHelp: checked }));
+                      updateSettings({ showButtonHelp: checked });
+                    }}
+                    className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                  />
+                  <span className="text-sm font-medium text-gray-900">Show hover help for buttons</span>
+                </label>
+                <p className="mt-2 text-xs text-gray-500">
+                  When on, hovering over toolbar buttons (e.g. in Lesson Library) shows a short explanation.
+                </p>
+              </div>
               <div className="border border-teal-200 bg-gradient-to-br from-teal-50 to-cyan-50 rounded-lg p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-3">

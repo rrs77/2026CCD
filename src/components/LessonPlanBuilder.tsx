@@ -835,7 +835,8 @@ export function LessonPlanBuilder({
       // Category must be assigned to year group
       const categoryIsAssignedToYearGroup = availableCategoriesForYearGroup.includes(activity.category);
       
-      // Activity must be EXPLICITLY assigned to this year group (same logic as ActivityLibrary)
+      // Activity must be assigned to this year group (same logic as ActivityLibrary)
+      // If activity has no yearGroups set, show it for any class that has this category assigned
       let activityIsAssignedToYearGroup = false;
       if (yearGroupKeys.length === 0) {
         activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup;
@@ -846,7 +847,10 @@ export function LessonPlanBuilder({
           : (ygRaw && typeof ygRaw === 'object' && !Array.isArray(ygRaw))
             ? Object.keys(ygRaw).filter(k => (ygRaw as Record<string, unknown>)[k] === true)
             : [];
-        if (ygList.length > 0) {
+        if (ygList.length === 0) {
+          // No year groups on activity: show for any class that has this category
+          activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup;
+        } else {
           const normalized = ygList.map(yg => yg.toLowerCase().trim());
           const yearGroupsMatch = yearGroupKeys.some(key => {
             const keyLower = key.toLowerCase().trim();

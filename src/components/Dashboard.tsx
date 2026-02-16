@@ -180,6 +180,16 @@ export function Dashboard() {
     setActiveTab('lesson-builder');
   };
 
+  const handleDeleteLessonPlan = (planId: string) => {
+    if (isViewOnly) {
+      alert('View-only mode: Changes cannot be saved.');
+      return;
+    }
+    const updatedPlans = lessonPlans.filter((plan) => plan.id !== planId);
+    saveLessonPlans(updatedPlans);
+    // Optionally call API to remove from backend if you have a delete endpoint
+  };
+
   const handleUpdateLessonPlan = async (updatedPlan: any) => {
     if (isViewOnly) {
       alert('View-only mode: Changes cannot be saved.');
@@ -352,6 +362,7 @@ export function Dashboard() {
                 selectedDate={selectedDate}
                 lessonPlans={lessonPlans}
                 onUpdateLessonPlan={handleUpdateLessonPlan}
+                onDeleteLessonPlan={handleDeleteLessonPlan}
                 onCreateLessonPlan={handleCreateLessonPlan}
                 className={currentSheetInfo.sheet}
               />

@@ -74,6 +74,7 @@ interface LessonPlannerCalendarProps {
   selectedDate: Date | null;
   lessonPlans: LessonPlan[];
   onUpdateLessonPlan: (plan: LessonPlan) => void;
+  onDeleteLessonPlan?: (planId: string) => void;
   onCreateLessonPlan: (date: Date) => void;
   className: string;
 }
@@ -126,6 +127,7 @@ export function LessonPlannerCalendar({
   selectedDate,
   lessonPlans,
   onUpdateLessonPlan,
+  onDeleteLessonPlan,
   onCreateLessonPlan,
   className
 }: LessonPlannerCalendarProps) {
@@ -155,6 +157,7 @@ export function LessonPlannerCalendar({
   const [showTermTimeConfig, setShowTermTimeConfig] = useState(false);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [assignmentDate, setAssignmentDate] = useState<Date | null>(null);
+  const [removeFromDayDropdownOpen, setRemoveFromDayDropdownOpen] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const { stacks } = useLessonStacks();
   const calendarRef = useRef<HTMLDivElement>(null);
@@ -426,27 +429,18 @@ export function LessonPlannerCalendar({
     }
   };
 
-  const handleDeletePlan = (planId: string) => {
-    if (confirm('Are you sure you want to delete this lesson plan?')) {
-      // Filter out the deleted plan
-      const updatedPlans = lessonPlans.filter(p => p.id !== planId);
-      
-      // Update the parent component's state
-      // This assumes that onUpdateLessonPlan can handle the deletion
-      // You might need to add a separate onDeleteLessonPlan function
-      
-      // Close the lesson summary if all plans for the date are deleted
-      if (selectedDateWithPlans) {
-        const remainingPlans = updatedPlans.filter(plan => 
-          isSameDay(new Date(plan.date), selectedDateWithPlans.date)
-        );
-        
-        if (remainingPlans.length === 0) {
-          setIsLessonSummaryOpen(false);
-          setSelectedDateWithPlans(null);
-        } else {
-          setSelectedDateWithPlans({...selectedDateWithPlans, plans: remainingPlans});
-        }
+  const handleDeletePlan = (planId: string, options?: { skipConfirm?: boolean }) => {
+    const proceed = options?.skipConfirm ?? confirm('Are you sure you want to delete this lesson plan?');
+    if (!proceed) return;
+    onDeleteLessonPlan?.(planId);
+    if (selectedDateWithPlans) {
+      const remainingPlans = selectedDateWithPlans.plans.filter(p => p.id !== planId);
+      if (remainingPlans.length === 0) {
+        setRemoveFromDayDropdownOpen(false);
+        setIsLessonSummaryOpen(false);
+        setSelectedDateWithPlans(null);
+      } else {
+        setSelectedDateWithPlans({ ...selectedDateWithPlans, plans: remainingPlans });
       }
     }
   };
@@ -1818,12 +1812,69 @@ export function LessonPlannerCalendar({
                   {plans.length} {plans.length === 1 ? 'lesson' : 'lessons'} planned
                 </p>
               </div>
-              <button
-                onClick={() => setIsLessonSummaryOpen(false)}
-                className="p-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg transition-colors duration-200"
-              >
-                <X className="h-5 w-5 text-white" />
-              </button>
+              <div className="flex items-center gap-2 relative">
+                {plans.length > 0 && (
+                  <>
+                    <button
+                      onClick={() => {
+                        const dateStr = format(date, 'MMMM d, yyyy');
+                        if (plans.length === 1) {
+                          const plan = plans[0];
+                          const title = plan.title || (plan.lessonNumber ? `Lesson ${plan.lessonNumber}` : 'this lesson');
+                          if (window.confirm(`You are removing "${title}" from the diary for ${dateStr}. The lesson will still be in your library.`)) {
+                            handleDeletePlan(plan.id, { skipConfirm: true });
+                          }
+                        } else {
+                          setRemoveFromDayDropdownOpen((open) => !open);
+                        }
+                      }}
+                      className="p-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg transition-colors duration-200"
+                      title="Remove from day"
+                    >
+                      <Trash2 className="h-5 w-5 text-white" />
+                    </button>
+                    {removeFromDayDropdownOpen && plans.length > 1 && (
+                      <div 
+                        className="absolute right-0 top-full mt-2 z-50 py-1 bg-white rounded-lg shadow-lg border border-gray-200 min-w-[200px]"
+                        role="menu"
+                      >
+                        <div className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100">
+                          Remove from {format(date, 'MMM d')}
+                        </div>
+                        {plans.map((plan) => {
+                          const title = plan.title || (plan.lessonNumber ? `Lesson ${plan.lessonNumber}` : `Week ${plan.week} Lesson`);
+                          const dateStr = format(date, 'MMMM d, yyyy');
+                          return (
+                            <button
+                              key={plan.id}
+                              onClick={() => {
+                                if (window.confirm(`You are removing "${title}" from the diary for ${dateStr}. The lesson will still be in your library.`)) {
+                                  handleDeletePlan(plan.id, { skipConfirm: true });
+                                  setRemoveFromDayDropdownOpen(false);
+                                }
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                              role="menuitem"
+                            >
+                              <Trash2 className="h-4 w-4 text-red-500 shrink-0" />
+                              {title}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
+                <button
+                  onClick={() => {
+                    setIsLessonSummaryOpen(false);
+                    setRemoveFromDayDropdownOpen(false);
+                  }}
+                  className="p-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg transition-colors duration-200"
+                >
+                  <X className="h-5 w-5 text-white" />
+                </button>
+              </div>
             </div>
           </div>
           
@@ -1912,16 +1963,6 @@ export function LessonPlannerCalendar({
                                     <Edit3 className="h-4 w-4" />
                                   </button>
                                   )}
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeletePlan(plan.id);
-                                    }}
-                                    className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors duration-200"
-                                    title="Delete Lesson"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </button>
                                 </div>
                               </div>
                             </div>
