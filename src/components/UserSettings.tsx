@@ -164,6 +164,13 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
                   profile?.role === 'superuser';
   const showUserManagement = isSupabaseAuthEnabled() && (isAdmin || profile?.role === 'admin' || profile?.role === 'superuser' || profile?.can_manage_users === true);
 
+  // When modal opens or permissions change, ensure active tab is one we can show (avoid blank content)
+  React.useEffect(() => {
+    if (!isOpen) return;
+    if (activeTab === 'users' && !showUserManagement) setActiveTab('general');
+    if ((activeTab === 'branding' || activeTab === 'manage-packs') && !isAdmin) setActiveTab('general');
+  }, [isOpen, activeTab, showUserManagement, isAdmin]);
+
   // Update temp settings when settings change
   React.useEffect(() => {
     setTempSettings(settings);
@@ -698,9 +705,9 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
           </button>
         </div>
 
-        {/* Tabs - Scrollable on mobile */}
+        {/* Tabs - Wrap so all items visible; scroll horizontally on very small screens */}
         <div 
-          className="flex gap-1 sm:gap-3 px-3 sm:px-4 bg-gray-100 overflow-x-auto relative z-10 border-b border-gray-200 shadow-sm" 
+          className="flex flex-wrap gap-1 sm:gap-3 px-3 sm:px-4 py-2 bg-gray-100 overflow-x-auto relative z-10 border-b border-gray-200 shadow-sm" 
           style={{ 
             WebkitOverflowScrolling: 'touch',
             scrollbarWidth: 'thin',
@@ -2059,6 +2066,134 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                   <p className="text-xs text-gray-500 mt-3 text-center">
                     After purchase, the activities will automatically appear in your Activity Library within 24 hours.
                   </p>
+                </div>
+
+                {/* Commedia dell'arte for KS3 */}
+                <div className="rounded-lg border border-teal-200 bg-white p-6 hover:shadow-lg transition-shadow">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <span className="text-4xl">🎭</span>
+                        <div>
+                          <h5 className="text-xl font-bold text-gray-900">Commedia dell'arte – KS3 Drama</h5>
+                          <p className="text-sm text-teal-600 font-medium">Full lesson packs ready to use</p>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-700 mb-4">
+                        Complete lesson packs on Commedia dell'arte for KS3. Just download the pack and add the lessons straight into your built-in teaching calendar—no extra setup.
+                      </p>
+                      <div className="flex items-center space-x-4 mb-4">
+                        <span className="text-3xl font-bold text-teal-600">£24.99</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <a
+                      href="https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=rob.reichstorer@gmail.com&amount=24.99&currency_code=GBP&item_name=Commedia%20dell%27arte%20KS3%20Lesson%20Pack&return=http://localhost:5173"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg text-center flex items-center justify-center space-x-2"
+                    >
+                      <span>💳</span>
+                      <span>Purchase via PayPal or card</span>
+                    </a>
+                  </div>
+                </div>
+
+                {/* Improvisation for KS3 */}
+                <div className="rounded-lg border border-teal-200 bg-white p-6 hover:shadow-lg transition-shadow">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <span className="text-4xl">🎪</span>
+                        <div>
+                          <h5 className="text-xl font-bold text-gray-900">Improvisation – KS3 Drama</h5>
+                          <p className="text-sm text-teal-600 font-medium">Full lesson pack</p>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-700 mb-4">
+                        A full lesson pack focused on improvisation for KS3 drama. Download and add the sessions directly to your teaching calendar.
+                      </p>
+                      <div className="flex items-center space-x-4 mb-4">
+                        <span className="text-3xl font-bold text-teal-600">£24.99</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <a
+                      href="https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=rob.reichstorer@gmail.com&amount=24.99&currency_code=GBP&item_name=Improvisation%20KS3%20Lesson%20Pack&return=http://localhost:5173"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg text-center flex items-center justify-center space-x-2"
+                    >
+                      <span>💳</span>
+                      <span>Purchase via PayPal or card</span>
+                    </a>
+                  </div>
+                </div>
+
+                {/* Kneehigh Theatre – KS3 */}
+                <div className="rounded-lg border border-teal-200 bg-white p-6 hover:shadow-lg transition-shadow">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <span className="text-4xl">🎬</span>
+                        <div>
+                          <h5 className="text-xl font-bold text-gray-900">Kneehigh Theatre – KS3 Drama Practitioner</h5>
+                          <p className="text-sm text-teal-600 font-medium">Full lesson pack</p>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-700 mb-4">
+                        Explore the Kneehigh style and devising techniques with this KS3 drama practitioner pack. Download the lessons and add them to your built-in calendar.
+                      </p>
+                      <div className="flex items-center space-x-4 mb-4">
+                        <span className="text-3xl font-bold text-teal-600">£24.99</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <a
+                      href="https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=rob.reichstorer@gmail.com&amount=24.99&currency_code=GBP&item_name=Kneehigh%20Theatre%20KS3%20Lesson%20Pack&return=http://localhost:5173"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg text-center flex items-center justify-center space-x-2"
+                    >
+                      <span>💳</span>
+                      <span>Purchase via PayPal or card</span>
+                    </a>
+                  </div>
+                </div>
+
+                {/* Brecht for KS3 */}
+                <div className="rounded-lg border border-teal-200 bg-white p-6 hover:shadow-lg transition-shadow">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <span className="text-4xl">🎭</span>
+                        <div>
+                          <h5 className="text-xl font-bold text-gray-900">Brecht – KS3 Drama Practitioner</h5>
+                          <p className="text-sm text-teal-600 font-medium">Full lesson pack</p>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-700 mb-4">
+                        Full lesson packs on Brecht for KS3 drama. Download and slot the sessions into your teaching calendar—no extra setup.
+                      </p>
+                      <div className="flex items-center space-x-4 mb-4">
+                        <span className="text-3xl font-bold text-teal-600">£24.99</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <a
+                      href="https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=rob.reichstorer@gmail.com&amount=24.99&currency_code=GBP&item_name=Brecht%20KS3%20Lesson%20Pack&return=http://localhost:5173"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg text-center flex items-center justify-center space-x-2"
+                    >
+                      <span>💳</span>
+                      <span>Purchase via PayPal or card</span>
+                    </a>
+                  </div>
                 </div>
 
                 {/* Coming Soon - More Card Sets */}
