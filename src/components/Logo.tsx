@@ -2,7 +2,7 @@ import React from 'react';
 
 interface LogoProps {
   className?: string;
-  size?: 'sm' | 'md' | 'lg' | 'xs';
+  size?: 'sm' | 'md' | 'lg' | 'xs' | 'xs-sm';
   showText?: boolean;
   boldCurriculumDesigner?: boolean;
   /** Custom letters in logo circle, max 3 chars (e.g., "CCD") */

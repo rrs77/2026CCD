@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { AuthProvider } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
 import { SettingsProviderNew } from './contexts/SettingsContextNew';
@@ -105,13 +106,15 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <SettingsProviderNew>
-        <DataProvider>
-          <AppContent />
-        </DataProvider>
-      </SettingsProviderNew>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <SettingsProviderNew>
+          <DataProvider>
+            <AppContent />
+          </DataProvider>
+        </SettingsProviderNew>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 
