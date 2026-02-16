@@ -82,7 +82,7 @@ export function useShareLesson() {
   // Generate HTML content for PDF (full lesson plan version)
   const generateHTMLContent = (lessonNumber: string) => {
     const lessonData = allLessonsData[lessonNumber];
-    if (!lessonData) return ['', ''];
+    if (!lessonData) return ['', '', ''];
 
     const getLessonDisplayNumber = (num: string): string => {
       const numericPart = num.replace(/^lesson/i, '').replace(/[^0-9]/g, '');
@@ -169,10 +169,11 @@ export function useShareLesson() {
             page-break-after: always;
             break-after: always;
           }
-          .lesson-page:last-child { margin-bottom: 0; }
+          .lesson-page:last-child { margin-bottom: 0; page-break-after: avoid !important; break-after: avoid !important; }
           @media print {
             .lesson-page { box-shadow: none; margin: 0; padding: 0; width: 100%; min-height: auto; }
             .lesson-page:not(:last-child) { page-break-after: always; break-after: always; }
+            .lesson-page:last-child { page-break-after: avoid !important; break-after: avoid !important; }
             * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; print-color-adjust: exact !important; }
           }
         </style>
@@ -383,12 +384,24 @@ export function useShareLesson() {
         .join(' • ');
     
     const footerContent = `
-      <div style="width: 100%; text-align: center; font-size: 11px; color: #000000; font-weight: bold;">
-        <p>${footerText}</p>
+      <div style="width: 100%; font-size: 11px; color: #000000; font-weight: bold;">
+        <p style="text-align: center; margin: 0 0 2px 0;">${footerText}</p>
+        <p style="text-align: center; margin: 0; font-size: 10px; font-weight: 600;">Page <span class="pageNumber"></span> of <span class="totalPages"></span></p>
       </div>
     `;
 
-    return [htmlContent, footerContent];
+    // Header for every PDF page: date/time left, lesson title right (e.g. "Reception Lesson 1")
+    const now = new Date();
+    const headerDate = `${now.getMonth() + 1}/${now.getDate()}/${String(now.getFullYear()).slice(-2)}, ${now.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+    const shortTitle = `${currentSheetInfo.display} Lesson ${lessonDisplayNumber}`;
+    const headerContent = `
+      <div style="width: 100%; font-size: 10px; color: #374151; display: flex; justify-content: space-between; align-items: center;">
+        <span>${headerDate}</span>
+        <span style="font-weight: 600;">${shortTitle}</span>
+      </div>
+    `;
+
+    return [htmlContent, footerContent, headerContent];
   };
 
   // Encode to base64
@@ -480,9 +493,10 @@ export function useShareLesson() {
       // Generate HTML content
       // Note: Vercel Blob Storage is automatically available when configured in Vercel Dashboard
       // No bucket check needed - the API will handle errors if Blob store doesn't exist
-      const [htmlContent, footerContent] = generateHTMLContent(lessonNumber);
+      const [htmlContent, footerContent, headerContent] = generateHTMLContent(lessonNumber);
       const encodedHtml = encodeUnicodeBase64(htmlContent);
       const encodedFooter = encodeUnicodeBase64(footerContent);
+      const encodedHeader = encodeUnicodeBase64(headerContent);
 
       // Generate filename
       const getLessonDisplayNumber = (num: string): string => {
@@ -510,6 +524,7 @@ export function useShareLesson() {
           body: JSON.stringify({
             html: encodedHtml,
             footerTemplate: encodedFooter,
+            headerTemplate: encodedHeader,
             fileName: fileName
           })
         });
@@ -613,9 +628,10 @@ export function useShareLesson() {
     try {
       // Note: Using Vercel Blob Storage - no bucket check needed
       // The API will handle errors if Blob store is not configured
-      const [htmlContent, footerContent] = generateHTMLContent(lessonNumber);
+      const [htmlContent, footerContent, headerContent] = generateHTMLContent(lessonNumber);
       const encodedHtml = encodeUnicodeBase64(htmlContent);
       const encodedFooter = encodeUnicodeBase64(footerContent);
+      const encodedHeader = encodeUnicodeBase64(headerContent);
       const getLessonDisplayNumber = (num: string): string => {
         const n = num.replace(/^lesson/i, '').replace(/[^0-9]/g, '');
         return n || num;
@@ -631,7 +647,7 @@ export function useShareLesson() {
       const uploadResponse = await fetch(pdfApiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ html: encodedHtml, footerTemplate: encodedFooter, fileName })
+        body: JSON.stringify({ html: encodedHtml, footerTemplate: encodedFooter, headerTemplate: encodedHeader, fileName })
       });
 
       if (!uploadResponse.ok) {

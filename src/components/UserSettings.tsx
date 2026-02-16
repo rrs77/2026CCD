@@ -138,6 +138,8 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
   const [activeTab, setActiveTab] = useState<'general' | 'yeargroups' | 'categories' | 'purchases' | 'manage-packs' | 'data' | 'admin' | 'resource-links' | 'users' | 'branding'>('general');
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
   const adminMenuRef = useRef<HTMLDivElement>(null);
+  const adminTriggerRef = useRef<HTMLButtonElement>(null);
+  const [adminDropdownPosition, setAdminDropdownPosition] = useState<{ top: number; left: number } | null>(null);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [editingCategoryYearGroups, setEditingCategoryYearGroups] = useState<string | null>(null); // Track which category's year groups are being edited
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -176,16 +178,44 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
     }
     if (activeTab === 'users' && !showUserManagement) setActiveTab('general');
     if ((activeTab === 'branding' || activeTab === 'manage-packs') && !isAdmin) setActiveTab('general');
+    // general, resource-links, data are under Admin for all users – no redirect
   }, [isOpen, activeTab, showUserManagement, isAdmin]);
 
-  // Close admin dropdown when clicking outside
+  // When admin dropdown opens, lock its position (fixed) so it doesn't move when content shifts
+  React.useEffect(() => {
+    if (!adminMenuOpen) {
+      setAdminDropdownPosition(null);
+      return;
+    }
+    const updatePosition = () => {
+      const el = adminTriggerRef.current;
+      if (el) {
+        const r = el.getBoundingClientRect();
+        setAdminDropdownPosition({ top: r.bottom + 4, left: r.left });
+      }
+    };
+    updatePosition();
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [adminMenuOpen]);
+
+  // Close admin dropdown when clicking outside (use click so opening click doesn't close immediately)
   React.useEffect(() => {
     if (!adminMenuOpen) return;
     const handleClick = (e: MouseEvent) => {
-      if (adminMenuRef.current && !adminMenuRef.current.contains(e.target as Node)) setAdminMenuOpen(false);
+      if (adminMenuRef.current && !adminMenuRef.current.contains(e.target as Node)) {
+        setAdminMenuOpen(false);
+      }
     };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    const id = setTimeout(() => document.addEventListener('click', handleClick), 0);
+    return () => {
+      clearTimeout(id);
+      document.removeEventListener('click', handleClick);
+    };
   }, [adminMenuOpen]);
 
   // Update temp settings when settings change
@@ -732,19 +762,6 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
             minHeight: '48px'
           }}
         >
-          {/* General */}
-          <button
-            onClick={() => setActiveTab('general')}
-            className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
-              activeTab === 'general'
-                ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
-            }`}
-            style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif', border: 'none', borderLeft: 'none', borderRight: 'none' }}
-          >
-            General
-          </button>
-
           {/* Year Groups */}
           <button
             onClick={() => setActiveTab('yeargroups')}
@@ -809,61 +826,76 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
             <span className="hidden sm:inline">🛒</span> Purchases
           </button>
 
-          {/* Resource Links */}
-          <button
-            onClick={() => setActiveTab('resource-links')}
-            className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
-              activeTab === 'resource-links'
-                ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
-            }`}
-            style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif', border: 'none', borderLeft: 'none', borderRight: 'none' }}
-          >
-            <div className="flex items-center space-x-2">
-              <LinkIcon className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span>Resource Links</span>
-            </div>
-          </button>
-
-          {/* Admin – stacked dropdown (Manage Packs, Branding only; Users has its own tab below) */}
-          {isAdmin && (
-            <div className="relative flex-shrink-0" ref={adminMenuRef}>
-              <button
-                type="button"
-                onClick={() => setAdminMenuOpen(prev => !prev)}
-                className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex items-center gap-1.5 transition-all duration-200 focus:outline-none ${
-                  (activeTab === 'manage-packs' || activeTab === 'branding')
-                    ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
-                }`}
-                style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif', border: 'none', borderLeft: 'none', borderRight: 'none' }}
+          {/* Admin – dropdown: General, Resource Links, Data & Backup (all users); Manage Packs, Branding (admin only) */}
+          <div className="relative flex-shrink-0" ref={adminMenuRef}>
+            <button
+              ref={adminTriggerRef}
+              type="button"
+              onClick={() => setAdminMenuOpen(prev => !prev)}
+              className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex items-center gap-1.5 transition-all duration-200 focus:outline-none ${
+                (activeTab === 'general' || activeTab === 'resource-links' || activeTab === 'data' || activeTab === 'manage-packs' || activeTab === 'branding')
+                  ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
+              }`}
+              style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif', border: 'none', borderLeft: 'none', borderRight: 'none' }}
+            >
+              <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span>Admin</span>
+              <ChevronDown className={`h-3.5 w-3.5 sm:h-4 sm:w-4 transition-transform ${adminMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {adminMenuOpen && adminDropdownPosition && (
+              <div
+                className="fixed py-1 w-52 bg-white rounded-lg border border-gray-200 shadow-xl z-[100]"
+                style={{ top: adminDropdownPosition.top, left: adminDropdownPosition.left }}
               >
-                <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span>Admin</span>
-                <ChevronDown className={`h-3.5 w-3.5 sm:h-4 sm:w-4 transition-transform ${adminMenuOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {adminMenuOpen && (
-                <div className="absolute left-0 top-full mt-1 py-1 w-48 bg-white rounded-lg border border-gray-200 shadow-lg z-50">
-                  <button
-                    type="button"
-                    onClick={() => { setActiveTab('manage-packs'); setAdminMenuOpen(false); }}
-                    className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'manage-packs' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
-                  >
-                    <Package className="h-4 w-4" />
-                    Manage Packs
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setActiveTab('branding'); setAdminMenuOpen(false); }}
-                    className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'branding' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
-                  >
-                    <Palette className="h-4 w-4" />
-                    Branding
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab('general'); setAdminMenuOpen(false); }}
+                  className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'general' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
+                >
+                  <HelpCircle className="h-4 w-4" />
+                  General
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab('resource-links'); setAdminMenuOpen(false); }}
+                  className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'resource-links' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
+                >
+                  <LinkIcon className="h-4 w-4" />
+                  Resource Links
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab('data'); setAdminMenuOpen(false); }}
+                  className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'data' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
+                >
+                  <Database className="h-4 w-4" />
+                  Data & Backup
+                </button>
+                {isAdmin && (
+                  <>
+                    <div className="border-t border-gray-100 my-1" />
+                    <button
+                      type="button"
+                      onClick={() => { setActiveTab('manage-packs'); setAdminMenuOpen(false); }}
+                      className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'manage-packs' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
+                    >
+                      <Package className="h-4 w-4" />
+                      Manage Packs
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setActiveTab('branding'); setAdminMenuOpen(false); }}
+                      className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'branding' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
+                    >
+                      <Palette className="h-4 w-4" />
+                      Branding
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Users – dedicated tab for superuser/admin: user info, types, password reset */}
           {showUserManagement && (
@@ -883,18 +915,6 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
             </button>
           )}
 
-          {/* Data & Backup – always last */}
-          <button
-            onClick={() => setActiveTab('data')}
-            className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
-              activeTab === 'data'
-                ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
-            }`}
-            style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif', border: 'none', borderLeft: 'none', borderRight: 'none' }}
-          >
-            Data & Backup
-          </button>
         </div>
 
         {/* Content - Responsive padding */}

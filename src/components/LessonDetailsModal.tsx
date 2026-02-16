@@ -267,8 +267,17 @@ export function LessonDetailsModal({
                 className="p-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg transition-all duration-200 group flex items-center space-x-2 disabled:opacity-60"
                 title="Copy link to lesson PDF"
               >
-                <Link className="h-5 w-5 group-hover:scale-110 transition-transform duration-200" />
-                <span className="text-sm font-medium">Copy Link</span>
+                {isSharingLink ? (
+                  <>
+                    <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                    <span className="text-sm font-medium">Creating link...</span>
+                  </>
+                ) : (
+                  <>
+                    <Link className="h-5 w-5 group-hover:scale-110 transition-transform duration-200" />
+                    <span className="text-sm font-medium">Copy Link</span>
+                  </>
+                )}
               </button>
               <button
                 onClick={onClose}
