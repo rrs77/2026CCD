@@ -168,7 +168,7 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
                   user?.role === 'superuser' ||
                   profile?.role === 'admin' ||
                   profile?.role === 'superuser';
-  const showUserManagement = isSupabaseAuthEnabled() && (isAdmin || profile?.role === 'admin' || profile?.role === 'superuser' || profile?.can_manage_users === true);
+  const showUserManagement = (isSupabaseAuthEnabled() || isSupabaseConfigured()) && (isAdmin || profile?.role === 'admin' || profile?.role === 'superuser' || profile?.can_manage_users === true);
 
   // When modal opens or permissions change, ensure active tab is one we can show (avoid blank content)
   React.useEffect(() => {
@@ -833,7 +833,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
               type="button"
               onClick={() => setAdminMenuOpen(prev => !prev)}
               className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex items-center gap-1.5 transition-all duration-200 focus:outline-none ${
-                (activeTab === 'resource-links' || activeTab === 'data' || activeTab === 'manage-packs' || activeTab === 'branding')
+                (activeTab === 'resource-links' || activeTab === 'data' || activeTab === 'manage-packs' || activeTab === 'branding' || activeTab === 'users')
                   ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
               }`}
@@ -864,25 +864,39 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                   <Database className="h-4 w-4" />
                   Data & Backup
                 </button>
-                {isAdmin && (
+                {(isAdmin || showUserManagement) && (
                   <>
                     <div className="border-t border-gray-100 my-1" />
-                    <button
-                      type="button"
-                      onClick={() => { setActiveTab('manage-packs'); setAdminMenuOpen(false); }}
-                      className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'manage-packs' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
-                    >
-                      <Package className="h-4 w-4" />
-                      Manage Packs
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setActiveTab('branding'); setAdminMenuOpen(false); }}
-                      className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'branding' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
-                    >
-                      <Palette className="h-4 w-4" />
-                      Branding
-                    </button>
+                    {showUserManagement && (
+                      <button
+                        type="button"
+                        onClick={() => { setActiveTab('users'); setAdminMenuOpen(false); }}
+                        className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'users' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
+                      >
+                        <Users className="h-4 w-4" />
+                        Users
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => { setActiveTab('manage-packs'); setAdminMenuOpen(false); }}
+                          className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'manage-packs' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
+                        >
+                          <Package className="h-4 w-4" />
+                          Manage Packs
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setActiveTab('branding'); setAdminMenuOpen(false); }}
+                          className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'branding' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
+                        >
+                          <Palette className="h-4 w-4" />
+                          Branding
+                        </button>
+                      </>
+                    )}
                   </>
                 )}
               </div>
