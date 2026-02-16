@@ -31,7 +31,7 @@ export default defineConfig({
       include: [/node_modules/],
       transformMixedEsModules: true,
     },
-    chunkSizeWarningLimit: 600, // Increase warning limit slightly since we're splitting better
+    chunkSizeWarningLimit: 1000, // 1MB - avoid build warning for large vendor chunks (xlsx, pdf, etc.)
     rollupOptions: {
       output: {
         manualChunks: (id) => {
