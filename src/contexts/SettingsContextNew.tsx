@@ -406,7 +406,7 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
     if (isSavingToSupabase.current || saveQueue.current.length === 0) return;
     
     isSavingToSupabase.current = true;
-    if (shouldLog('debug')) {
+    if (import.meta.env.DEV) {
       console.log('🔄 Processing save queue with', saveQueue.current.length, 'items');
     }
     
@@ -415,7 +415,7 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
     
     try {
       for (const item of items) {
-        if (shouldLog('debug')) {
+        if (import.meta.env.DEV) {
           console.log('🔄 Processing save queue item:', item.type);
         }
         
@@ -486,7 +486,7 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
     // Add new item
     saveQueue.current.push({ type, data });
     
-    if (shouldLog('debug')) {
+    if (import.meta.env.DEV) {
       console.log('📝 Queued save:', type, 'Queue length:', saveQueue.current.length);
     }
     

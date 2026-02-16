@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { wordpressAPI } from '../config/api';
 import { supabase, isSupabaseAuthEnabled } from '../config/supabase';
 import type { AppUser, Profile } from '../types/auth';
@@ -68,6 +68,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const resolvedRef = useRef(false);
 
   const fetchSupabaseProfile = useCallback(async (authUserId: string): Promise<Profile | null> => {
     const { data, error } = await supabase
@@ -91,11 +92,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (!isSupabaseAuthEnabled()) return;
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_OUT') {
+        resolvedRef.current = true; // Prevent timeout from overwriting; we explicitly signed out
         setUser(null);
         setProfile(null);
         syncUserIdToStorage(null);
         localStorage.removeItem('rhythmstix_auth_token');
       } else if (session?.user) {
+        resolvedRef.current = true; // Valid session – prevent timeout from clearing it
         const p = await fetchSupabaseProfile(session.user.id);
         const appUser: AppUser = {
           id: session.user.id,
@@ -116,6 +119,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const checkAuthStatus = async () => {
     const timeoutId = setTimeout(() => {
+      if (resolvedRef.current) return; // Already resolved – don't override valid session
       if (import.meta.env.DEV) console.warn('Auth check timed out – showing login form');
       setLoading(false);
       setUser(null);
@@ -126,6 +130,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (isSupabaseAuthEnabled()) {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
+          resolvedRef.current = true;
           const p = await fetchSupabaseProfile(session.user.id);
           const appUser: AppUser = {
             id: session.user.id,
@@ -140,6 +145,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setLoading(false);
           return;
         }
+        resolvedRef.current = true;
         setUser(null);
         setProfile(null);
         syncUserIdToStorage(null);
@@ -174,6 +180,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           const userId = token.replace('rhythmstix_local_', '');
           const localUser = localUsers.find(u => u.id === userId);
           if (localUser) {
+            resolvedRef.current = true;
             const userData: AppUser = {
               id: localUser.id,
               email: localUser.email,
@@ -192,6 +199,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             try {
               const isValid = await wordpressAPI.validateToken(token);
               if (isValid) {
+                resolvedRef.current = true;
                 const userInfo = await wordpressAPI.getUserInfo(token);
                 const userData: AppUser = {
                   id: userInfo.id.toString(),
@@ -267,6 +275,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
 
       if (localUser) {
+        resolvedRef.current = true;
         const userData: AppUser = {
           id: localUser.id,
           email: localUser.email,
