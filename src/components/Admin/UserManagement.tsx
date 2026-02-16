@@ -1,10 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { Users, Edit2, Loader2, Mail } from 'lucide-react';
+import { Users, Edit2, Loader2, Mail, Plus, X } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import { useSettings } from '../../contexts/SettingsContextNew';
+import { useAuth } from '../../hooks/useAuth';
 import type { Profile, ProfileRole } from '../../types/auth';
 import { EditUserModal } from './EditUserModal';
 import toast from 'react-hot-toast';
+
+const BASE_ROLES: { value: ProfileRole; label: string }[] = [
+  { value: 'viewer', label: 'Viewer' },
+  { value: 'teacher', label: 'Teacher' },
+  { value: 'admin', label: 'Admin' }
+];
 
 function roleLabel(role: ProfileRole): string {
   switch (role) {
@@ -38,12 +45,22 @@ function formatDate(iso: string | undefined): string {
 
 export function UserManagement() {
   const { customYearGroups } = useSettings();
+  const { profile: currentProfile } = useAuth();
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
   const [sendingResetFor, setSendingResetFor] = useState<string | null>(null);
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [addUserEmail, setAddUserEmail] = useState('');
+  const [addUserPassword, setAddUserPassword] = useState('');
+  const [addUserDisplayName, setAddUserDisplayName] = useState('');
+  const [addUserRole, setAddUserRole] = useState<ProfileRole>('viewer');
+  const [addUserSending, setAddUserSending] = useState(false);
+  const [addUserError, setAddUserError] = useState('');
 
   const yearGroupNames = customYearGroups.map(g => g.name);
+  const isSuperuser = currentProfile?.role === 'superuser';
+  const addUserRoles = isSuperuser ? [...BASE_ROLES, { value: 'superuser' as const, label: 'Superuser' }] : BASE_ROLES;
 
   const fetchUsers = React.useCallback(async () => {
     const { data, error } = await supabase
@@ -100,6 +117,47 @@ export function UserManagement() {
     }
   };
 
+  const handleAddUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const emailTrimmed = addUserEmail.trim();
+    if (!emailTrimmed) {
+      setAddUserError('Email is required.');
+      return;
+    }
+    setAddUserError('');
+    setAddUserSending(true);
+    try {
+      const res = await fetch('/api/create-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: emailTrimmed,
+          password: addUserPassword.trim() || undefined,
+          display_name: addUserDisplayName.trim() || undefined,
+          role: addUserRole,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAddUserError(data?.error || `Request failed (${res.status})`);
+        return;
+      }
+      toast.success(data.invited
+        ? `Invite sent to ${emailTrimmed}. They will set a password when they accept.`
+        : `User ${emailTrimmed} created.`);
+      setShowAddUserModal(false);
+      setAddUserEmail('');
+      setAddUserPassword('');
+      setAddUserDisplayName('');
+      setAddUserRole('viewer');
+      fetchUsers().then(setUsers);
+    } catch (e) {
+      setAddUserError(e instanceof Error ? e.message : 'Failed to create user');
+    } finally {
+      setAddUserSending(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -110,12 +168,29 @@ export function UserManagement() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 text-gray-700">
-        <Users className="h-5 w-5" />
-        <h3 className="text-lg font-semibold">Users & access</h3>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-gray-700">
+          <Users className="h-5 w-5" />
+          <h3 className="text-lg font-semibold">Users & access</h3>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setShowAddUserModal(true);
+            setAddUserError('');
+            setAddUserEmail('');
+            setAddUserPassword('');
+            setAddUserDisplayName('');
+            setAddUserRole('viewer');
+          }}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors"
+        >
+          <Plus className="h-4 w-4" />
+          Add user
+        </button>
       </div>
       <p className="text-sm text-gray-600">
-        View all user accounts, contact details, and <strong>user types</strong> (Viewer, Teacher, Admin, Superuser). Use <strong>Edit</strong> to change a user’s role and permissions. Use <strong>Reset password</strong> to send them a password reset email so they can set a new password.
+        View all user accounts, contact details, and <strong>user types</strong> (Viewer, Teacher, Admin, Superuser). Use <strong>Edit</strong> to change a user’s role and permissions. Use <strong>Reset password</strong> to send them a password reset email Add users manually with the button above.
       </p>
       <div className="border border-gray-200 rounded-lg overflow-x-auto">
         <table className="w-full text-left min-w-[640px]">
@@ -186,6 +261,92 @@ export function UserManagement() {
           onSave={handleSave}
           onClose={() => setEditingUser(null)}
         />
+      )}
+
+      {showAddUserModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <h2 className="text-xl font-semibold text-gray-900">Add user</h2>
+              <button
+                type="button"
+                onClick={() => !addUserSending && setShowAddUserModal(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg disabled:opacity-50"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handleAddUser} className="p-6 space-y-4">
+              {addUserError && (
+                <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{addUserError}</p>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email <span className="text-red-500">*</span></label>
+                <input
+                  type="email"
+                  value={addUserEmail}
+                  onChange={e => setAddUserEmail(e.target.value)}
+                  placeholder="user@example.com"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Password (optional)</label>
+                <input
+                  type="password"
+                  value={addUserPassword}
+                  onChange={e => setAddUserPassword(e.target.value)}
+                  placeholder="Min 6 characters; leave blank to send invite email"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  minLength={6}
+                  autoComplete="new-password"
+                />
+                <p className="mt-1 text-xs text-gray-500">Leave blank to send an invite email; they will set a password when they accept.</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Display name (optional)</label>
+                <input
+                  type="text"
+                  value={addUserDisplayName}
+                  onChange={e => setAddUserDisplayName(e.target.value)}
+                  placeholder="e.g. Jane Smith"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                <select
+                  value={addUserRole}
+                  onChange={e => setAddUserRole(e.target.value as ProfileRole)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                >
+                  {addUserRoles.map(r => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => !addUserSending && setShowAddUserModal(false)}
+                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={addUserSending}
+                  className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 inline-flex items-center gap-2"
+                >
+                  {addUserSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  {addUserSending ? 'Creating…' : 'Add user'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -80,3 +80,15 @@ STEP 8 (optional) - User Management: superuser role and RLS for admins
 4. Click Run
 
 This adds a "superuser" role to profiles, lets admins/superusers read and update all users, syncs email from auth into profiles, and backfills missing emails. Run this if you use Supabase Auth and want the Users tab in Settings to work (view all users, edit roles, send password reset emails).
+
+-------------------------------------------------------------------------------
+STEP 9 (optional) - Make your login show as superuser in Users
+-------------------------------------------------------------------------------
+After you have signed in at least once (so your profile exists):
+
+1. Open the file:  set_first_superuser.sql
+2. Replace 'your-email@example.com' with the email you use to sign in.
+3. Select ALL text in that file (Cmd+A or Ctrl+A), copy and paste into Supabase Dashboard → SQL Editor
+4. Click Run
+
+Your account will then appear in Settings → Admin → Users with role Superuser, and you can add/edit other users.

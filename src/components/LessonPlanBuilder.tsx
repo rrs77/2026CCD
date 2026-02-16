@@ -154,25 +154,21 @@ export function LessonPlanBuilder({
       currentYearGroupKey
     ].filter(Boolean) as string[];
     
-    // STRICT: Filter categories that are EXPLICITLY assigned to current year group
+    // Include categories: explicitly assigned to current year group OR no yearGroups set (show for all classes)
     const filteredCategories = categories
       .filter((category) => {
-        // Skip categories without yearGroups configuration
-        if (!category || !category.yearGroups || Object.keys(category.yearGroups).length === 0) {
-          console.log(`❌ Category "${category.name}" has no yearGroups - excluding`);
-          return false;
+        if (!category?.name) return false;
+        // No yearGroups or empty: treat as "available to all" so activities aren't missing in Build Your Lesson
+        if (!category.yearGroups || Object.keys(category.yearGroups).length === 0) {
+          console.log(`✅ Category "${category.name}" has no yearGroups - including for all classes`);
+          return true;
         }
-        
-        // Get all keys that are explicitly set to true for this category
         const assignedKeys = Object.keys(category.yearGroups).filter(k => category.yearGroups[k] === true);
-        
         if (assignedKeys.length === 0) {
-          console.log(`❌ Category "${category.name}" has no assigned year groups - excluding`);
-          return false;
+          console.log(`✅ Category "${category.name}" has no assignments - including for all classes`);
+          return true;
         }
-        
-        // Category must be explicitly assigned to current year group
-        // Match exact (case-insensitive) or when sheet name starts with year group name (e.g. "Year 1" matches "Year 1 Music")
+        // Category has year groups: must be explicitly assigned to current year group
         const isAssigned = assignedKeys.some(assignedKey => {
           const assignedKeyLower = assignedKey.toLowerCase().trim();
           return keysToCheck.some(checkKey => {
@@ -182,13 +178,11 @@ export function LessonPlanBuilder({
             return false;
           });
         });
-        
         if (isAssigned) {
           console.log(`✅ Category "${category.name}" assigned to "${currentYearGroup?.name || currentYearGroupKey}"`);
         } else {
           console.log(`❌ Category "${category.name}" NOT assigned. Has: [${assignedKeys.join(', ')}], Need: [${keysToCheck.join(', ')}]`);
         }
-        
         return isAssigned;
       });
     
