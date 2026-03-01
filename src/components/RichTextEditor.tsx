@@ -109,53 +109,116 @@ export function RichTextEditor({
       };
       
       editor.root.addEventListener('click', handleChecklistClick);
-      
-      // Override clipboard matchers to prevent doubling
+
+      // Paste handler: for plain-text multi-line pastes (e.g. song lyrics), use soft breaks
+      // within stanzas (\n) and paragraph breaks between stanzas (\n\n) - avoids huge gaps
+      const handlePaste = (e: ClipboardEvent) => {
+        const plain = e.clipboardData?.getData('text/plain');
+        const html = e.clipboardData?.getData('text/html');
+        if (!plain || !plain.includes('\n')) return;
+        // Skip if paste has rich formatting we want to preserve
+        if (html && /<(strong|b|em|i|ul|ol|li|h[1-6])/i.test(html)) return;
+        e.preventDefault();
+        const lines = plain.split(/\r\n|\r|\n/);
+        const stanzas: string[] = [];
+        let i = 0;
+        while (i < lines.length) {
+          const stanza: string[] = [];
+          while (i < lines.length && lines[i].trim() !== '') {
+            stanza.push(lines[i]);
+            i++;
+          }
+          if (stanza.length) stanzas.push(stanza.join('\n'));
+          while (i < lines.length && lines[i].trim() === '') i++;
+        }
+        const content = stanzas.join('\n\n') + (stanzas.length ? '\n' : '');
+        const Delta = Quill.import('delta');
+        const range = editor.getSelection(true) || { index: 0, length: 0 };
+        const delta = new Delta()
+          .retain(range.index)
+          .delete(range.length)
+          .insert(content);
+        editor.updateContents(delta, 'user');
+        editor.setSelection(range.index + content.length, 0);
+      };
+      editor.root.addEventListener('paste', handlePaste);
+
+      // Custom clipboard matcher: fix list doubling, but preserve formatting (bold, italic, etc.)
       const clipboard = editor.getModule('clipboard');
       if (clipboard) {
-        // Store original matchers
         const originalMatchers = clipboard.matchers.slice(0);
-        
-        // Clear all matchers
         clipboard.matchers = [];
-        
-        // Add single comprehensive matcher to prevent doubling
+
+        // Add our list/BR handler first - only for elements we need to fix
         clipboard.addMatcher(Node.ELEMENT_NODE, (node: any, delta: any) => {
-          // Handle lists
           if (node.tagName === 'UL' || node.tagName === 'OL') {
             const listItems = Array.from(node.querySelectorAll('li'));
             const ops: any[] = [];
             listItems.forEach((li: any) => {
-              const text = li.textContent?.trim() || '';
-              if (text) {
-                ops.push({ insert: text });
-                const listType = node.getAttribute('data-list') === 'check' ? 'check' : 
-                                (node.tagName === 'OL' ? 'ordered' : 'bullet');
-                ops.push({ insert: '\n', attributes: { list: listType } });
+              // Preserve inline formatting (bold, italic) within list items
+              const liDelta = getDeltaFromNode(li);
+              if (liDelta.ops?.length) {
+                ops.push(...liDelta.ops);
               }
+              const listType = node.getAttribute('data-list') === 'check' ? 'check' : 
+                              (node.tagName === 'OL' ? 'ordered' : 'bullet');
+              ops.push({ insert: '\n', attributes: { list: listType } });
             });
             return { ops };
           }
-          
-          // Handle line breaks
           if (node.tagName === 'BR') {
             return { ops: [{ insert: '\n' }] };
           }
-          
-          // Default: just get text content
-          const text = node.textContent || '';
-          return { ops: [{ insert: text }] };
+          // Delegate to default matchers to preserve bold, italic, headers, etc.
+          for (let i = 0; i < originalMatchers.length; i++) {
+            const [selector, handler] = originalMatchers[i];
+            if (selector === Node.ELEMENT_NODE || (typeof selector === 'number' && selector === Node.ELEMENT_NODE)) {
+              const result = handler(node, delta);
+              if (result && result.ops) return result;
+              break;
+            }
+          }
+          // Fallback: preserve as formatted text
+          return getDeltaFromNode(node);
         });
-        
-        // Handle plain text with line breaks
+
         clipboard.addMatcher(Node.TEXT_NODE, (node: any, delta: any) => {
           const text = node.data || '';
           return { ops: [{ insert: text }] };
         });
       }
+
+      function getDeltaFromNode(node: Node): { ops: any[] } {
+        const ops: any[] = [];
+        const walk = (n: Node) => {
+          if (n.nodeType === Node.TEXT_NODE) {
+            const t = n.textContent || '';
+            if (t) ops.push({ insert: t });
+            return;
+          }
+          if (n.nodeType === Node.ELEMENT_NODE) {
+            const el = n as HTMLElement;
+            const attrs: Record<string, boolean> = {};
+            if (el.tagName === 'STRONG' || el.tagName === 'B') attrs.bold = true;
+            if (el.tagName === 'EM' || el.tagName === 'I') attrs.italic = true;
+            if (el.tagName === 'U') attrs.underline = true;
+            if (el.tagName === 'S') attrs.strike = true;
+            el.childNodes.forEach(walk);
+            // Apply attrs to last insert if we added text
+            if (Object.keys(attrs).length && ops.length) {
+              const last = ops[ops.length - 1];
+              if (typeof last.insert === 'string') last.attributes = { ...last.attributes, ...attrs };
+            }
+            return;
+          }
+        };
+        node.childNodes.forEach(walk);
+        return ops.length ? { ops } : { ops: [{ insert: (node.textContent || '') }] };
+      }
       
       return () => {
         editor.root.removeEventListener('click', handleChecklistClick);
+        editor.root.removeEventListener('paste', handlePaste);
       };
     }
   }, []);
@@ -182,8 +245,15 @@ export function RichTextEditor({
     'indent', 'align',
   ];
 
+  // Prevent browser default for format shortcuts (e.g. Cmd+B toggles bookmarks bar in Chrome)
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && ['b', 'i', 'u', 's', 'z', 'y'].includes(e.key?.toLowerCase())) {
+      e.preventDefault();
+    }
+  };
+
   return (
-    <div className={`rich-text-editor ${className}`} style={{ direction: 'ltr' }}>
+    <div className={`rich-text-editor ${className}`} style={{ direction: 'ltr' }} onKeyDown={handleKeyDown}>
       <style>{`
         .rich-text-editor .ql-container {
           min-height: ${minHeight};

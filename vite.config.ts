@@ -95,7 +95,7 @@ export default defineConfig({
     },
   },
   server: {
-    host: true, // listen on 0.0.0.0 so http://127.0.0.1:5173 and http://localhost:5173 both work
+    host: '127.0.0.1', // avoid uv_interface_addresses errors in restricted environments
     port: 5173,
     strictPort: true, // fail if port in use so --open always opens the correct URL
     open: true, // open browser to the actual server URL when server starts

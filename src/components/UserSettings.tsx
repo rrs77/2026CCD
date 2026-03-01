@@ -296,6 +296,9 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
       
       // Save settings (this doesn't need to be async as it's just local state)
     updateSettings(tempSettings);
+
+      // Save resource links to localStorage
+    updateResourceLinks(tempResourceLinks);
       
       // Save categories and year groups to state
       console.log('🔄 Saving categories and year groups...');

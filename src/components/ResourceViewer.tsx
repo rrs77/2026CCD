@@ -45,9 +45,10 @@ export function ResourceViewer({ url, title, type, onClose }: ResourceViewerProp
       return true;
     }
     
-    // Cloud storage links (like rhythmstix.co.uk) - try to embed
+    // Nextcloud / cloud.rhythmstix.co.uk blocks iframe embedding (X-Frame-Options)
+    // - show "Open in new tab" instead of blank iframe
     if (url.includes('cloud.rhythmstix.co.uk') || url.includes('rhythmstix.co.uk')) {
-      return true;
+      return false;
     }
     
     return false;
