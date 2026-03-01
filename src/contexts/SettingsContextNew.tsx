@@ -426,6 +426,10 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [yearGroupBands, setYearGroupBands] = useState<YearGroupBand[]>(DEFAULT_YEAR_GROUP_BANDS);
   const customYearGroups = React.useMemo(() => flattenBands(yearGroupBands), [yearGroupBands]);
+  const setCustomYearGroups = React.useCallback((value: YearGroup[] | ((prev: YearGroup[]) => YearGroup[])) => {
+    const newGroups = typeof value === 'function' ? value(customYearGroups) : value;
+    setYearGroupBands(flatToBands(newGroups));
+  }, [customYearGroups]);
   const [resourceLinks, setResourceLinks] = useState<ResourceLinkConfig[]>(DEFAULT_RESOURCE_LINKS);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [defaultViewMode, setDefaultViewMode] = useState<
