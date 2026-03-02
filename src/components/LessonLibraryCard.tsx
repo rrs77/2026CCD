@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Clock, Users, Calendar, Edit3, Copy, Share2, Check, X, Link2 } from 'lucide-react';
+import { Clock, Users, Calendar, Edit3, Copy, Share2, Check, X, Link2, Send } from 'lucide-react';
 import type { LessonData } from '../contexts/DataContext';
 import { useSettings } from '../contexts/SettingsContextNew';
 import { AssignToHalfTermModal } from './AssignToHalfTermModal';
@@ -31,6 +31,7 @@ interface LessonLibraryCardProps {
   onEdit?: () => void;
   onDuplicate?: () => void;
   onShare?: () => void;
+  onCopyToYear?: () => void;
 }
 
 export function LessonLibraryCard({
@@ -42,6 +43,7 @@ export function LessonLibraryCard({
   onEdit,
   onDuplicate,
   onShare,
+  onCopyToYear,
   theme,
   onAssignToUnit,
   halfTerms = []
@@ -179,7 +181,7 @@ export function LessonLibraryCard({
               </div>
             </div>
             {/* Action buttons in flow so they don't overlap content */}
-            {((onAssignToUnit && halfTerms.length > 0) || onEdit || onDuplicate || true) && (
+            {((onAssignToUnit && halfTerms.length > 0) || onEdit || onDuplicate || onCopyToYear || true) && (
             <div className="flex items-center space-x-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
               {/* Share button - always available */}
               <button
@@ -242,6 +244,19 @@ export function LessonLibraryCard({
                 >
                   <Copy className="h-3 w-3" />
                   <span className="text-xs">Copy</span>
+                </button>
+              )}
+              {onCopyToYear && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCopyToYear();
+                  }}
+                  className="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm flex items-center space-x-1"
+                  title="Copy to another year group"
+                >
+                  <Send className="h-3 w-3" />
+                  <span className="text-xs">To Year</span>
                 </button>
               )}
               {onEdit && (
@@ -325,7 +340,7 @@ export function LessonLibraryCard({
               </div>
             </div>
             {/* Action buttons in flow so they don't overlap content */}
-            {((onAssignToUnit && halfTerms.length > 0) || onEdit || onDuplicate || true) && (
+            {((onAssignToUnit && halfTerms.length > 0) || onEdit || onDuplicate || onCopyToYear || true) && (
             <div className="flex items-center space-x-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
             {/* Share button - always available */}
             <button
@@ -392,6 +407,19 @@ export function LessonLibraryCard({
               >
                 <Copy className="h-4 w-4" />
                 <span className="text-xs">Copy</span>
+              </button>
+            )}
+            {onCopyToYear && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCopyToYear();
+                }}
+                className="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm flex items-center space-x-1"
+                title="Copy to another year group"
+              >
+                <Send className="h-4 w-4" />
+                <span className="text-xs">To Year</span>
               </button>
             )}
             {onEdit && (
@@ -505,7 +533,7 @@ export function LessonLibraryCard({
         
 
         {/* Action buttons - Assign, Duplicate, and Edit buttons */}
-        {((onAssignToUnit && halfTerms.length > 0) || onEdit || onDuplicate) && (
+            {((onAssignToUnit && halfTerms.length > 0) || onEdit || onDuplicate || onCopyToYear) && (
           <div className="absolute top-2 right-2 z-20 flex items-center space-x-2">
             {onAssignToUnit && halfTerms.length > 0 && (
               <button
@@ -532,6 +560,18 @@ export function LessonLibraryCard({
                 title="Duplicate Lesson"
               >
                 <Copy className="h-4 w-4" />
+              </button>
+            )}
+            {onCopyToYear && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCopyToYear();
+                }}
+                className="p-2 bg-white bg-opacity-80 hover:bg-opacity-100 rounded-lg shadow-sm text-indigo-600 hover:text-indigo-800 transition-colors"
+                title="Copy to another year group"
+              >
+                <Send className="h-4 w-4" />
               </button>
             )}
             {onEdit && (

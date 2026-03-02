@@ -28,6 +28,7 @@ interface RichTextEditorProps {
   onChange: (value: string) => void;
   placeholder?: string;
   minHeight?: string;
+  maxHeight?: string;
   className?: string;
 }
 
@@ -36,6 +37,7 @@ export function RichTextEditor({
   onChange,
   placeholder = 'Enter text here...',
   minHeight = '150px',
+  maxHeight = '400px',
   className = ''
 }: RichTextEditorProps) {
   const quillRef = useRef<ReactQuill>(null);
@@ -245,8 +247,14 @@ export function RichTextEditor({
     'indent', 'align',
   ];
 
-  // Prevent browser default for format shortcuts (e.g. Cmd+B toggles bookmarks bar in Chrome)
+  // Prevent browser default for format shortcuts only when focus is in toolbar
+  // (e.g. Cmd+B opens bookmarks bar in Chrome). When focus is in the editor,
+  // let Quill handle bold/italic/underline/strike shortcuts.
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('.ql-editor')) {
+      return; // In editor - let Quill handle formatting shortcuts
+    }
     if ((e.metaKey || e.ctrlKey) && ['b', 'i', 'u', 's', 'z', 'y'].includes(e.key?.toLowerCase())) {
       e.preventDefault();
     }
@@ -257,6 +265,8 @@ export function RichTextEditor({
       <style>{`
         .rich-text-editor .ql-container {
           min-height: ${minHeight};
+          max-height: ${maxHeight};
+          overflow-y: auto;
           border-bottom-left-radius: 0.5rem;
           border-bottom-right-radius: 0.5rem;
           background: white;
@@ -299,6 +309,7 @@ export function RichTextEditor({
           color: #2D3748;
           font-size: 18px;
           line-height: 1.5;
+          padding-bottom: 1.5em;
         }
         .rich-text-editor .ql-editor p {
           font-size: 18px;

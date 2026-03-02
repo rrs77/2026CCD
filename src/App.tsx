@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { ResetPasswordPage } from './components/ResetPasswordPage';
 import { AuthProvider } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
 import { SettingsProviderNew } from './contexts/SettingsContextNew';
@@ -105,6 +106,14 @@ function AppContent() {
 }
 
 function App() {
+  if (typeof window !== 'undefined' && window.location.pathname === '/reset-password') {
+    return (
+      <ErrorBoundary>
+        <ResetPasswordPage />
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <AuthProvider>

@@ -8,6 +8,8 @@ interface ClassCopyModalProps {
   availableClasses: Array<{ id: string; name: string }>;
   currentClass: string;
   allLessonsData: Record<string, any>;
+  /** Pre-select these lessons when opening (e.g. when opened from a card's "Copy to year" icon) */
+  initialSelectedLessons?: string[];
 }
 
 export function ClassCopyModal({ 
@@ -16,7 +18,8 @@ export function ClassCopyModal({
   onCopy, 
   availableClasses,
   currentClass,
-  allLessonsData
+  allLessonsData,
+  initialSelectedLessons = []
 }: ClassCopyModalProps) {
   const [selectedLessons, setSelectedLessons] = useState<string[]>([]);
   const [targetClass, setTargetClass] = useState<string>('');
@@ -31,15 +34,18 @@ export function ClassCopyModal({
     return numA - numB;
   });
 
-  // Reset form when modal opens
+  // Reset form when modal opens; use initialSelectedLessons if provided
   useEffect(() => {
     if (isOpen) {
-      setSelectedLessons([]);
+      const toSelect = initialSelectedLessons?.length
+        ? initialSelectedLessons.filter(l => availableLessons.includes(l))
+        : [];
+      setSelectedLessons(toSelect);
       setTargetClass('');
       setError('');
-      setSelectAll(false);
+      setSelectAll(toSelect.length > 0 && toSelect.length === availableLessons.length);
     }
-  }, [isOpen]);
+  }, [isOpen, initialSelectedLessons]);
 
   // Handle select all toggle
   const handleSelectAll = () => {

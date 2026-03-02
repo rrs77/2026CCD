@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Users, Edit2, Loader2, Mail, Plus, X, MoreVertical, ShoppingBag, UserX, Send } from 'lucide-react';
 import { supabase } from '../../config/supabase';
+import { getVercelApiUrl } from '../../utils/apiUrl';
 import { useSettings } from '../../contexts/SettingsContextNew';
 import { useAuth } from '../../hooks/useAuth';
 import type { Profile, ProfileRole, ProfileStatus } from '../../types/auth';
@@ -163,7 +164,7 @@ export function UserManagement() {
     setResendingInviteFor(profile.id);
     setMenuOpenForId(null);
     try {
-      const res = await fetch('/api/resend-invite', {
+      const res = await fetch(getVercelApiUrl('/api/resend-invite'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
@@ -214,7 +215,7 @@ export function UserManagement() {
     setCreateError('');
     setCreateSending(true);
     try {
-      const res = await fetch('/api/create-user', {
+      const res = await fetch(getVercelApiUrl('/api/create-user'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -228,7 +229,11 @@ export function UserManagement() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setCreateError(data?.error || `Request failed (${res.status})`);
+        let msg = data?.error || `Request failed (${res.status})`;
+        if (res.status === 404) {
+          msg = 'API not found (404). If running locally, add VITE_VERCEL_URL=https://your-app.vercel.app to .env (use your actual Vercel URL) and restart. If deployed on Cloudflare or another host, set VITE_API_BASE_URL to your Vercel deployment URL.';
+        }
+        setCreateError(msg);
         return;
       }
       toast.success(data.invited ? `Invite sent to ${emailTrimmed}.` : `User ${emailTrimmed} created.`);

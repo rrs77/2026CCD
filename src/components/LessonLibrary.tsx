@@ -14,7 +14,6 @@ import {
   ArrowUpDown,
   ArrowDownUp,
   Eye,
-  MoreVertical,
   Edit3,
   Download,
   Calendar,
@@ -90,6 +89,7 @@ export function LessonLibrary({
     lessonNumbers, 
     allLessonsData, 
     currentSheetInfo, 
+    currentAcademicYear,
     halfTerms, 
     getLessonsForHalfTerm,
     updateLessonData,
@@ -127,7 +127,7 @@ export function LessonLibrary({
   const [selectedHalfTerm, setSelectedHalfTerm] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'number' | 'title' | 'activities' | 'time'>('number');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'compact'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [selectedLessonForExport, setSelectedLessonForExport] = useState<string | null>(null);
   const [selectedLessonForDetails, setSelectedLessonForDetails] = useState<string | null>(null);
   const [showTrash, setShowTrash] = useState(false); // Toggle between library and trash view
@@ -156,6 +156,7 @@ export function LessonLibrary({
   
   // Class Copy State
   const [showClassCopyModal, setShowClassCopyModal] = useState(false);
+  const [classCopyInitialLessons, setClassCopyInitialLessons] = useState<string[]>([]);
   
   // Standalone Lesson Creator State
   const [showStandaloneLessonCreator, setShowStandaloneLessonCreator] = useState(false);
@@ -482,11 +483,11 @@ export function LessonLibrary({
       
       console.log('📝 Generated lesson number:', newLessonNumber);
       
-      // Mark as user-created lesson and ensure academic year is set
+      // Mark as user-created lesson and ensure academic year is set (must match currentAcademicYear for load filter)
       const lessonDataWithFlag = {
         ...lessonData,
         isUserCreated: true,
-        academicYear: currentSheetInfo.sheet // Use current sheet context
+        academicYear: currentAcademicYear
       };
       
       // Use updateLessonData for proper Supabase and localStorage sync
@@ -844,10 +845,10 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
             {/* View Mode Toggle */}
             <div className="flex items-center space-x-1">
               <button
-                onClick={() => setViewMode('compact')}
-                title={showButtonHelp ? 'Compact view: small cards in a dense grid' : undefined}
+                onClick={() => setViewMode('grid')}
+                title={showButtonHelp ? 'Grid view: large cards with full lesson info' : undefined}
                 className={`p-2 rounded-lg transition-colors duration-200 ${
-                  viewMode === 'compact' ? 'bg-white bg-opacity-20' : 'hover:bg-white hover:bg-opacity-10'
+                  viewMode === 'grid' ? 'bg-white bg-opacity-20' : 'hover:bg-white hover:bg-opacity-10'
                 }`}
               >
                 <Grid className="h-5 w-5" />
@@ -860,15 +861,6 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
                 }`}
               >
                 <List className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => setViewMode('grid')}
-                title={showButtonHelp ? 'Grid view: large cards with full lesson info' : undefined}
-                className={`p-2 rounded-lg transition-colors duration-200 ${
-                  viewMode === 'grid' ? 'bg-white bg-opacity-20' : 'hover:bg-white hover:bg-opacity-10'
-                }`}
-              >
-                <MoreVertical className="h-5 w-5" />
               </button>
             </div>
               </>
@@ -954,7 +946,10 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
 
             {/* Copy Lesson Button */}
             <button
-              onClick={() => setShowClassCopyModal(true)}
+              onClick={() => {
+                setClassCopyInitialLessons([]);
+                setShowClassCopyModal(true);
+              }}
               className="flex items-center justify-center space-x-2 h-10 px-5 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-lg transition-colors duration-200 whitespace-nowrap"
               title={showButtonHelp ? 'Copy lessons to another year group' : undefined}
             >
@@ -976,10 +971,7 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
             </div>
           ) : (
             <div className={`
-              ${viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8' :
-                viewMode === 'list' ? 'space-y-4 sm:space-y-6' :
-                'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-6'
-              }
+              ${viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8' : 'space-y-4 sm:space-y-6'}
             `}>
               {Object.entries(trashLessons || {}).map(([lessonNum, lessonData], index) => {
                 const trashedAt = (lessonData as any)._trashedAt;
@@ -999,11 +991,9 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
                           <span className="text-xs text-gray-500">Deleted {trashedDate}</span>
                         )}
                       </div>
-                      {viewMode !== 'compact' && (
-                        <p className="text-sm text-gray-600 mb-2">
-                          {Object.values(lessonData.grouped || {}).reduce((sum: number, acts: any) => sum + (Array.isArray(acts) ? acts.length : 0), 0)} activities
-                        </p>
-                      )}
+                      <p className="text-sm text-gray-600 mb-2">
+                        {Object.values(lessonData.grouped || {}).reduce((sum: number, acts: any) => sum + (Array.isArray(acts) ? acts.length : 0), 0)} activities
+                      </p>
                     </div>
                     <div className={`flex items-center space-x-2 ${viewMode === 'list' ? 'ml-4' : 'mt-3'}`}>
                       <button
@@ -1070,10 +1060,7 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
             </div>
           ) : (
             <div className={`
-              ${viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8' :
-                viewMode === 'list' ? 'space-y-4 sm:space-y-6' :
-                'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-6'
-              }
+              ${viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8' : 'space-y-4 sm:space-y-6'}
             `}>
               {filteredAndSortedLessons.map((lessonNum, index) => {
                 const lessonData = allLessonsData[lessonNum];
@@ -1100,6 +1087,10 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
                     halfTerms={halfTerms}
                     onEdit={() => handleStartEditing(lessonNum)}
                     onDuplicate={() => handleDuplicateLesson(lessonNum)}
+                    onCopyToYear={() => {
+                      setClassCopyInitialLessons([lessonNum]);
+                      setShowClassCopyModal(true);
+                    }}
                     onShare={() => {}} // Share functionality handled internally in card
                   />
                 );
@@ -1383,11 +1374,15 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
       {/* Class Copy Modal */}
       <ClassCopyModal
         isOpen={showClassCopyModal}
-        onClose={() => setShowClassCopyModal(false)}
+        onClose={() => {
+          setShowClassCopyModal(false);
+          setClassCopyInitialLessons([]);
+        }}
         onCopy={handleCopyLessonsToClass}
         availableClasses={customYearGroups}
         currentClass={currentSheetInfo.sheet}
         allLessonsData={allLessonsData}
+        initialSelectedLessons={classCopyInitialLessons}
       />
 
       {/* Standalone Lesson Creator Modal */}

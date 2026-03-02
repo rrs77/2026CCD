@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { X, Plus, Trash2, Eye, BookOpen, Target, Link2, Clock, Search, GripVertical, ChevronDown, ChevronUp, List, Layers, Upload, Save } from 'lucide-react';
+import { X, Plus, Trash2, Eye, BookOpen, Target, Link2, Clock, Search, GripVertical, ChevronDown, ChevronUp, List, Layers, Upload, Save, HelpCircle } from 'lucide-react';
 import { RichTextEditor } from './RichTextEditor';
 import { ActivityCard } from './ActivityCard';
 import { SimpleNestedCategoryDropdown } from './SimpleNestedCategoryDropdown';
@@ -12,6 +12,52 @@ import { useData } from '../contexts/DataContext';
 import { useSettings } from '../contexts/SettingsContextNew';
 import { useAuth } from '../hooks/useAuth';
 import type { Activity, LessonPlan } from '../contexts/DataContext';
+
+// Example content for each section - shown in ? modal when creating new lessons
+const SECTION_EXAMPLES: Record<string, { title: string; content: string }> = {
+  lessonTitle: { title: 'Lesson Title', content: 'Exploring Rhythm and Beat' },
+  lessonName: { title: 'Lesson Subtitle', content: 'Introduction to Musical Patterns' },
+  learningOutcome: {
+    title: 'Learning Outcome',
+    content: '<p>Children will be able to:</p><p>Maintain a steady beat when clapping or playing instruments<br/>Identify the difference between rhythm and beat<br/>Create simple 4-beat rhythm patterns</p>',
+  },
+  successCriteria: {
+    title: 'Success Criteria',
+    content: '<p>I can:</p><p>Keep a steady beat for at least 8 counts<br/>Copy a simple rhythm pattern<br/>Create my own rhythm using body percussion</p>',
+  },
+  introduction: {
+    title: 'Introduction/Context',
+    content: '<p>Begin by playing a familiar song and ask children to clap along. Discuss: "What are we clapping? Is it the same all the way through?"</p><p>Introduce the concept of a steady beat like a heartbeat - always the same speed.</p>',
+  },
+  mainActivity: {
+    title: 'Main Activity',
+    content: '<p><strong>Activity 1: Beat vs Rhythm</strong></p><p>Play "We Will Rock You" - demonstrate the steady beat (stomp stomp clap) vs the rhythm of the words.</p><p><strong>Activity 2: Rhythm Patterns</strong></p><p>Using rhythm cards, children practice 4-beat patterns in pairs. Progress from copying to creating.</p>',
+  },
+  plenary: {
+    title: 'Plenary/Conclusion',
+    content: '<p>Performance circle: Each pair shares their created rhythm pattern. Class tries to copy it back.</p><p>Exit question: "What is the difference between beat and rhythm?"</p>',
+  },
+  vocabulary: {
+    title: 'Vocabulary',
+    content: '<p><strong>Beat</strong> - The steady pulse in music<br/><strong>Rhythm</strong> - The pattern of long and short sounds<br/><strong>Tempo</strong> - How fast or slow the beat is<br/><strong>Pattern</strong> - A sequence that repeats</p>',
+  },
+  keyQuestions: {
+    title: 'Key Questions',
+    content: '<ul><li>Can you feel the beat in this music?</li><li>Is the rhythm the same as the beat?</li><li>How many beats are in your pattern?</li><li>What happens if we speed up the tempo?</li></ul>',
+  },
+  resources: {
+    title: 'Resources',
+    content: '<ul><li>Rhythm cards (sets of 8)</li><li>Untuned percussion instruments</li><li>Audio: "We Will Rock You" by Queen</li><li>Interactive whiteboard for visual patterns</li></ul>',
+  },
+  differentiation: {
+    title: 'Differentiation',
+    content: '<p><strong>Support:</strong> Use visual rhythm cards with symbols, pair with confident partner</p><p><strong>Challenge:</strong> Create 8-beat patterns, add dynamics (loud/quiet)</p>',
+  },
+  assessment: {
+    title: 'Assessment',
+    content: '<p>Observe children during activities - can they maintain the beat independently?</p><p>Use exit tickets: Draw your favourite rhythm pattern</p>',
+  },
+};
 
 interface StandaloneLessonCreatorProps {
   onSave: (lessonData: any) => void | Promise<void>;
@@ -135,6 +181,7 @@ export const StandaloneLessonCreator: React.FC<StandaloneLessonCreatorProps> = (
       return {
         lessonTitle: lessonData.title || '',
         lessonName: lessonData.lessonName || '',
+        lessonCategory: lessonData.lessonCategory || '',
         duration: lessonData.totalTime || 60,
         assessmentObjectives: lessonData.assessmentObjectives || [] as string[],
         learningOutcome: lessonData.learningOutcome || '',
@@ -153,26 +200,27 @@ export const StandaloneLessonCreator: React.FC<StandaloneLessonCreatorProps> = (
         additionalLinks: lessonData.additionalLinks || [] as Array<{ url: string; label: string }>,
       };
     }
-    // Pre-filled dummy data for testing - remove or clear these values for production
+    // Empty fields for new lessons - examples available via ? icon next to each section
     return {
-      lessonTitle: 'Exploring Rhythm and Beat',
-      lessonName: 'Introduction to Musical Patterns',
+      lessonTitle: '',
+      lessonName: '',
+      lessonCategory: '',
       duration: 45,
       assessmentObjectives: [] as string[],
-      learningOutcome: '<p>Children will be able to:</p><p>Maintain a steady beat when clapping or playing instruments<br/>Identify the difference between rhythm and beat<br/>Create simple 4-beat rhythm patterns</p>',
-      successCriteria: '<p>I can:</p><p>Keep a steady beat for at least 8 counts<br/>Copy a simple rhythm pattern<br/>Create my own rhythm using body percussion</p>',
-      introduction: '<p>Begin by playing a familiar song and ask children to clap along. Discuss: "What are we clapping? Is it the same all the way through?"</p><p>Introduce the concept of a steady beat like a heartbeat - always the same speed.</p>',
-      mainActivity: '<p><strong>Activity 1: Beat vs Rhythm</strong></p><p>Play "We Will Rock You" - demonstrate the steady beat (stomp stomp clap) vs the rhythm of the words.</p><p><strong>Activity 2: Rhythm Patterns</strong></p><p>Using rhythm cards, children practice 4-beat patterns in pairs. Progress from copying to creating.</p>',
-      plenary: '<p>Performance circle: Each pair shares their created rhythm pattern. Class tries to copy it back.</p><p>Exit question: "What is the difference between beat and rhythm?"</p>',
-      vocabulary: '<p><strong>Beat</strong> - The steady pulse in music<br/><strong>Rhythm</strong> - The pattern of long and short sounds<br/><strong>Tempo</strong> - How fast or slow the beat is<br/><strong>Pattern</strong> - A sequence that repeats</p>',
-      keyQuestions: '<ul><li>Can you feel the beat in this music?</li><li>Is the rhythm the same as the beat?</li><li>How many beats are in your pattern?</li><li>What happens if we speed up the tempo?</li></ul>',
-      resources: '<ul><li>Rhythm cards (sets of 8)</li><li>Untuned percussion instruments</li><li>Audio: "We Will Rock You" by Queen</li><li>Interactive whiteboard for visual patterns</li></ul>',
-      differentiation: '<p><strong>Support:</strong> Use visual rhythm cards with symbols, pair with confident partner</p><p><strong>Challenge:</strong> Create 8-beat patterns, add dynamics (loud/quiet)</p>',
-      assessment: '<p>Observe children during activities - can they maintain the beat independently?</p><p>Use exit tickets: Draw your favourite rhythm pattern</p>',
+      learningOutcome: '',
+      successCriteria: '',
+      introduction: '',
+      mainActivity: '',
+      plenary: '',
+      vocabulary: '',
+      keyQuestions: '',
+      resources: '',
+      differentiation: '',
+      assessment: '',
       videoLink: '',
       resourceLink: '',
       imageLink: '',
-      additionalLinks: [] as string[],
+      additionalLinks: [] as Array<{ url: string; label: string }>,
     };
   });
 
@@ -206,6 +254,8 @@ export const StandaloneLessonCreator: React.FC<StandaloneLessonCreatorProps> = (
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [showActivitiesSection, setShowActivitiesSection] = useState(editingLesson ? true : false);
   const [showAssessmentObjectivesSelector, setShowAssessmentObjectivesSelector] = useState(false);
+  const [showExampleModal, setShowExampleModal] = useState(false);
+  const [exampleSection, setExampleSection] = useState<string | null>(null);
 
   // Auto-resize textareas on mount and when values change
   React.useEffect(() => {
@@ -288,10 +338,6 @@ export const StandaloneLessonCreator: React.FC<StandaloneLessonCreatorProps> = (
     if (!lesson.lessonTitle.trim()) newErrors.lessonTitle = 'Lesson title is required';
     if (!lesson.lessonName.trim()) newErrors.lessonName = 'Lesson name is required';
     if (!lesson.duration || lesson.duration <= 0) newErrors.duration = 'Duration must be greater than 0';
-    
-    // Check if learning outcome has actual content (strip HTML tags)
-    const learningOutcomeText = lesson.learningOutcome.replace(/<[^>]*>/g, '').trim();
-    if (!learningOutcomeText) newErrors.learningOutcome = 'Learning outcome is required';
 
     setErrors(newErrors);
     
@@ -422,6 +468,7 @@ export const StandaloneLessonCreator: React.FC<StandaloneLessonCreatorProps> = (
       const lessonData = {
         title: lesson.lessonTitle,
         lessonName: lesson.lessonName,
+        lessonCategory: lesson.lessonCategory || undefined,
         totalTime: lesson.duration,
         type: 'standalone',
         createdAt: editingLesson?.lessonData?.createdAt || new Date().toISOString(),
@@ -588,11 +635,21 @@ export const StandaloneLessonCreator: React.FC<StandaloneLessonCreatorProps> = (
                   <BookOpen className="h-5 w-5 text-teal-600" />
                   <h3 className="text-lg font-semibold text-gray-900">Basic Information</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Lesson Title (for card) <span className="text-red-500">*</span>
-                    </label>
+                    <div className="flex items-center gap-1 mb-1.5">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Lesson Title (for card) <span className="text-red-500">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => { setExampleSection('lessonTitle'); setShowExampleModal(true); }}
+                        className="p-0.5 text-teal-600 hover:text-teal-800 hover:bg-teal-100 rounded-full transition-colors"
+                        title="View example"
+                      >
+                        <HelpCircle className="h-4 w-4" />
+                      </button>
+                    </div>
                     <input
                       type="text"
                       name="lessonTitle"
@@ -608,9 +665,19 @@ export const StandaloneLessonCreator: React.FC<StandaloneLessonCreatorProps> = (
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Lesson Name <span className="text-red-500">*</span>
-                    </label>
+                    <div className="flex items-center gap-1 mb-1.5">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Lesson Name <span className="text-red-500">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => { setExampleSection('lessonName'); setShowExampleModal(true); }}
+                        className="p-0.5 text-teal-600 hover:text-teal-800 hover:bg-teal-100 rounded-full transition-colors"
+                        title="View example"
+                      >
+                        <HelpCircle className="h-4 w-4" />
+                      </button>
+                    </div>
                     <input
                       type="text"
                       name="lessonName"
@@ -642,6 +709,22 @@ export const StandaloneLessonCreator: React.FC<StandaloneLessonCreatorProps> = (
                     {errors.duration && (
                       <p className="mt-1 text-xs text-red-500">{errors.duration}</p>
                     )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Category
+                    </label>
+                    <div className="w-full h-10 px-3 border border-gray-300 rounded-lg bg-white flex items-center">
+                      <SimpleNestedCategoryDropdown
+                        selectedCategory={lesson.lessonCategory || ''}
+                        onCategoryChange={(category) => setLesson(prev => ({ ...prev, lessonCategory: category }))}
+                        placeholder="Select category (for this class)"
+                        className="w-full text-sm"
+                        showAllCategories={false}
+                      />
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">Categories available for the current class</p>
                   </div>
                 </div>
               </div>
@@ -712,10 +795,18 @@ export const StandaloneLessonCreator: React.FC<StandaloneLessonCreatorProps> = (
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <div className="mb-2">
+                    <div className="mb-2 flex items-center gap-1">
                       <label className="block text-sm font-medium text-gray-700">
-                        Learning Outcome <span className="text-red-500">*</span>
+                        Learning Outcome
                       </label>
+                      <button
+                        type="button"
+                        onClick={() => { setExampleSection('learningOutcome'); setShowExampleModal(true); }}
+                        className="p-0.5 text-teal-600 hover:text-teal-800 hover:bg-teal-100 rounded-full transition-colors"
+                        title="View example"
+                      >
+                        <HelpCircle className="h-4 w-4" />
+                      </button>
                     </div>
                     <div className="bg-white rounded-lg border border-gray-300">
                       <RichTextEditor
@@ -730,10 +821,18 @@ export const StandaloneLessonCreator: React.FC<StandaloneLessonCreatorProps> = (
                   </div>
 
                   <div>
-                    <div className="mb-2">
+                    <div className="mb-2 flex items-center gap-1">
                       <label className="block text-sm font-medium text-gray-700">
                         Success Criteria
                       </label>
+                      <button
+                        type="button"
+                        onClick={() => { setExampleSection('successCriteria'); setShowExampleModal(true); }}
+                        className="p-0.5 text-teal-600 hover:text-teal-800 hover:bg-teal-100 rounded-full transition-colors"
+                        title="View example"
+                      >
+                        <HelpCircle className="h-4 w-4" />
+                      </button>
                     </div>
                     <div className="bg-white rounded-lg border border-gray-300">
                       <RichTextEditor
@@ -751,6 +850,14 @@ export const StandaloneLessonCreator: React.FC<StandaloneLessonCreatorProps> = (
                 <div className="flex items-center space-x-2 mb-3">
                   <BookOpen className="h-5 w-5 text-teal-600" />
                   <h3 className="text-base font-semibold text-gray-900">Introduction/Context</h3>
+                  <button
+                    type="button"
+                    onClick={() => { setExampleSection('introduction'); setShowExampleModal(true); }}
+                    className="p-0.5 text-teal-600 hover:text-teal-800 hover:bg-teal-100 rounded-full transition-colors"
+                    title="View example"
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                  </button>
                 </div>
                 {lesson.introduction || true ? (
                   <textarea
@@ -774,6 +881,14 @@ export const StandaloneLessonCreator: React.FC<StandaloneLessonCreatorProps> = (
                 <div className="flex items-center space-x-2 mb-3">
                   <Target className="h-5 w-5 text-teal-600" />
                   <h3 className="text-base font-semibold text-gray-900">Main Activity</h3>
+                  <button
+                    type="button"
+                    onClick={() => { setExampleSection('mainActivity'); setShowExampleModal(true); }}
+                    className="p-0.5 text-teal-600 hover:text-teal-800 hover:bg-teal-100 rounded-full transition-colors"
+                    title="View example"
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                  </button>
                 </div>
                 {lesson.mainActivity || true ? (
                   <div className="bg-white rounded-lg border border-gray-300">
@@ -838,6 +953,14 @@ export const StandaloneLessonCreator: React.FC<StandaloneLessonCreatorProps> = (
                 <div className="flex items-center space-x-2 mb-3">
                   <Target className="h-5 w-5 text-teal-600" />
                   <h3 className="text-base font-semibold text-gray-900">Plenary/Conclusion</h3>
+                  <button
+                    type="button"
+                    onClick={() => { setExampleSection('plenary'); setShowExampleModal(true); }}
+                    className="p-0.5 text-teal-600 hover:text-teal-800 hover:bg-teal-100 rounded-full transition-colors"
+                    title="View example"
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                  </button>
                 </div>
                 {lesson.plenary || true ? (
                   <textarea
@@ -862,9 +985,17 @@ export const StandaloneLessonCreator: React.FC<StandaloneLessonCreatorProps> = (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {lesson.vocabulary || true ? (
                   <div className={`bg-gray-50 border border-gray-200 rounded-lg transition-all duration-300 ${lesson.vocabulary ? 'p-4' : 'p-3'}`}>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Vocabulary
-                    </label>
+                    <div className="flex items-center gap-1 mb-2">
+                      <label className="block text-sm font-medium text-gray-700">Vocabulary</label>
+                      <button
+                        type="button"
+                        onClick={() => { setExampleSection('vocabulary'); setShowExampleModal(true); }}
+                        className="p-0.5 text-teal-600 hover:text-teal-800 hover:bg-teal-100 rounded-full transition-colors"
+                        title="View example"
+                      >
+                        <HelpCircle className="h-4 w-4" />
+                      </button>
+                    </div>
                     <textarea
                       name="vocabulary"
                       value={lesson.vocabulary}
@@ -883,9 +1014,17 @@ export const StandaloneLessonCreator: React.FC<StandaloneLessonCreatorProps> = (
 
                 {lesson.keyQuestions || true ? (
                   <div className={`bg-gray-50 border border-gray-200 rounded-lg transition-all duration-300 ${lesson.keyQuestions ? 'p-4' : 'p-3'}`}>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Key Questions
-                    </label>
+                    <div className="flex items-center gap-1 mb-2">
+                      <label className="block text-sm font-medium text-gray-700">Key Questions</label>
+                      <button
+                        type="button"
+                        onClick={() => { setExampleSection('keyQuestions'); setShowExampleModal(true); }}
+                        className="p-0.5 text-teal-600 hover:text-teal-800 hover:bg-teal-100 rounded-full transition-colors"
+                        title="View example"
+                      >
+                        <HelpCircle className="h-4 w-4" />
+                      </button>
+                    </div>
                     <textarea
                       name="keyQuestions"
                       value={lesson.keyQuestions}
@@ -904,9 +1043,17 @@ export const StandaloneLessonCreator: React.FC<StandaloneLessonCreatorProps> = (
 
                 {lesson.resources || true ? (
                   <div className={`bg-gray-50 border border-gray-200 rounded-lg transition-all duration-300 ${lesson.resources ? 'p-4' : 'p-3'}`}>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Resources
-                    </label>
+                    <div className="flex items-center gap-1 mb-2">
+                      <label className="block text-sm font-medium text-gray-700">Resources</label>
+                      <button
+                        type="button"
+                        onClick={() => { setExampleSection('resources'); setShowExampleModal(true); }}
+                        className="p-0.5 text-teal-600 hover:text-teal-800 hover:bg-teal-100 rounded-full transition-colors"
+                        title="View example"
+                      >
+                        <HelpCircle className="h-4 w-4" />
+                      </button>
+                    </div>
                     <textarea
                       name="resources"
                       value={lesson.resources}
@@ -925,9 +1072,17 @@ export const StandaloneLessonCreator: React.FC<StandaloneLessonCreatorProps> = (
 
                 {lesson.assessment || true ? (
                   <div className={`bg-gray-50 border border-gray-200 rounded-lg transition-all duration-300 ${lesson.assessment ? 'p-4' : 'p-3'}`}>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Assessment
-                    </label>
+                    <div className="flex items-center gap-1 mb-2">
+                      <label className="block text-sm font-medium text-gray-700">Assessment</label>
+                      <button
+                        type="button"
+                        onClick={() => { setExampleSection('assessment'); setShowExampleModal(true); }}
+                        className="p-0.5 text-teal-600 hover:text-teal-800 hover:bg-teal-100 rounded-full transition-colors"
+                        title="View example"
+                      >
+                        <HelpCircle className="h-4 w-4" />
+                      </button>
+                    </div>
                     <textarea
                       name="assessment"
                       value={lesson.assessment}
@@ -947,9 +1102,17 @@ export const StandaloneLessonCreator: React.FC<StandaloneLessonCreatorProps> = (
 
               {lesson.differentiation || true ? (
                 <div className={`bg-gray-50 border border-gray-200 rounded-lg transition-all duration-300 ${lesson.differentiation ? 'p-4' : 'p-3'}`}>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Differentiation
-                  </label>
+                  <div className="flex items-center gap-1 mb-2">
+                    <label className="block text-sm font-medium text-gray-700">Differentiation</label>
+                    <button
+                      type="button"
+                      onClick={() => { setExampleSection('differentiation'); setShowExampleModal(true); }}
+                      className="p-0.5 text-teal-600 hover:text-teal-800 hover:bg-teal-100 rounded-full transition-colors"
+                      title="View example"
+                    >
+                      <HelpCircle className="h-4 w-4" />
+                    </button>
+                  </div>
                   <textarea
                     name="differentiation"
                     value={lesson.differentiation}
@@ -1375,6 +1538,34 @@ export const StandaloneLessonCreator: React.FC<StandaloneLessonCreatorProps> = (
           onClose={() => setShowImportModal(false)}
           onImport={handleImportLesson}
         />
+      )}
+
+      {/* Section Example Modal - shows example when ? is clicked */}
+      {showExampleModal && exampleSection && SECTION_EXAMPLES[exampleSection] && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[70]">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Example: {SECTION_EXAMPLES[exampleSection].title}
+              </h3>
+              <button
+                onClick={() => { setShowExampleModal(false); setExampleSection(null); }}
+                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <div 
+                className="prose prose-sm max-w-none text-gray-700"
+                dangerouslySetInnerHTML={{ __html: SECTION_EXAMPLES[exampleSection].content }}
+              />
+              <p className="mt-4 text-sm text-gray-500 italic">
+                Use this as a guide. Type your own content in the empty field for that section.
+              </p>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

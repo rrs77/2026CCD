@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useSettings, Category } from '../contexts/SettingsContextNew';
 import { useData } from '../contexts/DataContext';
-import { ChevronDown, ChevronRight, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Search, X } from 'lucide-react';
 
 interface SimpleNestedCategoryDropdownProps {
   selectedCategory: string;
@@ -26,6 +26,7 @@ export function SimpleNestedCategoryDropdown({
   const { currentSheetInfo } = useData();
   const [isOpen, setIsOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Helper function to get the year group key(s) to check in category.yearGroups
@@ -223,6 +224,7 @@ export function SimpleNestedCategoryDropdown({
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
+        setSearchQuery('');
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -230,6 +232,22 @@ export function SimpleNestedCategoryDropdown({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Reset search when opening
+  useEffect(() => {
+    if (!isOpen) setSearchQuery('');
+  }, [isOpen]);
+
+  // Search-filter categories (by name or group name)
+  const searchFilteredCategories = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return filteredCategories;
+    return filteredCategories.filter(c => {
+      const nameMatch = c.name.toLowerCase().includes(q);
+      const groupMatch = (c.group?.toLowerCase().includes(q)) || (c.groups?.some(g => g.toLowerCase().includes(q)));
+      return nameMatch || groupMatch;
+    });
+  }, [filteredCategories, searchQuery]);
 
   const handleSelectCategory = (categoryName: string) => {
     onCategoryChange(categoryName);
@@ -253,8 +271,8 @@ export function SimpleNestedCategoryDropdown({
     setExpandedGroups(newExpanded);
   };
 
-  // Group filtered categories by their group(s)
-  const groupedCategories = filteredCategories.reduce((acc, category) => {
+  // Group search-filtered categories by their group(s)
+  const groupedCategories = searchFilteredCategories.reduce((acc, category) => {
     // Handle multiple groups (new functionality)
     if (category.groups && category.groups.length > 0) {
       category.groups.forEach(group => {
@@ -281,6 +299,12 @@ export function SimpleNestedCategoryDropdown({
     return a.localeCompare(b);
   });
 
+  // When searching, expand all groups so results are visible
+  const effectiveExpandedGroups = useMemo(() => {
+    if (searchQuery.trim()) return new Set(sortedGroups);
+    return expandedGroups;
+  }, [searchQuery, sortedGroups.join(','), expandedGroups]);
+
   const currentYearGroupName = getCurrentYearGroupName();
 
   return (
@@ -301,7 +325,7 @@ export function SimpleNestedCategoryDropdown({
 
       {isOpen && (
         <div 
-          className="absolute z-50 mt-1 w-96 min-w-full rounded-lg shadow-xl max-h-80 overflow-y-auto border border-gray-200"
+          className="absolute z-50 mt-1 w-96 min-w-full rounded-lg shadow-xl max-h-80 overflow-hidden border border-gray-200 flex flex-col"
           style={{ 
             backgroundColor: dropdownBackgroundColor || 'white',
             boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' 
@@ -310,11 +334,37 @@ export function SimpleNestedCategoryDropdown({
           onMouseDown={(e) => e.stopPropagation()}
           onMouseUp={(e) => e.stopPropagation()}
         >
-          <ul className="py-1">
+          {/* Search input */}
+          <div className="p-2 border-b border-gray-200 flex-shrink-0">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search categories..."
+                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+                onClick={(e) => e.stopPropagation()}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setSearchQuery(''); }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
+          <ul className="py-1 overflow-y-auto flex-1">
             {/* When filtering is active, show simple flat list */}
             {isFilteringActive ? (
-              // Simple flat list of filtered categories
-              filteredCategories.map(category => (
+              // Simple flat list of search-filtered categories
+              searchFilteredCategories.length === 0 ? (
+                <li className="px-4 py-3 text-sm text-gray-500">No categories match "{searchQuery}"</li>
+              ) : (
+              searchFilteredCategories.map(category => (
                 <li
                   key={category.name}
                   className={`flex items-center gap-2 px-4 py-2 text-sm cursor-pointer transition-colors duration-150 ${
@@ -343,6 +393,9 @@ export function SimpleNestedCategoryDropdown({
                   <span className="truncate">{category.name}</span>
                 </li>
               ))
+              )
+            ) : searchFilteredCategories.length === 0 ? (
+              <li className="px-4 py-3 text-sm text-gray-500">No categories match "{searchQuery}"</li>
             ) : (
               // Original grouped structure when not filtering
               <>
@@ -393,7 +446,7 @@ export function SimpleNestedCategoryDropdown({
                 >
                   <div className="flex items-center gap-2">
                     <div className="text-gray-500">
-                      {expandedGroups.has(groupName) ? 
+                      {effectiveExpandedGroups.has(groupName) ? 
                         <ChevronDown className="h-4 w-4" /> : 
                         <ChevronRight className="h-4 w-4" />
                       }
@@ -402,7 +455,7 @@ export function SimpleNestedCategoryDropdown({
                   </div>
                   <span className="text-xs text-gray-500">{groupedCategories[groupName].length}</span>
                 </li>
-                {expandedGroups.has(groupName) && groupedCategories[groupName].map(category => (
+                {effectiveExpandedGroups.has(groupName) && groupedCategories[groupName].map(category => (
                   <li
                     key={category.name}
                     className={`flex items-center gap-2 px-6 py-2 text-sm cursor-pointer transition-colors duration-150 ${

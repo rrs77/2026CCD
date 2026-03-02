@@ -5,7 +5,7 @@ import { LoadingSpinner } from './LoadingSpinner';
 import { LogoSVG } from './Logo';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { useSettings } from '../contexts/SettingsContextNew';
-import { supabase, isSupabaseAuthEnabled, checkSupabaseAuthHealth } from '../config/supabase';
+import { supabase, isSupabaseAuthEnabled, isSupabaseConfigured, checkSupabaseAuthHealth } from '../config/supabase';
 
 export function LoginForm() {
   const { login } = useAuth();
@@ -234,16 +234,20 @@ export function LoginForm() {
                 </button>
               </div>
             </div>
-            {isSupabaseAuthEnabled() && (
-              <div className="text-right">
+            {/* Forgot password – always visible when Supabase is configured so users can reset */}
+            {(isSupabaseAuthEnabled() || isSupabaseConfigured()) && (
+              <div className="flex flex-col items-center gap-1">
                 <button
                   type="button"
                   onClick={() => setShowForgotPassword(true)}
-                  className="text-sm font-medium hover:underline"
+                  className="text-sm font-semibold hover:underline focus:outline-none focus:ring-2 focus:ring-offset-1 rounded px-1"
                   style={{ color: loginButtonColor }}
                 >
                   Forgot password?
                 </button>
+                {!isSupabaseAuthEnabled() && isSupabaseConfigured() && (
+                  <span className="text-xs text-gray-500">Set VITE_USE_SUPABASE_AUTH=true to use password reset</span>
+                )}
               </div>
             )}
 
