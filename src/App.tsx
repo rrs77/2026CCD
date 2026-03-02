@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { SignIn, SignUp } from '@clerk/clerk-react';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AuthProvider } from './contexts/AuthContext';
-import { ClerkAuthProvider } from './contexts/ClerkAuthProvider';
 import { DataProvider } from './contexts/DataContext';
 import { SettingsProviderNew } from './contexts/SettingsContextNew';
 import { Header } from './components/Header';
@@ -12,8 +9,6 @@ import { Dashboard } from './components/Dashboard';
 import { LoginForm } from './components/LoginForm';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { Footer } from './components/Footer';
-import { AuthNavbar } from './components/AuthNavbar';
-import { ProtectedRoute } from './components/ProtectedRoute';
 import { useAuth } from './hooks/useAuth';
 import { HelpGuide } from './components/HelpGuide';
 import { initializeSupabaseKeepAlive } from './utils/supabaseKeepAlive';
@@ -109,75 +104,7 @@ function AppContent() {
   );
 }
 
-function DashboardLayout() {
-  return (
-    <ClerkAuthProvider>
-      <SettingsProviderNew>
-        <DataProvider>
-          <AppContent />
-        </DataProvider>
-      </SettingsProviderNew>
-    </ClerkAuthProvider>
-  );
-}
-
 function App() {
-  const useClerkAuth = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
-
-  if (useClerkAuth) {
-    return (
-      <ErrorBoundary>
-        <Routes>
-          <Route
-            path="/sign-in"
-            element={
-              <>
-                <AuthNavbar />
-                <div className="min-h-[calc(100vh-52px)] flex items-center justify-center bg-gray-50 px-4 py-8">
-                  <SignIn
-                    path="/sign-in"
-                    signUpUrl="/sign-up"
-                    signUpForceRedirectUrl="/dashboard"
-                    fallbackRedirectUrl="/dashboard"
-                    forceRedirectUrl="/dashboard"
-                    routing="path"
-                  />
-                </div>
-              </>
-            }
-          />
-          <Route
-            path="/sign-up"
-            element={
-              <>
-                <AuthNavbar />
-                <div className="min-h-[calc(100vh-52px)] flex items-center justify-center bg-gray-50 px-4 py-8">
-                  <SignUp
-                    path="/sign-up"
-                    signInUrl="/sign-in"
-                    signInForceRedirectUrl="/dashboard"
-                    fallbackRedirectUrl="/dashboard"
-                    forceRedirectUrl="/dashboard"
-                    routing="path"
-                  />
-                </div>
-              </>
-            }
-          />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <DashboardLayout />
-              </ProtectedRoute>
-            }
-          />
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </ErrorBoundary>
-    );
-  }
-
   return (
     <ErrorBoundary>
       <AuthProvider>
