@@ -32,6 +32,7 @@ export function LoginForm() {
   const logoLetters = branding.logoLetters || 'CCD';
   const loginTitle = branding.loginTitle || 'Creative Curriculum Designer';
   const loginSubtitle = branding.loginSubtitle || 'From Forward Thinking';
+  const loginHeroImageUrl = branding.loginLogoUrl || '/login-hero.png';
 
   // Check if WordPress is configured
   const wordpressUrl = import.meta.env.VITE_WORDPRESS_URL;
@@ -140,6 +141,14 @@ export function LoginForm() {
           </div>
         )}
 
+        {/* Hero image (CCPlanner / Great Activities) */}
+        <div className="mb-4 w-full flex justify-center">
+          <img
+            src={loginHeroImageUrl}
+            alt=""
+            className="w-full max-w-[320px] h-auto rounded-xl shadow-lg object-contain"
+          />
+        </div>
         {/* Header with Logo */}
         <div className="mb-6 w-full flex items-center justify-center">
           <LogoSVG size="lg" showText={true} className="justify-center" boldCurriculumDesigner={true} letters={logoLetters} />
