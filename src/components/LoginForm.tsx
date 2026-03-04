@@ -122,8 +122,16 @@ export function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative" style={{ backgroundColor: loginBgColor }}>
-      <div className="w-full max-w-md">
+    <div
+      className="min-h-screen flex items-center justify-center p-4 relative bg-cover bg-center bg-no-repeat"
+      style={{
+        backgroundImage: `url(${loginHeroImageUrl})`,
+        backgroundColor: loginBgColor,
+      }}
+    >
+      {/* Optional dark overlay for form readability */}
+      <div className="absolute inset-0 bg-black/40" aria-hidden="true" />
+      <div className="w-full max-w-md relative z-10">
         {/* Install Button - Top Right */}
         {canInstall && !isInstalled && (
           <div className="absolute top-4 right-4 z-10">
@@ -141,14 +149,6 @@ export function LoginForm() {
           </div>
         )}
 
-        {/* Hero image (CCPlanner / Great Activities) */}
-        <div className="mb-4 w-full flex justify-center">
-          <img
-            src={loginHeroImageUrl}
-            alt=""
-            className="w-full max-w-[320px] h-auto rounded-xl shadow-lg object-contain"
-          />
-        </div>
         {/* Header with Logo */}
         <div className="mb-6 w-full flex items-center justify-center">
           <LogoSVG size="lg" showText={true} className="justify-center" boldCurriculumDesigner={true} letters={logoLetters} />
