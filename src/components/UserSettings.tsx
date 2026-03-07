@@ -2436,7 +2436,8 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                       const defaults = {
                         logoLetters: 'CCD',
                         loginTitle: 'Creative Curriculum Designer',
-                        loginSubtitle: 'Rhythmstix',
+                        loginSubtitle: 'From Rhythmstix',
+                        loginSubtitleUrl: 'https://www.rhythmstix.co.uk',
                         loginBackgroundColor: 'rgb(77, 181, 168)',
                         loginButtonColor: '#008272',
                         footerCompanyName: 'Rhythmstix',
@@ -2493,13 +2494,23 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-gray-600 mb-1">Subtitle</label>
+                    <label className="block text-sm text-gray-600 mb-1">Subtitle (e.g. From Rhythmstix)</label>
                     <input
                       type="text"
                       value={tempSettings.branding?.loginSubtitle ?? ''}
                       onChange={e => setTempSettings(prev => ({ ...prev, branding: { ...prev.branding, loginSubtitle: e.target.value } }))}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                      placeholder="Rhythmstix"
+                      placeholder="From Rhythmstix"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Subtitle link URL</label>
+                    <input
+                      type="text"
+                      value={tempSettings.branding?.loginSubtitleUrl ?? ''}
+                      onChange={e => setTempSettings(prev => ({ ...prev, branding: { ...prev.branding, loginSubtitleUrl: e.target.value } }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      placeholder="https://www.rhythmstix.co.uk"
                     />
                   </div>
                   <div>

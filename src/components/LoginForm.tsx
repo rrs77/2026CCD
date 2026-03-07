@@ -31,8 +31,9 @@ export function LoginForm() {
   const loginButtonColor = branding.loginButtonColor || '#008272';
   const logoLetters = branding.logoLetters || 'CCD';
   const loginTitle = branding.loginTitle || 'Creative Curriculum Designer';
-  const loginSubtitle = branding.loginSubtitle || 'Rhythmstix';
-
+  const loginSubtitle = branding.loginSubtitle || 'From Rhythmstix';
+  const loginSubtitleUrl = branding.loginSubtitleUrl || 'https://www.rhythmstix.co.uk';
+  const loginHeroImageUrl = branding.loginLogoUrl || '/login-hero.png';
   // Check if WordPress is configured
   const wordpressUrl = import.meta.env.VITE_WORDPRESS_URL;
   const isWordPressConfigured = wordpressUrl && wordpressUrl !== 'https://your-wordpress-site.com';
@@ -122,9 +123,17 @@ export function LoginForm() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-4 relative"
-      style={{ backgroundColor: loginBgColor }}
+      className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
+      style={{
+        background: `linear-gradient(160deg, ${loginBgColor} 0%, #0d5c54 50%, #0a4842 100%)`,
+      }}
     >
+      {/* Subtle chest/planning motif – classy, relevant, not busy */}
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-[0.07]"
+        style={{ backgroundImage: `url(${loginHeroImageUrl})` }}
+        aria-hidden="true"
+      />
       <div className="w-full max-w-md relative z-10">
         {/* Install Button - Top Right */}
         {canInstall && !isInstalled && (
@@ -316,9 +325,17 @@ export function LoginForm() {
 
         </div>
 
-        {/* Footer: single subtle line */}
-        <p className="mt-6 text-center text-sm font-light" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-          {loginSubtitle}
+        {/* Footer: "From Rhythmstix" link */}
+        <p className="mt-6 text-center text-sm font-light">
+          <a
+            href={loginSubtitleUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline focus:outline-none focus:ring-2 focus:ring-white/50 rounded"
+            style={{ color: 'rgba(255, 255, 255, 0.85)' }}
+          >
+            {loginSubtitle}
+          </a>
         </p>
       </div>
 

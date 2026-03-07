@@ -42,7 +42,8 @@ export interface BrandingSettings {
   loginLogoUrl?: string; // URL to custom logo image (if empty, uses default Logo component)
   logoLetters?: string; // Letters in logo circle, max 3 (e.g., "CCD")
   loginTitle?: string; // Custom title text (e.g., "Creative Curriculum Designer")
-  loginSubtitle?: string; // Custom subtitle text (e.g., "Rhythmstix")
+  loginSubtitle?: string; // Custom subtitle text (e.g., "From Rhythmstix")
+  loginSubtitleUrl?: string; // URL for login subtitle link (default: https://www.rhythmstix.co.uk)
   loginBackgroundColor?: string; // Background color for login page (default: rgb(77, 181, 168))
   loginButtonColor?: string; // Button color (default: #008272)
   
@@ -284,7 +285,8 @@ const FIXED_CATEGORIES: Category[] = [
 const DEFAULT_BRANDING: BrandingSettings = {
   logoLetters: 'CCD',
   loginTitle: 'Creative Curriculum Designer',
-  loginSubtitle: 'Rhythmstix',
+  loginSubtitle: 'From Rhythmstix',
+  loginSubtitleUrl: 'https://www.rhythmstix.co.uk',
   loginBackgroundColor: 'rgb(77, 181, 168)',
   loginButtonColor: '#008272',
   footerCompanyName: 'Rhythmstix',
