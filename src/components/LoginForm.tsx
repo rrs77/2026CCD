@@ -34,7 +34,6 @@ export function LoginForm() {
   const loginTitle = branding.loginTitle || 'Creative Curriculum Designer';
   const loginSubtitle = branding.loginSubtitle || 'From Rhythmstix';
   const loginSubtitleUrl = branding.loginSubtitleUrl || 'https://www.rhythmstix.co.uk';
-  const loginHeroImageUrl = branding.loginLogoUrl || '/login-hero.png';
   // Check if WordPress is configured
   const wordpressUrl = import.meta.env.VITE_WORDPRESS_URL;
   const isWordPressConfigured = wordpressUrl && wordpressUrl !== 'https://your-wordpress-site.com';
@@ -126,17 +125,9 @@ export function LoginForm() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
-      style={{
-        background: `linear-gradient(160deg, ${loginBgColor} 0%, #0d5c54 50%, #0a4842 100%)`,
-      }}
+      className="min-h-screen flex items-center justify-center p-4 relative"
+      style={{ backgroundColor: loginBgColor }}
     >
-      {/* Chest/planning motif – visible enough so the “saving ideas” message comes through */}
-      <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-[0.2]"
-        style={{ backgroundImage: `url(${loginHeroImageUrl})` }}
-        aria-hidden="true"
-      />
       <div className="w-full max-w-md relative z-10">
         {/* Install Button - Top Right */}
         {canInstall && !isInstalled && (
@@ -154,12 +145,9 @@ export function LoginForm() {
           </div>
         )}
 
-        {/* Header: logo + tagline so the message isn’t lost */}
-        <div className="mb-6 w-full flex flex-col items-center text-center">
+        {/* Header: logo only */}
+        <div className="mb-8 w-full flex justify-center">
           <LogoSVG size="lg" showText={true} className="justify-center" boldCurriculumDesigner={true} letters={logoLetters} />
-          <p className="mt-3 text-sm max-w-xs font-light" style={{ color: 'rgba(255, 255, 255, 0.9)' }}>
-            Save ideas from lessons that are often forgotten.
-          </p>
         </div>
 
         {/* Login Form or Forgot Password */}
