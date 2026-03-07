@@ -1,6 +1,6 @@
 # Supabase password reset email – CCDesigner branding
 
-The password reset email is sent by **Supabase**, not by this app. To make it CCDesigner branded and professional (e.g. Rhythmstix / www.rhythmstix.co.uk), you configure it in the **Supabase Dashboard**.
+The password reset email is sent by **Supabase**, not by this app. To send these emails via **Resend** (better deliverability, your domain, fewer rate limits), see **SUPABASE_RESEND_SMTP.md** first. To make it CCDesigner branded and professional (e.g. Rhythmstix / www.rhythmstix.co.uk), you configure it in the **Supabase Dashboard**.
 
 ## 1. Fix the reset link (no localhost)
 

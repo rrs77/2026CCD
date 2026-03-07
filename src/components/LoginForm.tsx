@@ -107,7 +107,13 @@ export function LoginForm() {
       const { error } = await supabase.auth.resetPasswordForEmail(emailTrimmed, {
         redirectTo,
       });
-      if (error) throw new Error(error.message);
+      if (error) {
+        const msg = error.message || '';
+        if (msg.toLowerCase().includes('rate limit')) {
+          throw new Error('Too many reset requests. Please wait about an hour and try again.');
+        }
+        throw new Error(error.message);
+      }
       setForgotSent(true);
     } catch (err) {
       setForgotError(err instanceof Error ? err.message : 'Failed to send');
@@ -258,11 +264,10 @@ export function LoginForm() {
               </p>
             )}
 
-            {/* Supabase Auth status (when using Supabase auth) */}
-            {isSupabaseAuthEnabled() && authStatus && (
-              <div className={`p-2 rounded-lg text-xs ${authStatus === 'ok' ? 'bg-green-50 text-green-800' : authStatus === 'fail' ? 'bg-amber-50 text-amber-800' : 'bg-gray-50 text-gray-600'}`}>
+            {/* Supabase Auth status – only when checking or when there's a problem */}
+            {isSupabaseAuthEnabled() && authStatus && authStatus !== 'ok' && (
+              <div className={`p-2 rounded-lg text-xs ${authStatus === 'fail' ? 'bg-amber-50 text-amber-800' : 'bg-gray-50 text-gray-600'}`}>
                 {authStatus === 'checking' && 'Checking Supabase…'}
-                {authStatus === 'ok' && '✓ Supabase Auth connected'}
                 {authStatus === 'fail' && `✗ Supabase Auth: ${authError || 'Not reachable'}. Check Supabase Dashboard → Project paused?`}
               </div>
             )}
