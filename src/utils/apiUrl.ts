@@ -14,3 +14,15 @@ export function getVercelApiUrl(path: string): string {
   }
   return path.startsWith('/') ? path : `/${path}`;
 }
+
+/**
+ * Base URL for the app (used in password reset emails so the link points to production, not localhost).
+ * Set VITE_APP_URL or VITE_VERCEL_URL so reset emails contain the correct link.
+ */
+export function getAppBaseUrl(): string {
+  const base = import.meta.env.VITE_APP_URL || import.meta.env.VITE_VERCEL_URL;
+  if (base) {
+    return String(base).replace(/\/$/, '');
+  }
+  return typeof window !== 'undefined' ? window.location.origin : '';
+}

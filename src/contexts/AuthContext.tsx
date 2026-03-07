@@ -250,7 +250,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
           email: username.trim(),
           password
         });
-        if (error) throw new Error(error.message);
+        if (error) {
+          const msg = error.message || 'Sign-in failed';
+          if (msg.toLowerCase().includes('invalid') && msg.toLowerCase().includes('credential')) {
+            throw new Error('Email or password incorrect. Try again or use Forgot password.');
+          }
+          throw new Error(msg);
+        }
         if (!data.session?.user) throw new Error('No session after sign in');
         const p = await fetchSupabaseProfile(data.session.user.id);
         const appUser: AppUser = {

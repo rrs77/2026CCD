@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Lock, Eye, EyeOff } from 'lucide-react';
 import { LogoSVG } from './Logo';
-import { supabase, isSupabaseConfigured } from '../config/supabase';
+import { supabase, isSupabaseConfigured, isSupabaseAuthEnabled } from '../config/supabase';
 
 export function ResetPasswordPage() {
   const loginBgColor = 'rgb(77, 181, 168)';
@@ -15,11 +15,23 @@ export function ResetPasswordPage() {
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [hasRecoveryToken, setHasRecoveryToken] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
 
   useEffect(() => {
     const hash = window.location.hash || '';
-    const hasToken = hash.includes('type=recovery') || hash.includes('access_token');
-    setHasRecoveryToken(hasToken);
+    const hasHash = hash.includes('type=recovery') || hash.includes('access_token');
+    if (!hasHash) {
+      setHasRecoveryToken(false);
+      setSessionReady(true);
+      return;
+    }
+    setHasRecoveryToken(true);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSessionReady(true);
+      if (!session && hasHash) {
+        setHasRecoveryToken(false);
+      }
+    });
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -53,6 +65,28 @@ export function ResetPasswordPage() {
       <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: loginBgColor }}>
         <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md">
           <p className="text-gray-700">Password reset requires Supabase to be configured.</p>
+          <a href="/" className="mt-4 inline-block text-teal-600 hover:underline font-medium">Back to sign in</a>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isSupabaseAuthEnabled()) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: loginBgColor }}>
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md text-center">
+          <p className="text-gray-700 mb-4">Password reset is only available when sign-in uses Supabase Auth. Ask your administrator to set VITE_USE_SUPABASE_AUTH=true.</p>
+          <a href="/" className="text-teal-600 hover:underline font-medium">Back to sign in</a>
+        </div>
+      </div>
+    );
+  }
+
+  if (!sessionReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: loginBgColor }}>
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md text-center">
+          <p className="text-gray-600">Checking reset link…</p>
         </div>
       </div>
     );

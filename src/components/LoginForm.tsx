@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Lock, Eye, EyeOff, AlertCircle, Download, X, RefreshCw } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { getAppBaseUrl } from '../utils/apiUrl';
 import { LoadingSpinner } from './LoadingSpinner';
 import { LogoSVG } from './Logo';
 import { usePWAInstall } from '../hooks/usePWAInstall';
@@ -102,8 +103,10 @@ export function LoginForm() {
     setForgotError('');
     setForgotSubmitting(true);
     try {
+      const baseUrl = getAppBaseUrl();
+      const redirectTo = baseUrl ? `${baseUrl}/reset-password` : `${window.location.origin}/reset-password`;
       const { error } = await supabase.auth.resetPasswordForEmail(emailTrimmed, {
-        redirectTo: `${window.location.origin}/reset-password`
+        redirectTo,
       });
       if (error) throw new Error(error.message);
       setForgotSent(true);
@@ -128,9 +131,9 @@ export function LoginForm() {
         background: `linear-gradient(160deg, ${loginBgColor} 0%, #0d5c54 50%, #0a4842 100%)`,
       }}
     >
-      {/* Subtle chest/planning motif – classy, relevant, not busy */}
+      {/* Chest/planning motif – visible enough so the “saving ideas” message comes through */}
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-[0.07]"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-[0.2]"
         style={{ backgroundImage: `url(${loginHeroImageUrl})` }}
         aria-hidden="true"
       />
@@ -151,9 +154,12 @@ export function LoginForm() {
           </div>
         )}
 
-        {/* Single header: logo only */}
-        <div className="mb-8 w-full flex justify-center">
+        {/* Header: logo + tagline so the message isn’t lost */}
+        <div className="mb-6 w-full flex flex-col items-center text-center">
           <LogoSVG size="lg" showText={true} className="justify-center" boldCurriculumDesigner={true} letters={logoLetters} />
+          <p className="mt-3 text-sm max-w-xs font-light" style={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+            Save ideas from lessons that are often forgotten.
+          </p>
         </div>
 
         {/* Login Form or Forgot Password */}
@@ -245,8 +251,8 @@ export function LoginForm() {
                 </button>
               </div>
             </div>
-            {/* Forgot password – always visible when Supabase is configured so users can reset */}
-            {(isSupabaseAuthEnabled() || isSupabaseConfigured()) && (
+            {/* Forgot password – only when Supabase Auth is enabled (same as login method) */}
+            {isSupabaseAuthEnabled() && (
               <div className="flex flex-col items-center gap-1">
                 <button
                   type="button"
@@ -256,10 +262,12 @@ export function LoginForm() {
                 >
                   Forgot password?
                 </button>
-                {!isSupabaseAuthEnabled() && isSupabaseConfigured() && import.meta.env.DEV && (
-                  <span className="text-xs text-gray-500">Set VITE_USE_SUPABASE_AUTH=true to use password reset</span>
-                )}
               </div>
+            )}
+            {isSupabaseConfigured() && !isSupabaseAuthEnabled() && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                Email/password sign-in is off. Set VITE_USE_SUPABASE_AUTH=true in your environment and redeploy to sign in and use password reset.
+              </p>
             )}
 
             {/* Supabase Auth status (when using Supabase auth) */}
