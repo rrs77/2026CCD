@@ -102,7 +102,7 @@ export function UnitViewer() {
   } = useData();
   const { getThemeForClass, settings } = useSettings();
   const productName = settings?.branding?.loginTitle || 'Creative Curriculum Designer';
-  const footerCompany = settings?.branding?.footerCompanyName || 'Forward Thinking';
+  const footerCompany = settings?.branding?.footerCompanyName || 'Rhythmstix';
   const footerYear = settings?.branding?.footerCopyrightYear || new Date().getFullYear().toString();
   const { stacks } = useLessonStacks();
   const [units, setUnits] = useState<Unit[]>([]);

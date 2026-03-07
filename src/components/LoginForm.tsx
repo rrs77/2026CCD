@@ -31,8 +31,7 @@ export function LoginForm() {
   const loginButtonColor = branding.loginButtonColor || '#008272';
   const logoLetters = branding.logoLetters || 'CCD';
   const loginTitle = branding.loginTitle || 'Creative Curriculum Designer';
-  const loginSubtitle = branding.loginSubtitle || 'From Forward Thinking';
-  const loginHeroImageUrl = branding.loginLogoUrl || '/login-hero.png';
+  const loginSubtitle = branding.loginSubtitle || 'Rhythmstix';
 
   // Check if WordPress is configured
   const wordpressUrl = import.meta.env.VITE_WORDPRESS_URL;
@@ -123,21 +122,15 @@ export function LoginForm() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-4 relative bg-cover bg-center bg-no-repeat"
-      style={{
-        backgroundImage: `url(${loginHeroImageUrl})`,
-        backgroundColor: loginBgColor,
-      }}
+      className="min-h-screen flex items-center justify-center p-4 relative"
+      style={{ backgroundColor: loginBgColor }}
     >
-      {/* Optional dark overlay for form readability */}
-      <div className="absolute inset-0 bg-black/40" aria-hidden="true" />
       <div className="w-full max-w-md relative z-10">
         {/* Install Button - Top Right */}
         {canInstall && !isInstalled && (
-          <div className="absolute top-4 right-4 z-10">
+          <div className="absolute -top-2 right-0 sm:top-0 sm:right-0 z-10">
             <button
               onClick={async () => {
-                // Automatically trigger installation
                 await install();
               }}
               className="flex items-center space-x-2 bg-white/90 hover:bg-white text-teal-600 px-3 py-2 rounded-lg shadow-md hover:shadow-lg transition-all text-sm font-medium"
@@ -149,8 +142,8 @@ export function LoginForm() {
           </div>
         )}
 
-        {/* Header with Logo */}
-        <div className="mb-6 w-full flex items-center justify-center">
+        {/* Single header: logo only */}
+        <div className="mb-8 w-full flex justify-center">
           <LogoSVG size="lg" showText={true} className="justify-center" boldCurriculumDesigner={true} letters={logoLetters} />
         </div>
 
@@ -254,7 +247,7 @@ export function LoginForm() {
                 >
                   Forgot password?
                 </button>
-                {!isSupabaseAuthEnabled() && isSupabaseConfigured() && (
+                {!isSupabaseAuthEnabled() && isSupabaseConfigured() && import.meta.env.DEV && (
                   <span className="text-xs text-gray-500">Set VITE_USE_SUPABASE_AUTH=true to use password reset</span>
                 )}
               </div>
@@ -323,12 +316,10 @@ export function LoginForm() {
 
         </div>
 
-        {/* Footer */}
-        <div className="mt-8 text-center">
-          <p className="text-sm font-light tracking-wide" style={{ color: 'rgba(255, 255, 255, 0.85)' }}>
-            {loginTitle} • {loginSubtitle}
-          </p>
-        </div>
+        {/* Footer: single subtle line */}
+        <p className="mt-6 text-center text-sm font-light" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+          {loginSubtitle}
+        </p>
       </div>
 
       {/* Install Prompt Modal */}

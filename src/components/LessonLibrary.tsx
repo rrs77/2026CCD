@@ -1267,7 +1267,7 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                     />
                     <p className="mt-1 text-xs text-gray-500">
-                      Default: {settings?.branding?.loginTitle || 'Creative Curriculum Designer'} • Lesson {editingLessonNumber} • {currentSheetInfo.display} • © {settings?.branding?.footerCompanyName || 'Forward Thinking'} {settings?.branding?.footerCopyrightYear || new Date().getFullYear()}
+                      Default: {settings?.branding?.loginTitle || 'Creative Curriculum Designer'} • Lesson {editingLessonNumber} • {currentSheetInfo.display} • © {settings?.branding?.footerCompanyName || 'Rhythmstix'} {settings?.branding?.footerCopyrightYear || new Date().getFullYear()}
                     </p>
                   </div>
                 </div>

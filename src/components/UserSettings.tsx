@@ -2432,14 +2432,14 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                 </div>
                 <button
                   onClick={() => {
-                    if (confirm('Reset branding to defaults (Rhythmstix/Forward Thinking)?')) {
+                    if (confirm('Reset branding to defaults (Rhythmstix)?')) {
                       const defaults = {
                         logoLetters: 'CCD',
                         loginTitle: 'Creative Curriculum Designer',
-                        loginSubtitle: 'From Forward Thinking',
+                        loginSubtitle: 'Rhythmstix',
                         loginBackgroundColor: 'rgb(77, 181, 168)',
                         loginButtonColor: '#008272',
-                        footerCompanyName: 'Forward Thinking',
+                        footerCompanyName: 'Rhythmstix',
                         footerCopyrightYear: '2026',
                         footerContactEmail: 'info@rhythmstix.co.uk',
                         footerPrivacyUrl: 'https://www.rhythmstix.co.uk/policy',
@@ -2499,7 +2499,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                       value={tempSettings.branding?.loginSubtitle ?? ''}
                       onChange={e => setTempSettings(prev => ({ ...prev, branding: { ...prev.branding, loginSubtitle: e.target.value } }))}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                      placeholder="From Forward Thinking"
+                      placeholder="Rhythmstix"
                     />
                   </div>
                   <div>
@@ -2532,7 +2532,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                       value={tempSettings.branding?.footerCompanyName ?? ''}
                       onChange={e => setTempSettings(prev => ({ ...prev, branding: { ...prev.branding, footerCompanyName: e.target.value } }))}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                      placeholder="Forward Thinking"
+                      placeholder="Rhythmstix"
                     />
                   </div>
                   <div>

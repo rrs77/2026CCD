@@ -597,8 +597,8 @@ export function LessonPlannerCalendar({
     };
     const branding = settings?.branding || {};
     const productName = branding.loginTitle || settings?.schoolName || 'Creative Curriculum Designer';
-    const productSubtitle = branding.loginSubtitle || 'From Forward Thinking';
-    const companyName = branding.footerCompanyName || 'Forward Thinking';
+    const productSubtitle = branding.loginSubtitle || 'Rhythmstix';
+    const companyName = branding.footerCompanyName || 'Rhythmstix';
     const copyrightYear = branding.footerCopyrightYear || new Date().getFullYear().toString();
     const contactEmail = branding.footerContactEmail || '';
     const headerColor = branding.loginButtonColor || branding.loginBackgroundColor || '#0d9488';

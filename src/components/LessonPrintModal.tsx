@@ -69,7 +69,7 @@ export function LessonPrintModal({
   const { getCategoryColor, settings } = useSettings();
   const branding = settings?.branding || {};
   const productName = branding.loginTitle || 'Creative Curriculum Designer';
-  const footerCompany = branding.footerCompanyName || 'Forward Thinking';
+  const footerCompany = branding.footerCompanyName || 'Rhythmstix';
   const footerYear = branding.footerCopyrightYear || new Date().getFullYear().toString();
   const { shareLesson: shareSingleLesson, isSharing: isSharingSingle, getStoredShareUrl } = useShareLesson();
   const [isExporting, setIsExporting] = useState(false);

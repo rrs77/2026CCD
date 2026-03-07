@@ -42,12 +42,12 @@ export interface BrandingSettings {
   loginLogoUrl?: string; // URL to custom logo image (if empty, uses default Logo component)
   logoLetters?: string; // Letters in logo circle, max 3 (e.g., "CCD")
   loginTitle?: string; // Custom title text (e.g., "Creative Curriculum Designer")
-  loginSubtitle?: string; // Custom subtitle text (e.g., "From Forward Thinking")
+  loginSubtitle?: string; // Custom subtitle text (e.g., "Rhythmstix")
   loginBackgroundColor?: string; // Background color for login page (default: rgb(77, 181, 168))
   loginButtonColor?: string; // Button color (default: #008272)
   
   // Footer customization
-  footerCompanyName?: string; // Company name in footer (default: "Forward Thinking")
+  footerCompanyName?: string; // Company name in footer (default: "Rhythmstix")
   footerCopyrightYear?: string; // Copyright year (default: "2026")
   footerContactEmail?: string; // Contact email (default: "info@rhythmstix.co.uk")
   footerPrivacyUrl?: string; // Privacy policy URL (default: "https://www.rhythmstix.co.uk/policy")
@@ -284,10 +284,10 @@ const FIXED_CATEGORIES: Category[] = [
 const DEFAULT_BRANDING: BrandingSettings = {
   logoLetters: 'CCD',
   loginTitle: 'Creative Curriculum Designer',
-  loginSubtitle: 'From Forward Thinking',
+  loginSubtitle: 'Rhythmstix',
   loginBackgroundColor: 'rgb(77, 181, 168)',
   loginButtonColor: '#008272',
-  footerCompanyName: 'Forward Thinking',
+  footerCompanyName: 'Rhythmstix',
   footerCopyrightYear: '2026',
   footerContactEmail: 'info@rhythmstix.co.uk',
   footerPrivacyUrl: 'https://www.rhythmstix.co.uk/policy',
