@@ -2523,44 +2523,48 @@ const updateLessonData = async (lessonNumber: string, updatedData: any) => {
   };
 
   const loadStandards = async () => {
+    const applyFallback = () => {
+      const savedStandards = localStorage.getItem(`eyfs-statements-flat-${currentSheetInfo.sheet}`);
+      if (savedStandards) {
+        try {
+          const parsedStandards = JSON.parse(savedStandards);
+          setNestedStandards(parsedStandards.length > 0 ? parsedStandards : DEFAULT_NESTED_STANDARDS);
+        } catch {
+          setNestedStandards(DEFAULT_NESTED_STANDARDS);
+        }
+      } else {
+        setNestedStandards(DEFAULT_NESTED_STANDARDS);
+      }
+    };
+
     try {
-      // If data was cleared, set empty state
       if (dataWasCleared) {
         setNestedStandards(DEFAULT_NESTED_STANDARDS);
         return;
       }
-      
-      // Try to load from Supabase if connected
+
       if (isSupabaseConfigured()) {
+        const STANDARDS_TIMEOUT_MS = 5000;
         try {
-          const response = await eyfsApi.getBySheet(currentSheetInfo.sheet);
+          const response = await Promise.race([
+            eyfsApi.getBySheet(currentSheetInfo.sheet),
+            new Promise<null>((_, reject) =>
+              setTimeout(() => reject(new Error('Standards load timeout')), STANDARDS_TIMEOUT_MS)
+            )
+          ]);
           if (response && response.allStatements) {
             setNestedStandards(response.allStatements);
             return;
           }
         } catch (serverError) {
-          console.warn('Failed to load EYFS statements from Supabase:', serverError);
+          if (import.meta.env.DEV) console.warn('EYFS standards from Supabase failed or timed out:', serverError);
         }
       }
-      
-      // Fallback to localStorage
-      const savedStandards = localStorage.getItem(`eyfs-statements-flat-${currentSheetInfo.sheet}`);
-      if (savedStandards) {
-        try {
-          const parsedStandards = JSON.parse(savedStandards);
-          // Data is already stored as a flat array
-          setNestedStandards(parsedStandards.length > 0 ? parsedStandards : DEFAULT_NESTED_STANDARDS);
-        } catch (error) {
-          console.error('Error parsing saved EYFS standards:', error);
-          setNestedStandards(DEFAULT_NESTED_STANDARDS);
-        }
-      } else {
-        // Use default standards if none saved
-        setNestedStandards(DEFAULT_NESTED_STANDARDS);
-      }
+
+      applyFallback();
     } catch (error) {
-      console.error('Error loading EYFS statements:', error);
-      setNestedStandards(DEFAULT_NESTED_STANDARDS);
+      if (import.meta.env.DEV) console.error('Error loading EYFS statements:', error);
+      applyFallback();
     }
   };
 

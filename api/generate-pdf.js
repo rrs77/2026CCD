@@ -43,7 +43,7 @@ export async function POST(request) {
     console.log('[generate-pdf] Function called');
     
     const body = await request.json();
-    const { html: encodedHtml, footerTemplate: encodedFooter, headerTemplate: encodedHeader, fileName } = body || {};
+    const { html: encodedHtml, footerTemplate: encodedFooter, headerTemplate: encodedHeader, fileName, returnPdfBlob } = body || {};
 
     if (!encodedHtml) {
       console.error('[generate-pdf] Missing html content');
@@ -84,41 +84,43 @@ export async function POST(request) {
     }
 
     const pdfBuffer = Buffer.from(await pdfResponse.arrayBuffer());
+
+    // If client requested blob for download (e.g. Export PDF when no client-side key), return PDF directly
+    if (returnPdfBlob) {
+      const downloadName = (fileName && typeof fileName === 'string') ? fileName.replace(/^.*\//, '') : 'lesson.pdf';
+      return new Response(pdfBuffer, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="${downloadName}"`,
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
+    }
+
     const storageFileName = fileName || `shared-pdfs/${Date.now()}_lesson.pdf`;
 
     // Use Vercel Blob Storage (free tier: 1 GB storage, 2,000 uploads/month)
-    // BLOB_READ_WRITE_TOKEN is automatically created by Vercel when you create a Blob store
     const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
-    
     if (!blobToken) {
       console.error('[generate-pdf] BLOB_READ_WRITE_TOKEN not set');
-      return jsonResponse({ 
-        error: 'BLOB_READ_WRITE_TOKEN not found. Please create a Blob store in Vercel Dashboard → Storage → Create Blob Store. The token is automatically created.' 
+      return jsonResponse({
+        error: 'BLOB_READ_WRITE_TOKEN not found. Please create a Blob store in Vercel Dashboard → Storage → Create Blob Store. The token is automatically created.'
       }, 500);
     }
-    
+
     console.log('[generate-pdf] Configuration OK, uploading to Vercel Blob...');
-
     try {
-      // Upload to Vercel Blob Storage
       const blob = await put(storageFileName, pdfBuffer, {
-        access: 'public', // Make the file publicly accessible
+        access: 'public',
         contentType: 'application/pdf',
-        addRandomSuffix: false, // Use exact filename (will overwrite if exists)
+        addRandomSuffix: false,
       });
-
       console.log('[generate-pdf] PDF uploaded successfully to Vercel Blob:', blob.url);
-
-      return jsonResponse({
-        success: true,
-        url: blob.url, // Public URL from Vercel Blob
-        path: storageFileName,
-      });
+      return jsonResponse({ success: true, url: blob.url, path: storageFileName });
     } catch (blobError) {
       console.error('[generate-pdf] Vercel Blob upload error:', blobError);
-      return jsonResponse({ 
-        error: `Upload to Vercel Blob failed: ${blobError.message || 'Unknown error'}` 
-      }, 500);
+      return jsonResponse({ error: `Upload to Vercel Blob failed: ${blobError.message || 'Unknown error'}` }, 500);
     }
   } catch (err) {
     console.error('generate-pdf error:', err);

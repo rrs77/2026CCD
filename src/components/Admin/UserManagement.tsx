@@ -76,6 +76,7 @@ export function UserManagement() {
   const menuRef = useRef<HTMLDivElement>(null);
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
   const [viewPurchasesUser, setViewPurchasesUser] = useState<Profile | null>(null);
   const [deleteConfirmUser, setDeleteConfirmUser] = useState<Profile | null>(null);
@@ -103,17 +104,31 @@ export function UserManagement() {
       .order('created_at', { ascending: false });
     if (error) {
       console.error('Failed to load users:', error);
-      return [];
+      throw new Error(error.message || 'Failed to load users');
     }
     return (data as Profile[]) ?? [];
   }, []);
 
   useEffect(() => {
     let cancelled = false;
-    fetchUsers().then(data => {
-      if (!cancelled) setUsers(data);
-      if (!cancelled) setLoading(false);
-    });
+    setLoadError(null);
+    fetchUsers()
+      .then(data => {
+        if (!cancelled) {
+          setUsers(data);
+          setLoadError(null);
+        }
+      })
+      .catch(err => {
+        if (!cancelled) {
+          setUsers([]);
+          setLoadError(err instanceof Error ? err.message : 'Failed to load users');
+          toast.error('Could not load user list. Check your connection and permissions.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     return () => { cancelled = true; };
   }, [fetchUsers]);
 
@@ -256,6 +271,35 @@ export function UserManagement() {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center">
+        <p className="text-amber-800 font-medium">Could not load users</p>
+        <p className="mt-1 text-sm text-amber-700">{loadError}</p>
+        <button
+          type="button"
+          onClick={() => {
+            setLoadError(null);
+            setLoading(true);
+            fetchUsers()
+              .then(data => {
+                setUsers(data);
+                setLoadError(null);
+              })
+              .catch(err => {
+                setUsers([]);
+                setLoadError(err instanceof Error ? err.message : 'Failed to load users');
+              })
+              .finally(() => setLoading(false));
+          }}
+          className="mt-4 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+        >
+          Try again
+        </button>
       </div>
     );
   }

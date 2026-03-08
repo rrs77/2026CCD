@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "export-product-docs": "node scripts/export-product-docs-to-word.js",
     "dev": "vite --open",
     "dev:no-open": "vite",
     "open-app": "open http://localhost:5173",

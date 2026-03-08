@@ -148,45 +148,52 @@ export function useShareLesson() {
         <title>${lessonTitle}</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <style>
+          @page { size: A4; margin: 12mm 15mm 25mm 15mm; }
+          .lesson-pdf-content { width: 100%; max-width: 210mm; margin: 0 auto; padding: 0; background: white; }
           .lesson-header-teal {
             background: #0f766e;
             color: white;
             padding: 20px 24px;
             border-radius: 8px 8px 0 0;
-            margin-bottom: 1rem;
+            margin-bottom: 0;
           }
           .lesson-header-teal h3 { font-size: 22px; font-weight: 700; margin: 0 0 6px 0; color: white; }
           .lesson-header-teal .subtitle { font-size: 14px; opacity: 0.95; }
           .lesson-header-teal .meta { font-size: 11px; opacity: 0.9; margin-top: 8px; }
-          @page { size: A4; margin: 1cm; }
-          .lesson-page {
-            width: 21cm;
-            min-height: 29.7cm;
-            padding: 1cm;
-            margin: 0 auto 2cm auto;
-            background: white;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            page-break-after: always;
-            break-after: always;
+          .content-wrapper { border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; padding: 16px; background: #fff; }
+          .activity-section { margin-top: 16px; }
+          .category-group { break-inside: avoid; page-break-inside: avoid; margin-bottom: 10px; }
+          .activity-category { font-size: 14px; font-weight: 700; color: #B8860B; padding: 8px 0; margin-bottom: 10px; border-bottom: none; }
+          .activity-card {
+            background: white; border: 1px solid #d1e7dd; border-radius: 6px; margin-bottom: 10px; overflow: hidden;
+            border-left: 4px solid #0f766e; box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            break-inside: avoid; page-break-inside: avoid;
           }
-          .lesson-page:last-child { margin-bottom: 0; page-break-after: avoid !important; break-after: avoid !important; }
-          @media print {
-            .lesson-page { box-shadow: none; margin: 0; padding: 0; width: 100%; min-height: auto; }
-            .lesson-page:not(:last-child) { page-break-after: always; break-after: always; }
-            .lesson-page:last-child { page-break-after: avoid !important; break-after: avoid !important; }
-            * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; print-color-adjust: exact !important; }
-          }
+          .activity-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #E6F7ED; border-bottom: 1px solid #d1e7dd; }
+          .activity-title { font-weight: 700; font-size: 12px; color: #0f766e; }
+          .activity-time { background: #0f766e; color: white; padding: 4px 10px; border-radius: 9999px; font-size: 10px; font-weight: 600; }
+          .activity-body { padding: 12px 14px; font-size: 11px; color: #1f2937; line-height: 1.5; }
+          .activity-resources { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb; }
+          .resource-tag { font-size: 10px; padding: 4px 10px; font-weight: 500; text-decoration: none; border-radius: 50px; display: inline-block; }
+          .resource-video { color: #dc2626; border: 2px solid #dc2626; background: #fef2f2; }
+          .resource-music { color: #16a34a; border: 2px solid #16a34a; background: #f0fdf4; }
+          .resource-backing { color: #2563eb; border: 2px solid #2563eb; background: #eff6ff; }
+          .resource-resource { color: #9333ea; border: 2px solid #9333ea; background: #faf5ff; }
+          .resource-link { color: #6b7280; border: 2px solid #6b7280; background: #f9fafb; }
+          .resource-vocals { color: #ea580c; border: 2px solid #ea580c; background: #fff7ed; }
+          .resource-image { color: #db2777; border: 2px solid #db2777; background: #fdf2f8; }
+          .resource-canva { color: #4f46e5; border: 2px solid #4f46e5; background: #eef2ff; }
+          @media print { body { background: white; } .lesson-pdf-content { background: white; } * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }
         </style>
       </head>
       <body>
-        <div class="lesson-page bg-white">
-          <div class="px-6 pt-3 pb-6">
-            <!-- Teal header (matches PDFBolt desired output) -->
-            <div class="lesson-header-teal">
-              <h3>${headerTitle}</h3>
-              <div class="subtitle">${halfTermName || 'Autumn 1'} - ${currentSheetInfo.display}</div>
-              <div class="meta">${currentSheetInfo.display} • ${lessonData.totalTime || 45} mins • ${halfTermName || 'Term 1'}</div>
-            </div>
+        <div class="lesson-pdf-content">
+          <div class="lesson-header-teal">
+            <h3>${headerTitle}</h3>
+            <div class="subtitle">${halfTermName || 'Autumn 1'} - ${currentSheetInfo.display}</div>
+            <div class="meta">${currentSheetInfo.display} • ${lessonData.totalTime || 45} mins • ${halfTermName || 'Term 1'}</div>
+          </div>
+          <div class="content-wrapper">
     `;
 
     // Add Learning Goals section if available
@@ -271,97 +278,53 @@ export function useShareLesson() {
       activitiesByCategory[activity.category].push(activity);
     });
 
-    // Display activities by category
-    categoriesInOrder.forEach(category => {
-      const activities = activitiesByCategory[category] || [];
-      if (activities.length === 0) return;
-
-      const categoryColor = getCategoryColor(category);
-      const categoryLightBorder = `${categoryColor}60`;
-      const categoryColorStyle = `color: ${categoryColor};`;
-      const borderColorStyle = `border-left-color: ${categoryColor};`;
-      const categoryBgStyle = `background-color: ${categoryColor}20; border-bottom-color: ${categoryColor};`;
-
-      htmlContent += `
-        <div class="mb-4">
-          <h2 class="text-sm font-bold mb-1 text-black border-b border-black pb-0.5" style="${categoryColorStyle} page-break-after: avoid;">
-            ${category}
-          </h2>
-         
-          <div class="space-y-2">
-      `;
-
-      activities.forEach(activity => {
-        htmlContent += `
-          <div class="bg-white rounded-lg border overflow-hidden" style="page-break-inside: avoid; border-left-width: 4px; ${borderColorStyle} border-color: ${categoryLightBorder};">
-            <div class="px-2 py-0.5 border-b flex justify-between items-center" style="${categoryBgStyle}">
-              <h3 class="font-bold text-black text-xs">
-                ${activity.activity}
-              </h3>
-              ${activity.time > 0 ? `
-                <div class="px-1 py-0.5 rounded-full text-xs font-bold" style="background-color: rgba(0,0,0,0.15); color: #374151;">
-                  ${activity.time}m
-                </div>
-              ` : ''}
-            </div>
-           
-            <div class="p-1.5">
-              ${activity.activityText ? `
-                <div class="mb-1 text-xs text-black font-medium">
-                  ${activity.activityText}
-                </div>
-              ` : ''}
-              
-              <div class="text-sm text-gray-700">
-                ${activity.description.includes('<')
-                  ? activity.description
-                  : activity.description.replace(/\n/g, '<br>')
-                }
-              </div>
-        `;
-
-        const resources = [];
-        if (activity.videoLink) resources.push({ label: 'Video', url: activity.videoLink, classes: 'bg-red-100 text-red-800 border-red-300' });
-        if (activity.musicLink) resources.push({ label: 'Music', url: activity.musicLink, classes: 'bg-green-100 text-green-800 border-green-300' });
-        if (activity.backingLink) resources.push({ label: 'Backing', url: activity.backingLink, classes: 'bg-blue-100 text-blue-800 border-blue-300' });
-        if (activity.resourceLink) resources.push({ label: 'Resource', url: activity.resourceLink, classes: 'bg-purple-100 text-purple-800 border-purple-300' });
-        if (activity.link) resources.push({ label: 'Link', url: activity.link, classes: 'bg-gray-100 text-gray-800 border-gray-300' });
-        if (activity.vocalsLink) resources.push({ label: 'Vocals', url: activity.vocalsLink, classes: 'bg-orange-100 text-orange-800 border-orange-300' });
-        if (activity.imageLink) resources.push({ label: 'Image', url: activity.imageLink, classes: 'bg-pink-100 text-pink-800 border-pink-300' });
-
-        if (resources.length > 0) {
+    // Display activities by category (match Export PDF: category-group + activity-card for correct page breaks)
+    if (categoriesInOrder.length > 0) {
+      htmlContent += `<div class="activity-section"><div style="display: flex; align-items: center; margin-bottom: 12px;"><h3 style="font-size: 14px; font-weight: 700; color: #1f2937; margin: 0;">Activities from Library</h3></div>`;
+      categoriesInOrder.forEach(category => {
+        const activities = activitiesByCategory[category] || [];
+        if (activities.length === 0) return;
+        const categoryColor = getCategoryColor(category);
+        htmlContent += `<div class="category-group"><div class="activity-category" style="color: ${categoryColor}; border-bottom-color: ${categoryColor};">${category}</div>`;
+        activities.forEach(activity => {
           htmlContent += `
-            <div class="mt-1 pt-1 border-t border-gray-600">
-              <p class="text-xs font-bold text-black mb-0.5">Resources:</p>
-              <div class="flex flex-wrap gap-0.5">
-          `;
-          resources.forEach(resource => {
-            htmlContent += `
-              <a href="${resource.url}"
-                 class="inline-flex items-center px-1.5 py-0.5 text-xs rounded-full border font-bold ${resource.classes}"
-                 target="_blank"
-                 rel="noopener noreferrer">
-                ${resource.label}
-              </a>
-            `;
-          });
+          <div class="activity-card" style="border-left-color: ${categoryColor};">
+            <div class="activity-header">
+              <span class="activity-title">${activity.activity}</span>
+              ${activity.time > 0 ? `<span class="activity-time">${activity.time} min</span>` : ''}
+            </div>
+            <div class="activity-body">
+              ${activity.activityText ? `<p style="font-weight: 500; margin-bottom: 6px;">${activity.activityText}</p>` : ''}
+              <div>${activity.description.includes('<') ? activity.description : activity.description.replace(/\n/g, '<br>')}</div>`;
+          const resources: { label: string; url: string; class: string }[] = [];
+          if (activity.videoLink) resources.push({ label: 'Video', url: activity.videoLink, class: 'resource-video' });
+          if (activity.musicLink) resources.push({ label: 'Music', url: activity.musicLink, class: 'resource-music' });
+          if (activity.backingLink) resources.push({ label: 'Backing', url: activity.backingLink, class: 'resource-backing' });
+          if (activity.resourceLink) resources.push({ label: 'Resource', url: activity.resourceLink, class: 'resource-resource' });
+          if (activity.link) resources.push({ label: 'Link', url: activity.link, class: 'resource-link' });
+          if (activity.vocalsLink) resources.push({ label: 'Vocals', url: activity.vocalsLink, class: 'resource-vocals' });
+          if (activity.imageLink) resources.push({ label: 'Image', url: activity.imageLink, class: 'resource-image' });
+          if ((activity as any).canvaLink) resources.push({ label: 'Canva', url: (activity as any).canvaLink, class: 'resource-canva' });
+          if (resources.length > 0) {
+            htmlContent += `<div class="activity-resources">`;
+            resources.forEach(r => {
+              htmlContent += `<a href="${r.url}" target="_blank" rel="noopener noreferrer" class="resource-tag ${r.class}">${r.label}</a>`;
+            });
+            htmlContent += `</div>`;
+          }
           htmlContent += `</div></div>`;
-        }
-
-        htmlContent += `</div></div>`;
+        });
+        htmlContent += `</div>`;
       });
-
-      htmlContent += `</div></div>`;
-    });
+      htmlContent += `</div>`;
+    }
 
     // Add notes if available
     if (lessonData.notes) {
       htmlContent += `
-        <div class="mt-6 pt-4 border-t border-black">
-          <h3 class="text-lg font-bold text-black mb-2">Lesson Notes</h3>
-          <div class="bg-gray-200 rounded-lg p-3 text-black border border-gray-600">
-            ${lessonData.notes}
-          </div>
+        <div style="margin-top: 12px; padding: 10px 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; border-left: 4px solid #9ca3af;">
+          <div style="font-size: 11px; font-weight: 600; color: #374151; margin-bottom: 6px;">Teacher Notes</div>
+          <div style="font-size: 10px; color: #1f2937; line-height: 1.5;">${lessonData.notes}</div>
         </div>
       `;
     }

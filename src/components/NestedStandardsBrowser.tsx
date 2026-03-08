@@ -41,20 +41,27 @@ export function NestedStandardsBrowser({
   const isOpen = isControlledMode ? controlledIsOpen : internalIsOpen;
   const setIsOpen = isControlledMode ? onClose || (() => {}) : setInternalIsOpen;
 
-  // Load custom objectives
+  // Load custom objectives (with timeout so we never hang on "Loading standards...")
   useEffect(() => {
+    const LOAD_TIMEOUT_MS = 5000;
     const loadCustomObjectives = async () => {
       try {
-        const [yearGroups, areas, objectives] = await Promise.all([
-          customObjectivesApi.yearGroups.getAll(),
-          customObjectivesApi.areas.getAll(),
-          customObjectivesApi.objectives.getAll()
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Custom objectives load timeout')), LOAD_TIMEOUT_MS)
+        );
+        const [yearGroups, areas, objectives] = await Promise.race([
+          Promise.all([
+            customObjectivesApi.yearGroups.getAll(),
+            customObjectivesApi.areas.getAll(),
+            customObjectivesApi.objectives.getAll()
+          ]),
+          timeoutPromise
         ]);
         setCustomYearGroups(yearGroups);
         setCustomAreas(areas);
         setCustomObjectives(objectives);
       } catch (error) {
-        console.error('Failed to load custom objectives:', error);
+        if (import.meta.env.DEV) console.warn('Custom objectives load failed or timed out:', error);
       } finally {
         setLoading(false);
       }

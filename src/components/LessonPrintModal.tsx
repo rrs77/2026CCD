@@ -6,6 +6,7 @@ import { useSettings } from '../contexts/SettingsContextNew';
 import { customObjectivesApi } from '../config/customObjectivesApi';
 import type { CustomObjective, CustomObjectiveArea, CustomObjectiveYearGroup } from '../types/customObjectives';
 import { supabase } from '../config/supabase';
+import { getPdfApiUrl } from '../utils/pdfApi';
 import { useShareLesson } from '../hooks/useShareLesson';
 import toast from 'react-hot-toast';
 
@@ -1199,12 +1200,19 @@ export function LessonPrintModal({
     return btoa(binaryString);
   };
 
-  // Export PDF: use direct PDFBolt API (client-side generation)
+  const getLessonDisplayNumber = (num: string): string => {
+    const n = num.replace(/^lesson/i, '').replace(/[^0-9]/g, '');
+    return n || num;
+  };
+
+  // Export PDF: use PDFBolt when key is set, otherwise Vercel API (returnPdfBlob) for download
   const handleExport = async () => {
-    if (!PDFBOLT_API_KEY || PDFBOLT_API_KEY === 'd089165b-e1da-43bb-a7dc-625ce514ed1b') {
-      toast.error('Set VITE_PDFBOLT_API_KEY in environment (or use default key).', { duration: 5000 });
-      return;
-    }
+    const downloadFileName = exportMode === 'single' && lessonNumber
+      ? `${currentSheetInfo.sheet}_Lesson_${getLessonDisplayNumber(lessonNumber)}.pdf`
+      : `${currentSheetInfo.sheet}_${(unitName || halfTermName || 'Unit').replace(/\s+/g, '_')}.pdf`;
+
+    const useApiFallback = !PDFBOLT_API_KEY || PDFBOLT_API_KEY === 'd089165b-e1da-43bb-a7dc-625ce514ed1b';
+
     setIsExporting(true);
     try {
       const [htmlRaw, footerRaw, headerRaw] = await generateHTMLContent();
@@ -1212,38 +1220,53 @@ export function LessonPrintModal({
       const footerContent = encodeUnicodeBase64(footerRaw);
       const headerContent = encodeUnicodeBase64(headerRaw);
 
-      const response = await fetch(PDFBOLT_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'API_KEY': PDFBOLT_API_KEY
-        },
-        body: JSON.stringify({
-          html: htmlContent,
-          printBackground: true,
-          waitUntil: 'networkidle',
-          format: 'A4',
-          margin: { top: '15px', right: '20px', left: '20px', bottom: '55px' },
-          displayHeaderFooter: true,
-          footerTemplate: footerContent,
-          headerTemplate: headerContent,
-          emulateMediaType: 'screen'
-        })
-      });
+      let pdfBlob: Blob;
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`PDFBolt: ${response.status} - ${errorText}`);
+      if (useApiFallback) {
+        const apiUrl = getPdfApiUrl();
+        const res = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            html: htmlContent,
+            footerTemplate: footerContent,
+            headerTemplate: headerContent,
+            returnPdfBlob: true,
+            fileName: `downloads/${downloadFileName}`,
+          }),
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          let msg = errText;
+          try {
+            const data = JSON.parse(errText || '{}');
+            if (data.error) msg = data.error;
+          } catch (_) {}
+          throw new Error(msg || `Export failed: ${res.status}`);
+        }
+        pdfBlob = await res.blob();
+      } else {
+        const response = await fetch(PDFBOLT_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'API_KEY': PDFBOLT_API_KEY },
+          body: JSON.stringify({
+            html: htmlContent,
+            printBackground: true,
+            waitUntil: 'networkidle',
+            format: 'A4',
+            margin: { top: '15px', right: '20px', left: '20px', bottom: '55px' },
+            displayHeaderFooter: true,
+            footerTemplate: footerContent,
+            headerTemplate: headerContent,
+            emulateMediaType: 'screen',
+          }),
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`PDFBolt: ${response.status} - ${errorText}`);
+        }
+        pdfBlob = await response.blob();
       }
-
-      const pdfBlob = await response.blob();
-      const getLessonDisplayNumber = (num: string): string => {
-        const n = num.replace(/^lesson/i, '').replace(/[^0-9]/g, '');
-        return n || num;
-      };
-      const downloadFileName = exportMode === 'single' && lessonNumber
-        ? `${currentSheetInfo.sheet}_Lesson_${getLessonDisplayNumber(lessonNumber)}.pdf`
-        : `${currentSheetInfo.sheet}_${(unitName || halfTermName || 'Unit').replace(/\s+/g, '_')}.pdf`;
 
       const url = window.URL.createObjectURL(pdfBlob);
       const link = document.createElement('a');
