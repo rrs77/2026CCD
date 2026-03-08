@@ -351,26 +351,7 @@ export const lessonsApi = {
         
         if (data) {
           hasData = true;
-          
-          // Log the full data structure to understand what we're getting
-          console.log('🔍 DEBUG: Processing Supabase result - FULL DATA OBJECT:', JSON.stringify(data, null, 2));
-          console.log('🔍 DEBUG: Processing Supabase result - SUMMARY:', {
-            allKeys: Object.keys(data),
-            hasDataField: !!data.data,
-            dataFieldType: typeof data.data,
-            dataFieldValue: data.data,
-            dataFieldKeys: data.data ? Object.keys(data.data) : [],
-            dataFieldKeysCount: data.data ? Object.keys(data.data).length : 0,
-            hasLessonNumbers: !!data.lesson_numbers,
-            lessonNumbers: data.lesson_numbers,
-            lessonNumbersCount: data.lesson_numbers?.length || 0,
-            hasTeachingUnits: !!data.teaching_units,
-            teachingUnits: data.teaching_units,
-            teachingUnitsCount: data.teaching_units?.length || 0,
-            sheetName: data.sheet_name,
-            academicYear: data.academic_year
-          });
-          
+          if (import.meta.env.DEV) console.log('🔍 Lessons from Supabase:', data.sheet_name, data.academic_year, data.data ? Object.keys(data.data).length : 0, 'lessons');
           // Merge lesson data
           if (data.data) {
             mergedData.allLessonsData = {
@@ -393,23 +374,8 @@ export const lessonsApi = {
         }
       }
       
-      if (!hasData) {
-        console.log('✅ Lessons query successful: no data found', {
-          sheet,
-          academicYear,
-          academicYearsToQuery,
-          queriesExecuted: queries.length
-        });
-        return null;
-      }
-      
-      console.log('✅ Lessons query successful: merged data from', academicYearsToQuery.length || 1, 'academic year(s)', {
-        sheet,
-        academicYear,
-        lessonCount: Object.keys(mergedData.allLessonsData).length,
-        lessonNumbers: mergedData.lessonNumbers.length
-      });
-      
+      if (!hasData) return null;
+      if (import.meta.env.DEV) console.log('✅ Lessons loaded:', Object.keys(mergedData.allLessonsData).length, 'merged');
       return mergedData;
     } catch (error) {
       console.error(`❌ Failed to get lessons for ${sheet} (${academicYear || 'default'}) from Supabase:`, error);

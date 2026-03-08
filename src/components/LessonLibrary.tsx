@@ -100,7 +100,8 @@ export function LessonLibrary({
     copyLessonsToClass,
     trashLessons,
     restoreLesson,
-    permanentDeleteFromTrash
+    permanentDeleteFromTrash,
+    refreshData
   } = useData();
   const { getThemeForClass, categories, customYearGroups, settings } = useSettings();
   const showButtonHelp = settings.showButtonHelp !== false;
@@ -112,17 +113,7 @@ export function LessonLibrary({
     getAvailableLessons
   } = useLessonStacks();
   
-  // DEBUG: Log allLessonsData to verify it's loaded
-  console.log('📚 LessonLibrary - Render state:', {
-    currentSheet: currentSheetInfo.sheet,
-    loading,
-    lessonNumbersCount: lessonNumbers?.length || 0,
-    lessonNumbersSample: lessonNumbers?.slice(0, 3) || [],
-    allLessonsDataKeys: Object.keys(allLessonsData),
-    allLessonsDataCount: Object.keys(allLessonsData).length,
-    stacksCount: stacks.length
-  });
-  
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedHalfTerm, setSelectedHalfTerm] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'number' | 'title' | 'activities' | 'time'>('number');
@@ -746,14 +737,6 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
 
   // Show error state if no data (but only after loading is complete)
   if (!loading && (!lessonNumbers || lessonNumbers.length === 0 || !allLessonsData || Object.keys(allLessonsData).length === 0)) {
-    console.log('📚 LessonLibrary - Showing no data message:', {
-      loading,
-      hasLessonNumbers: !!lessonNumbers,
-      lessonNumbersLength: lessonNumbers?.length,
-      hasAllLessonsData: !!allLessonsData,
-      allLessonsDataLength: Object.keys(allLessonsData || {}).length
-    });
-    
     return (
       <div className={`bg-white rounded-xl shadow-lg  overflow-hidden ${className}`}>
         <div className="p-6 border-b border-gray-200 text-white"
@@ -780,7 +763,25 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
         <div className="p-8 text-center">
           <BookOpen className="h-16 w-16 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-600 mb-2">No lessons found for {currentSheetInfo.display}.</p>
-          <p className="text-sm text-gray-500">Use the "Create Lesson" button above to get started</p>
+          <p className="text-sm text-gray-500 mb-4">Use the "Create Lesson" button above to get started, or refresh to load from the server.</p>
+          <button
+            onClick={async () => {
+              setRefreshing(true);
+              try {
+                await refreshData();
+                toast.success('Refreshed');
+              } catch {
+                toast.error('Refresh failed. Try again.');
+              } finally {
+                setRefreshing(false);
+              }
+            }}
+            disabled={refreshing}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-60"
+          >
+            <RotateCcw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Loading…' : 'Refresh'}
+          </button>
         </div>
       {/* Standalone Lesson Creator Modal */}
       {showStandaloneLessonCreator && (
@@ -863,6 +864,25 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
                 <List className="h-5 w-5" />
               </button>
             </div>
+            {/* Refresh lessons from Supabase */}
+            <button
+              onClick={async () => {
+                setRefreshing(true);
+                try {
+                  await refreshData();
+                  toast.success('Lesson library refreshed');
+                } catch (e) {
+                  toast.error('Refresh failed. Try again.');
+                } finally {
+                  setRefreshing(false);
+                }
+              }}
+              disabled={refreshing}
+              title="Reload lessons from server"
+              className="p-2 rounded-lg transition-colors duration-200 hover:bg-white hover:bg-opacity-10 disabled:opacity-60"
+            >
+              <RotateCcw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
               </>
             )}
           </div>

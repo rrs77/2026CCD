@@ -5,6 +5,7 @@ import { halfTermsApi } from '../config/api';
 import { customObjectivesApi } from '../config/customObjectivesApi';
 import { activityStacksApi } from '../config/activityStacksApi';
 import { supabase, TABLES, isSupabaseConfigured } from '../config/supabase';
+import toast from 'react-hot-toast';
 
 export interface Activity {
   id?: string;
@@ -514,10 +515,10 @@ export function DataProvider({ children }: DataProviderProps) {
     // ADD: Load subjects
     loadSubjects();
 
-    // Stop spinner after 3s if load hangs – user can still use the app and refresh manually
+    // Stop spinner after 8s if load hangs – user can still use the app and refresh manually
     const fallback = setTimeout(() => {
       setLoading(false);
-    }, 3000);
+    }, 8000);
     return () => clearTimeout(fallback);
   }, [currentSheetInfo, currentAcademicYear]);
 
@@ -1464,7 +1465,8 @@ console.log('🏁 Set subjectsLoading to FALSE'); // ADD THIS DEBUG LINE
 
   // Cache key and TTL for stale-while-revalidate
   const ACTIVITIES_CACHE_KEY = 'activities-cache-v1';
-  const ACTIVITIES_CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
+  const ACTIVITIES_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes – reduce Supabase load
+  const ACTIVITIES_FETCH_TIMEOUT_MS = 8000; // Don't block UI forever if Supabase is slow
 
   // Load all activities (with cache for faster initial load)
   const loadActivities = async (skipCache = false) => {
@@ -1477,22 +1479,24 @@ console.log('🏁 Set subjectsLoading to FALSE'); // ADD THIS DEBUG LINE
       setAllActivities(normalizedActivities);
     };
 
-    // Stale-while-revalidate: show cached data immediately if fresh (skip on explicit refresh)
+    // Stale-while-revalidate: show cached data immediately if we have any (fresh or stale), then revalidate
     if (isSupabaseConfigured() && !skipCache) {
       try {
         const cached = localStorage.getItem(ACTIVITIES_CACHE_KEY);
         if (cached) {
           const { data, timestamp } = JSON.parse(cached);
-          if (data?.length > 0 && Date.now() - timestamp < ACTIVITIES_CACHE_TTL_MS) {
+          if (data?.length > 0) {
             applyActivities(data);
-            if (import.meta.env.DEV) console.log('📦 Activities from cache:', data.length, '(fetching fresh in background)');
-            // Background fetch - don't block
+            const isFresh = Date.now() - timestamp < ACTIVITIES_CACHE_TTL_MS;
+            if (import.meta.env.DEV) console.log('📦 Activities from cache:', data.length, isFresh ? '(fresh)' : '(stale, revalidating)');
+            // Background fetch – don't block UI
             activitiesApi.getAll().then(activities => {
               if (activities?.length > 0) {
                 applyActivities(activities);
                 localStorage.setItem(ACTIVITIES_CACHE_KEY, JSON.stringify({ data: activities, timestamp: Date.now() }));
               }
             }).catch(() => {});
+            setLoading(false);
             return;
           }
         }
@@ -1501,30 +1505,38 @@ console.log('🏁 Set subjectsLoading to FALSE'); // ADD THIS DEBUG LINE
 
     try {
       setLoading(true);
-      
-      // Activities should always load regardless of data clearing
-      // (Only lesson data gets cleared, not activities)
-      
-      // Try to load from Supabase if connected
+
       if (isSupabaseConfigured()) {
         try {
-          if (import.meta.env.DEV) console.log('🔄 Attempting to load activities from Supabase...');
-          const activities = await activitiesApi.getAll();
+          if (import.meta.env.DEV) console.log('🔄 Loading activities from Supabase...');
+          const fetchPromise = activitiesApi.getAll();
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Activities load timeout')), ACTIVITIES_FETCH_TIMEOUT_MS)
+          );
+          const activities = await Promise.race([fetchPromise, timeoutPromise]);
           console.log('📦 Activities received from API:', activities?.length || 0);
-          
+
           if (activities && activities.length > 0) {
             applyActivities(activities);
             localStorage.setItem(ACTIVITIES_CACHE_KEY, JSON.stringify({ data: activities, timestamp: Date.now() }));
-            console.log('✅ Activities set in DataContext state:', activities.length);
             return;
-          } else {
-            console.warn('⚠️ No activities returned from Supabase API');
           }
+          console.warn('⚠️ No activities returned from Supabase API');
         } catch (error) {
           console.error('❌ Failed to load activities from Supabase:', error);
+          // Use stale cache or localStorage so UI isn't stuck
+          try {
+            const cached = localStorage.getItem(ACTIVITIES_CACHE_KEY);
+            if (cached) {
+              const { data } = JSON.parse(cached);
+              if (data?.length > 0) {
+                applyActivities(data);
+                if (import.meta.env.DEV) console.log('📦 Using stale activities cache after error');
+                return;
+              }
+            }
+          } catch (_) {}
         }
-      } else {
-        console.log('⚠️ Supabase not configured, trying localStorage...');
       }
       
       // Fallback to localStorage
@@ -2574,13 +2586,10 @@ const updateLessonData = async (lessonNumber: string, updatedData: any) => {
       }
       
       // Try to load from Supabase if connected (with timeout so app never hangs)
-      const SUPABASE_LOAD_TIMEOUT_MS = 4000;
+      const SUPABASE_LOAD_TIMEOUT_MS = 6000;
       if (isSupabaseConfigured()) {
         try {
-          if (import.meta.env.DEV) console.log('📡 Loading from Supabase:', {
-            sheet: currentSheetInfo.sheet,
-            academicYear: currentAcademicYear
-          });
+          if (import.meta.env.DEV) console.log('📡 Loading from Supabase:', currentSheetInfo.sheet, currentAcademicYear);
           const lessonData = await Promise.race([
             lessonsApi.getBySheet(currentSheetInfo.sheet, currentAcademicYear),
             new Promise<null>((_, reject) =>
@@ -2588,23 +2597,7 @@ const updateLessonData = async (lessonNumber: string, updatedData: any) => {
             )
           ]);
           if (lessonData && Object.keys(lessonData).length > 0) {
-            console.log('🔍 DEBUG: Loaded lesson data from Supabase:', {
-              sheet: currentSheetInfo.sheet,
-              academicYear: currentAcademicYear,
-              lessonDataKeys: Object.keys(lessonData),
-              allLessonsDataKeys: Object.keys(lessonData.allLessonsData || {}),
-              allLessonsDataType: typeof lessonData.allLessonsData,
-              allLessonsDataIsArray: Array.isArray(lessonData.allLessonsData),
-              lessonDataStructure: {
-                hasAllLessonsData: !!lessonData.allLessonsData,
-                allLessonsDataKeys: lessonData.allLessonsData ? Object.keys(lessonData.allLessonsData) : [],
-                hasLessonNumbers: !!lessonData.lessonNumbers,
-                lessonNumbersLength: lessonData.lessonNumbers?.length || 0,
-                lessonNumbersSample: lessonData.lessonNumbers?.slice(0, 3) || []
-              },
-              sampleLesson: lessonData.allLessonsData ? Object.values(lessonData.allLessonsData)[0] : null
-            });
-            
+            if (import.meta.env.DEV) console.log('📡 Loaded from Supabase:', Object.keys(lessonData.allLessonsData || {}).length, 'lessons');
             // Filter lessons by academic year
             const filteredLessonsData: Record<string, LessonData> = {};
             const filteredLessonNumbers: string[] = [];
@@ -2612,24 +2605,11 @@ const updateLessonData = async (lessonNumber: string, updatedData: any) => {
             // Check if lessons are in allLessonsData or directly on the object
             const lessonsSource = lessonData.allLessonsData || lessonData;
             
-            console.log('🔍 DEBUG: Lessons source structure:', {
-              lessonsSourceType: typeof lessonsSource,
-              lessonsSourceIsArray: Array.isArray(lessonsSource),
-              lessonsSourceKeys: Object.keys(lessonsSource),
-              lessonsSourceKeysSample: Object.keys(lessonsSource).slice(0, 10)
-            });
-            
             // Extract lesson numbers (numeric keys only, exclude metadata like "teachingUnits", "lessonStandards")
             const metadataKeys = ['teachingUnits', 'lessonStandards', 'allLessonsData'];
             const lessonEntries = Object.entries(lessonsSource).filter(([key]) => 
               !metadataKeys.includes(key) && !isNaN(parseInt(key))
             );
-            
-            console.log('🔍 DEBUG: Processing lessons:', {
-              sourceKeys: Object.keys(lessonsSource),
-              lessonEntriesCount: lessonEntries.length,
-              filteredKeys: lessonEntries.map(([key]) => key)
-            });
             
             if (lessonEntries.length > 0) {
               lessonEntries.forEach(([lessonNum, lesson]) => {
@@ -2654,12 +2634,6 @@ const updateLessonData = async (lessonNumber: string, updatedData: any) => {
               });
             }
             
-            console.log(`🔍 Filtered lessons for academic year ${currentAcademicYear}:`, {
-              totalLessons: Object.keys(lessonData.allLessonsData || {}).length,
-              filteredLessons: Object.keys(filteredLessonsData).length,
-              filteredLessonNumbers
-            });
-            
             // FIX: Clean up any corrupted lesson titles (UUIDs)
             Object.keys(filteredLessonsData).forEach(lessonNum => {
               const lesson = filteredLessonsData[lessonNum];
@@ -2667,10 +2641,8 @@ const updateLessonData = async (lessonNumber: string, updatedData: any) => {
                 // Check if title is a UUID (corrupted data)
                 const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(lesson.title);
                 if (isUUID) {
-                  console.log('🔧 FIXING: Corrupted lesson title detected:', { lessonNum, corruptedTitle: lesson.title });
-                  // Regenerate the title based on lesson content
+                  if (import.meta.env.DEV) console.log('🔧 Fixing corrupted lesson title:', lessonNum);
                   lesson.title = generateDefaultLessonTitle(lesson);
-                  console.log('🔧 FIXED: Generated new title:', { lessonNum, newTitle: lesson.title });
                 }
               }
             });
@@ -2679,17 +2651,13 @@ const updateLessonData = async (lessonNumber: string, updatedData: any) => {
             setLessonNumbers(filteredLessonNumbers.sort((a, b) => parseInt(a) - parseInt(b)));
             setTeachingUnits(lessonData.teachingUnits || []);
             setLessonStandards(lessonData.lessonStandards || {});
-            console.log(`✅ Loaded ${currentSheetInfo.sheet} data for academic year ${currentAcademicYear} from Supabase:`, {
-              lessonCount: filteredLessonNumbers.length,
-              lessonNumbers: filteredLessonNumbers.slice(0, 5),
-              allLessonsDataKeys: Object.keys(filteredLessonsData).slice(0, 5)
-            });
             setLoading(false);
-            console.log('✅ setLoading(false) called - data load complete');
             return;
           }
         } catch (error) {
-          console.warn(`Supabase data fetch failed for ${currentSheetInfo.sheet}, trying localStorage:`, error);
+          const isTimeout = error instanceof Error && error.message === 'Supabase load timeout';
+          if (isTimeout) toast.error('Lesson library is taking longer than usual. Use Refresh to try again.');
+          if (import.meta.env.DEV) console.warn('Supabase data fetch failed, trying localStorage:', error);
         }
       }
       
