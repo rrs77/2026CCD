@@ -26,12 +26,31 @@ export function ResetPasswordPage() {
       return;
     }
     setHasRecoveryToken(true);
-    supabase.auth.getSession().then(({ data: { session } }) => {
+
+    const applySession = (session: { user: unknown } | null) => {
       setSessionReady(true);
-      if (!session && hasHash) {
-        setHasRecoveryToken(false);
+      if (!session && hasHash) setHasRecoveryToken(false);
+    };
+
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        applySession(session);
+        return;
       }
+      timeoutId = setTimeout(() => {
+        supabase.auth.getSession().then(({ data: { session: s } }) => applySession(s));
+      }, 500);
     });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) applySession(session);
+    });
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -54,7 +73,14 @@ export function ResetPasswordPage() {
         window.location.href = '/';
       }, 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update password');
+      const msg = err instanceof Error ? err.message : 'Failed to update password';
+      if (msg.toLowerCase().includes('same') || msg.toLowerCase().includes('different')) {
+        setError('Please choose a new password that is different from your current one.');
+      } else if (msg.toLowerCase().includes('weak') || msg.toLowerCase().includes('at least')) {
+        setError('Password does not meet requirements. Use at least 6 characters.');
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }

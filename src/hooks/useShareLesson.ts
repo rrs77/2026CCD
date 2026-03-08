@@ -390,16 +390,8 @@ export function useShareLesson() {
       </div>
     `;
 
-    // Header for every PDF page: date/time left, lesson title right (e.g. "Reception Lesson 1")
-    const now = new Date();
-    const headerDate = `${now.getMonth() + 1}/${now.getDate()}/${String(now.getFullYear()).slice(-2)}, ${now.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
-    const shortTitle = `${currentSheetInfo.display} Lesson ${lessonDisplayNumber}`;
-    const headerContent = `
-      <div style="width: 100%; font-size: 10px; color: #374151; display: flex; justify-content: space-between; align-items: center;">
-        <span>${headerDate}</span>
-        <span style="font-weight: 600;">${shortTitle}</span>
-      </div>
-    `;
+    // No repeating header on each PDF page (date/title were removed per user request)
+    const headerContent = '<div></div>';
 
     return [htmlContent, footerContent, headerContent];
   };

@@ -60,6 +60,8 @@ See **SUPABASE_EMAIL_BRANDING.md** in this folder for CCDesigner/Rhythmstix word
 
 The app already uses `resetPasswordForEmail` and `VITE_APP_URL` for the reset link. No code changes are needed; only Supabase is configured to send via Resend.
 
+**Note:** Resend runs entirely in Supabase (SMTP). The app never calls Resend. So Resend cannot cause the app to load slowly. If the app feels slow after enabling Resend, the cause is likely Supabase response time, network, or data size—not email sending.
+
 ## Summary
 
 | Step | Where | What |

@@ -514,10 +514,10 @@ export function DataProvider({ children }: DataProviderProps) {
     // ADD: Load subjects
     loadSubjects();
 
-    // Stop spinner after 4s if load hangs – user can still use the app and refresh manually
+    // Stop spinner after 3s if load hangs – user can still use the app and refresh manually
     const fallback = setTimeout(() => {
       setLoading(false);
-    }, 4000);
+    }, 3000);
     return () => clearTimeout(fallback);
   }, [currentSheetInfo, currentAcademicYear]);
 
@@ -2574,7 +2574,7 @@ const updateLessonData = async (lessonNumber: string, updatedData: any) => {
       }
       
       // Try to load from Supabase if connected (with timeout so app never hangs)
-      const SUPABASE_LOAD_TIMEOUT_MS = 6000;
+      const SUPABASE_LOAD_TIMEOUT_MS = 4000;
       if (isSupabaseConfigured()) {
         try {
           if (import.meta.env.DEV) console.log('📡 Loading from Supabase:', {

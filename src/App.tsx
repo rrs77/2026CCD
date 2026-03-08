@@ -25,24 +25,25 @@ function AppContent() {
     'activity' | 'lesson' | 'unit' | 'assign' | undefined
   >(undefined);
 
-  // Initialize Supabase keep-alive service to prevent database sleep
+  // Defer Supabase keep-alive so it doesn't compete with initial auth/data load
   useEffect(() => {
-    const cleanup = initializeSupabaseKeepAlive();
-    
-    // Also check when user returns to the app (after tab was inactive)
+    let keepAliveCleanup: (() => void) | null = null;
+    const t = setTimeout(() => {
+      keepAliveCleanup = initializeSupabaseKeepAlive();
+    }, 3000);
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        // User returned to the app - check if ping is needed
         import('./utils/supabaseKeepAlive').then(({ checkAndPingSupabase }) => {
           checkAndPingSupabase();
         });
       }
     };
-    
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
+
     return () => {
-      cleanup();
+      clearTimeout(t);
+      keepAliveCleanup?.();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);

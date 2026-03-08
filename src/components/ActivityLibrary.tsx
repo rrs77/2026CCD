@@ -143,6 +143,12 @@ export function ActivityLibrary({
       return []; // Empty array = show nothing until year group selected
     }
     
+    // Until year groups have loaded from Settings, show all activities so default class isn't empty on first load
+    if (!customYearGroups?.length) {
+      if (import.meta.env.DEV) console.log('📚 ActivityLibrary: Year groups not loaded yet, showing all categories');
+      return null;
+    }
+    
     // Find the current year group object
     const currentYearGroup = customYearGroups?.find(
       yg => yg.id === currentYearGroupKey || yg.name === currentYearGroupKey
@@ -155,11 +161,12 @@ export function ActivityLibrary({
       totalCategories: categories.length
     });
     
-    // Keys to check for assignment (ID and name of current year group)
+    // Keys to check for assignment (ID, name, sheet key, and display so default class matches on first load)
     const keysToCheck = [
       currentYearGroup?.id,
       currentYearGroup?.name,
-      currentYearGroupKey
+      currentYearGroupKey,
+      currentSheetInfo?.display
     ].filter(Boolean) as string[];
     
     // STRICT: Filter categories that are EXPLICITLY assigned to current year group (no special cases)

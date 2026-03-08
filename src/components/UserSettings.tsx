@@ -139,6 +139,8 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
   const adminMenuRef = useRef<HTMLDivElement>(null);
   const adminTriggerRef = useRef<HTMLButtonElement>(null);
+  const settingsContentRef = useRef<HTMLDivElement>(null);
+  const adminTabContentRef = useRef<HTMLDivElement>(null);
   const [adminDropdownPosition, setAdminDropdownPosition] = useState<{ top: number; left: number } | null>(null);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [editingCategoryYearGroups, setEditingCategoryYearGroups] = useState<string | null>(null); // Track which category's year groups are being edited
@@ -245,6 +247,16 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
   React.useEffect(() => {
     if (activeTab !== 'yeargroups' && activeTab !== 'admin' && newlyAddedYearGroup) {
       setNewlyAddedYearGroup(null);
+    }
+  }, [activeTab]);
+
+  // When switching to Custom Objectives tab, scroll content into view so the panel is visible
+  React.useEffect(() => {
+    if (activeTab === 'admin' && adminTabContentRef.current && settingsContentRef.current) {
+      const t = requestAnimationFrame(() => {
+        adminTabContentRef.current?.scrollIntoView({ behavior: 'instant', block: 'start' });
+      });
+      return () => cancelAnimationFrame(t);
     }
   }, [activeTab]);
 
@@ -805,6 +817,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
           
           {/* Custom Objectives */}
           <button
+            type="button"
             onClick={() => setActiveTab('admin')}
             className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
               activeTab === 'admin'
@@ -923,7 +936,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
         </div>
 
         {/* Content - Responsive padding */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-8">
+        <div ref={settingsContentRef} className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-8">
           {/* Settings saved notification - at top like other notifications, auto-hides after 3s */}
           {saveSuccess && (
             <div className="px-4 py-3 rounded-lg border border-teal-200" style={{ backgroundColor: '#E6F7F5' }}>
@@ -2407,7 +2420,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
           )}
 
           {activeTab === 'admin' && (
-            <div className="h-full">
+            <div ref={adminTabContentRef} className="min-h-[620px] w-full flex flex-col">
               <CustomObjectivesAdmin embedded={true} />
             </div>
           )}
@@ -2537,7 +2550,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                 <div className="space-y-4">
                   <h4 className="font-medium text-gray-800">Footer</h4>
                   <div>
-                    <label className="block text-sm text-gray-600 mb-1">Company name</label>
+                    <label className="block text-sm text-gray-600 mb-1">Company name (footer, PDFs, share links)</label>
                     <input
                       type="text"
                       value={tempSettings.branding?.footerCompanyName ?? ''}

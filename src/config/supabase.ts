@@ -79,7 +79,7 @@ export const isSupabaseConfigured = () => {
 export async function checkSupabaseAuthHealth(): Promise<{ ok: boolean; error?: string }> {
   if (!supabaseUrl || !supabaseAnonKey) return { ok: false, error: 'Missing Supabase URL or key' };
   const controller = new AbortController();
-  const to = setTimeout(() => controller.abort(), 10000);
+  const to = setTimeout(() => controller.abort(), 5000);
   try {
     const res = await fetch(`${supabaseUrl}/auth/v1/health`, {
       headers: { apikey: supabaseAnonKey },

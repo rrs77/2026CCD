@@ -115,7 +115,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => subscription.unsubscribe();
   }, [fetchSupabaseProfile]);
 
-  const AUTH_CHECK_TIMEOUT_MS = 5000; // 5s – give getSession time to complete when Supabase is slow
+  const AUTH_CHECK_TIMEOUT_MS = 2500; // Max time to show spinner; then show login or app
+  const GET_SESSION_TIMEOUT_MS = 2000; // Don't wait forever for getSession (Supabase can be slow)
 
   const checkAuthStatus = async () => {
     const timeoutId = setTimeout(() => {
@@ -128,7 +129,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     try {
       if (isSupabaseAuthEnabled()) {
-        const { data: { session } } = await supabase.auth.getSession();
+        // Cap getSession so we never hang on a slow Supabase auth response
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
+          setTimeout(() => resolve({ data: { session: null } }), GET_SESSION_TIMEOUT_MS)
+        );
+        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
         if (session?.user) {
           resolvedRef.current = true;
           const p = await fetchSupabaseProfile(session.user.id);
