@@ -83,6 +83,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return data as Profile | null;
   }, []);
 
+  /** Fetch profile with timeout so login never hangs on slow profiles table */
+  const fetchProfileWithTimeout = useCallback(async (authUserId: string, timeoutMs: number): Promise<Profile | null> => {
+    try {
+      return await Promise.race([
+        fetchSupabaseProfile(authUserId),
+        new Promise<null>((_, reject) =>
+          setTimeout(() => reject(new Error('Profile fetch timeout')), timeoutMs)
+        ),
+      ]);
+    } catch (e) {
+      if (import.meta.env.DEV) console.warn('Profile fetch failed or timed out:', e);
+      return null;
+    }
+  }, [fetchSupabaseProfile]);
+
   useEffect(() => {
     checkAuthStatus();
   }, []);
@@ -99,7 +114,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         localStorage.removeItem('rhythmstix_auth_token');
       } else if (session?.user) {
         resolvedRef.current = true; // Valid session – prevent timeout from clearing it
-        const p = await fetchSupabaseProfile(session.user.id);
+        const p = await fetchProfileWithTimeout(session.user.id, 4000);
         const appUser: AppUser = {
           id: session.user.id,
           email: session.user.email ?? '',
@@ -113,7 +128,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     });
     return () => subscription.unsubscribe();
-  }, [fetchSupabaseProfile]);
+  }, [fetchProfileWithTimeout]);
 
   const AUTH_CHECK_TIMEOUT_MS = 2500; // Max time to show spinner; then show login or app
   const GET_SESSION_TIMEOUT_MS = 2000; // Don't wait forever for getSession (Supabase can be slow)
@@ -264,7 +279,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
           throw new Error(msg);
         }
         if (!data.session?.user) throw new Error('No session after sign in');
-        const p = await fetchSupabaseProfile(data.session.user.id);
+        // Timeout so we never hang on slow profiles table – use session data if profile times out
+        const PROFILE_TIMEOUT_MS = 4000;
+        const p = await fetchProfileWithTimeout(data.session.user.id, PROFILE_TIMEOUT_MS);
         const appUser: AppUser = {
           id: data.session.user.id,
           email: data.session.user.email ?? '',
