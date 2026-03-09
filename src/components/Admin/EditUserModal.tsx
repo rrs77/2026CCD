@@ -204,10 +204,10 @@ export function EditUserModal({ user, yearGroupNames, categoryNames, onSave, onC
             </div>
           )}
 
-          {packs.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Assign purchased resources to this user</label>
-              <p className="text-xs text-gray-500 mb-2">Grant access to activity packs (e.g. paid resources) so this user has them on their login without purchasing. User cannot remove these.</p>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Assign purchased resources to this user</label>
+            <p className="text-xs text-gray-500 mb-2">Grant access to activity packs (e.g. Commedia, paid resources) so this user has them on their login without purchasing. User cannot remove these.</p>
+            {packs.length > 0 ? (
               <div className="flex flex-wrap gap-2 max-h-28 overflow-y-auto">
                 {packs.map(p => (
                   <label key={p.pack_id} className="inline-flex items-center gap-1.5 px-2 py-1 rounded border border-gray-200 bg-gray-50">
@@ -220,8 +220,12 @@ export function EditUserModal({ user, yearGroupNames, categoryNames, onSave, onC
                   </label>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                No activity packs yet. Add packs in <strong>Settings → Admin → Activity Packs</strong> (or run the Commedia pack migration in Supabase), then refresh and assign them here.
+              </p>
+            )}
+          </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>

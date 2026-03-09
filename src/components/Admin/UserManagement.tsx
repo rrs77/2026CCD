@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Users, Edit2, Loader2, Mail, Plus, X, MoreVertical, ShoppingBag, UserX, Send } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import { getVercelApiUrl } from '../../utils/apiUrl';
@@ -75,6 +76,9 @@ export function UserManagement() {
   const { customYearGroups, categories } = useSettings();
   const { profile: currentProfile } = useAuth();
   const menuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const menuDropdownRef = useRef<HTMLDivElement>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; right: number } | null>(null);
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -145,13 +149,28 @@ export function UserManagement() {
     }).catch(() => setCreatePacks([]));
   }, [showCreateUserModal]);
 
+  useLayoutEffect(() => {
+    if (!menuOpenForId || !menuButtonRef.current) {
+      setMenuPosition(null);
+      return;
+    }
+    const rect = menuButtonRef.current.getBoundingClientRect();
+    setMenuPosition({
+      top: rect.bottom + 4,
+      right: window.innerWidth - rect.right,
+    });
+  }, [menuOpenForId]);
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpenForId(null);
+      const target = e.target as Node;
+      if (menuOpenForId && menuRef.current && !menuRef.current.contains(target) && menuDropdownRef.current && !menuDropdownRef.current.contains(target)) {
+        setMenuOpenForId(null);
+      }
     };
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
+  }, [menuOpenForId]);
 
   const handleSave = async (updates: Partial<Profile>) => {
     if (!editingUser) return;
@@ -349,7 +368,7 @@ export function UserManagement() {
         </button>
       </div>
       <p className="text-sm text-gray-600">
-        Manage users: edit name and role (including Admin or Superuser), change status (Active / Suspended), view purchases, send password reset or resend invite, suspend or delete. Use <strong>Edit User</strong> → <strong>Role</strong> to assign or change Superuser.
+        Manage users: edit name and role (including Admin or Superuser), change status (Active / Suspended), view purchases, send password reset or resend invite, suspend or delete. Use the <strong>⋮ Actions</strong> menu on a row → <strong>Edit</strong> to assign activity packs (e.g. Commedia) or change role. Use Edit → Role to assign Superuser.
       </p>
       <div className="border border-gray-200 rounded-lg overflow-x-auto">
         <table className="w-full text-left min-w-[700px]">
@@ -389,6 +408,7 @@ export function UserManagement() {
                   <td className="px-4 py-3 text-right">
                     <div className="relative inline-block" ref={menuOpenForId === user.id ? menuRef : undefined}>
                       <button
+                        ref={menuOpenForId === user.id ? menuButtonRef : undefined}
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setMenuOpenForId(menuOpenForId === user.id ? null : user.id); }}
                         className="p-2 rounded-lg hover:bg-gray-200 text-gray-600"
@@ -396,30 +416,6 @@ export function UserManagement() {
                       >
                         <MoreVertical className="h-5 w-5" />
                       </button>
-                      {menuOpenForId === user.id && (
-                        <div className="absolute right-0 top-full mt-1 py-1 w-56 bg-white rounded-lg border border-gray-200 shadow-lg z-50">
-                          <button type="button" onClick={() => { setEditingUser(user); setMenuOpenForId(null); }} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
-                            <Edit2 className="h-4 w-4" /> Edit User
-                          </button>
-                          <button type="button" onClick={() => { setViewPurchasesUser(user); setMenuOpenForId(null); }} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
-                            <ShoppingBag className="h-4 w-4" /> View Purchases
-                          </button>
-                          <button type="button" onClick={() => handleSendResetEmail(user)} disabled={!user.email?.trim() || sendingResetFor === user.id} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50">
-                            {sendingResetFor === user.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />} Send Password Reset Email
-                          </button>
-                          {(user.status === 'invited') && (
-                            <button type="button" onClick={() => handleResendInvite(user)} disabled={!user.email?.trim() || resendingInviteFor === user.id} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50">
-                              {resendingInviteFor === user.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Resend Invite
-                            </button>
-                          )}
-                          <button type="button" onClick={() => handleSuspendReactivate(user)} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
-                            <UserX className="h-4 w-4" /> {user.status === 'suspended' ? 'Reactivate User' : 'Suspend User'}
-                          </button>
-                          <button type="button" onClick={() => { setDeleteConfirmUser(user); setMenuOpenForId(null); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
-                            <X className="h-4 w-4" /> Delete User
-                          </button>
-                        </div>
-                      )}
                     </div>
                   </td>
                 </tr>
@@ -428,6 +424,40 @@ export function UserManagement() {
           </tbody>
         </table>
       </div>
+
+      {menuOpenForId && menuPosition && (() => {
+        const menuUser = users.find(u => u.id === menuOpenForId);
+        if (!menuUser) return null;
+        return createPortal(
+          <div
+            ref={menuDropdownRef}
+            className="py-1 w-56 bg-white rounded-lg border border-gray-200 shadow-lg"
+            style={{ position: 'fixed', top: menuPosition.top, right: menuPosition.right, zIndex: 9999 }}
+          >
+            <button type="button" onClick={() => { setEditingUser(menuUser); setMenuOpenForId(null); }} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
+              <Edit2 className="h-4 w-4" /> Edit User
+            </button>
+            <button type="button" onClick={() => { setViewPurchasesUser(menuUser); setMenuOpenForId(null); }} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
+              <ShoppingBag className="h-4 w-4" /> View Purchases
+            </button>
+            <button type="button" onClick={() => handleSendResetEmail(menuUser)} disabled={!menuUser.email?.trim() || sendingResetFor === menuUser.id} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50">
+              {sendingResetFor === menuUser.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />} Send Password Reset Email
+            </button>
+            {(menuUser.status === 'invited') && (
+              <button type="button" onClick={() => handleResendInvite(menuUser)} disabled={!menuUser.email?.trim() || resendingInviteFor === menuUser.id} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50">
+                {resendingInviteFor === menuUser.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Resend Invite
+              </button>
+            )}
+            <button type="button" onClick={() => handleSuspendReactivate(menuUser)} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
+              <UserX className="h-4 w-4" /> {menuUser.status === 'suspended' ? 'Reactivate User' : 'Suspend User'}
+            </button>
+            <button type="button" onClick={() => { setDeleteConfirmUser(menuUser); setMenuOpenForId(null); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+              <X className="h-4 w-4" /> Delete User
+            </button>
+          </div>,
+          document.body
+        );
+      })()}
 
       {editingUser && (
         <EditUserModal user={editingUser} yearGroupNames={yearGroupNames} categoryNames={categoryNames} onSave={handleSave} onClose={() => setEditingUser(null)} />

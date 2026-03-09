@@ -139,7 +139,7 @@ export function ResetPasswordPage() {
         <div className="bg-white rounded-2xl shadow-xl p-8">
           {success ? (
             <p className="text-green-700 bg-green-50 p-4 rounded-lg text-center">
-              Password updated. Redirecting to sign in…
+              Password updated. Taking you into the app…
             </p>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
