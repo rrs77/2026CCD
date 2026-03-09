@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Package, DollarSign } from 'lucide-react';
+import { X, Save, ChevronDown, ChevronRight, Layers } from 'lucide-react';
 import { activityPacksApi } from '../config/api';
+import { lessonStacksApi } from '../config/lessonStacksApi';
 import type { ActivityPack } from '../config/api';
 import type { Category } from '../contexts/SettingsContextNew';
+import type { StackedLesson } from '../hooks/useLessonStacks';
 import toast from 'react-hot-toast';
 
 const COMMON_ICONS = ['🎭', '📚', '🎵', '🎨', '📖', '✨', '🎪', '📦', '🎯', '🌟'];
@@ -30,6 +32,9 @@ export function AddSoftwarePackModal({
   const [price, setPrice] = useState(19.99);
   const [icon, setIcon] = useState('📦');
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
+  const [stackIds, setStackIds] = useState<string[]>([]);
+  const [categoriesExpanded, setCategoriesExpanded] = useState(false);
+  const [stacks, setStacks] = useState<StackedLesson[]>([]);
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -42,6 +47,7 @@ export function AddSoftwarePackModal({
       setPrice(editingPack.price ?? 19.99);
       setIcon(editingPack.icon ?? '📦');
       setCategoryIds(editingPack.category_ids ?? []);
+      setStackIds(editingPack.stack_ids ?? []);
       setIsActive(editingPack.is_active !== false);
     } else {
       setPackId('');
@@ -50,13 +56,25 @@ export function AddSoftwarePackModal({
       setPrice(19.99);
       setIcon('📦');
       setCategoryIds([]);
+      setStackIds([]);
       setIsActive(true);
     }
   }, [isOpen, editingPack]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    lessonStacksApi.getAll().then(setStacks).catch(() => setStacks([]));
+  }, [isOpen]);
+
   const toggleCategory = (id: string) => {
     setCategoryIds(prev =>
       prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
+    );
+  };
+
+  const toggleStack = (id: string) => {
+    setStackIds(prev =>
+      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
     );
   };
 
@@ -89,6 +107,7 @@ export function AddSoftwarePackModal({
         price: Number(price) || 0,
         icon: icon || '📦',
         category_ids: categoryIds,
+        stack_ids: stackIds.length > 0 ? stackIds : undefined,
         is_active: isActive
       });
       toast.success(isEditing ? 'Pack updated.' : 'Software pack added. It can now be purchased in the app.');
@@ -231,39 +250,84 @@ export function AddSoftwarePackModal({
               </label>
             </div>
 
+            {/* Link lesson stacks / units — whole unit in one click for sale */}
+            {stacks.length > 0 && (
+              <div className="border-t border-gray-200 pt-4">
+                <h4 className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                  <Layers className="h-4 w-4 text-teal-600" />
+                  Link lesson stacks / units (optional)
+                </h4>
+                <p className="text-xs text-gray-600 mb-3">
+                  Add whole units to this pack. Buyers can add these to their calendar in one click.
+                </p>
+                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                  {stacks.map((stack) => {
+                    const isSelected = stackIds.includes(stack.id);
+                    return (
+                      <button
+                        key={stack.id}
+                        type="button"
+                        onClick={() => toggleStack(stack.id)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                          isSelected
+                            ? 'bg-teal-600 text-white'
+                            : 'bg-gray-100 border border-gray-300 text-gray-700 hover:border-teal-400'
+                        }`}
+                      >
+                        <span className="truncate max-w-[180px]" title={stack.name}>{stack.name}</span>
+                        {stack.lessons?.length != null && (
+                          <span className="text-xs opacity-80">({stack.lessons.length})</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Link categories — minimised (collapsible) */}
             {Object.keys(groupedCategories).length > 0 && (
               <div className="border-t border-gray-200 pt-4">
-                <h4 className="text-sm font-semibold text-gray-900 mb-2">Link to categories (optional)</h4>
-                <p className="text-xs text-gray-600 mb-3">
-                  Categories linked to this pack can be restricted to buyers only.
-                </p>
-                <div className="space-y-3">
-                  {Object.entries(groupedCategories).map(([groupName, groupCats]) => (
-                    <div key={groupName} className="bg-gray-50 rounded-lg p-3">
-                      <h5 className="text-xs font-medium text-gray-700 mb-2">{groupName}</h5>
-                      <div className="flex flex-wrap gap-2">
-                        {groupCats.map((cat) => {
-                          const id = (cat as Category & { id?: string }).id ?? cat.name;
-                          const isSelected = categoryIds.includes(id);
-                          return (
-                            <button
-                              key={id}
-                              type="button"
-                              onClick={() => toggleCategory(id)}
-                              className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                                isSelected
-                                  ? 'bg-teal-600 text-white'
-                                  : 'bg-white border border-gray-300 text-gray-700 hover:border-teal-400'
-                              }`}
-                            >
-                              {cat.name}
-                            </button>
-                          );
-                        })}
-                      </div>
+                <button
+                  type="button"
+                  onClick={() => setCategoriesExpanded(!categoriesExpanded)}
+                  className="flex items-center gap-2 w-full text-left text-sm font-semibold text-gray-900 hover:text-teal-700"
+                >
+                  {categoriesExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  Link to categories (optional) — {categoryIds.length} selected
+                </button>
+                {categoriesExpanded && (
+                  <>
+                    <p className="text-xs text-gray-600 mt-2 mb-2">
+                      Categories linked to this pack can be restricted to buyers only.
+                    </p>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {Object.entries(groupedCategories).map(([groupName, groupCats]) => (
+                        <div key={groupName} className="bg-gray-50 rounded-lg p-2">
+                          <h5 className="text-xs font-medium text-gray-700 mb-1">{groupName}</h5>
+                          <div className="flex flex-wrap gap-1">
+                            {groupCats.map((cat) => {
+                              const id = (cat as Category & { id?: string }).id ?? cat.name;
+                              const isSelected = categoryIds.includes(id);
+                              return (
+                                <button
+                                  key={id}
+                                  type="button"
+                                  onClick={() => toggleCategory(id)}
+                                  className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
+                                    isSelected ? 'bg-teal-600 text-white' : 'bg-white border border-gray-300 text-gray-700 hover:border-teal-400'
+                                  }`}
+                                >
+                                  {cat.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </>
+                )}
               </div>
             )}
           </div>

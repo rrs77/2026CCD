@@ -248,6 +248,9 @@ interface DataContextType {
 
   /** Load example lessons from a JSON URL (e.g. purchasable pack); merges into current sheet. */
   loadExampleLessonsFromUrl: (url: string) => Promise<void>;
+
+  /** Add a lesson stack's lesson numbers to the current sheet (placeholder data for any missing). */
+  loadStackIntoSheet: (lessonNumbers: string[]) => Promise<void>;
 }
 
 interface DataProviderProps {
@@ -3110,6 +3113,55 @@ const updateLessonData = async (lessonNumber: string, updatedData: any) => {
     toast.success(`Loaded ${incomingNums.length} example lesson(s).`);
   };
 
+  /** Add a stack's lesson numbers to the current sheet; creates minimal placeholder for any missing. */
+  const loadStackIntoSheet = async (stackLessonNumbers: string[]): Promise<void> => {
+    const missing = stackLessonNumbers.filter(n => !(n in allLessonsData));
+    if (missing.length === 0) {
+      const existing = stackLessonNumbers.filter(n => lessonNumbers.includes(n));
+      if (existing.length === stackLessonNumbers.length) {
+        toast.success('Unit already in your calendar.');
+        return;
+      }
+    }
+    const placeholders: Record<string, LessonData> = {};
+    missing.forEach(num => {
+      placeholders[num] = {
+        title: `Lesson ${num}`,
+        learningOutcome: '',
+        mainActivity: '',
+        grouped: {},
+        categoryOrder: [],
+        orderedActivities: [],
+        totalTime: 0,
+        customHeader: undefined,
+        customFooter: undefined
+      };
+    });
+    const newAllLessonsData = { ...allLessonsData, ...placeholders };
+    const newLessonNumbers = [...new Set([...lessonNumbers, ...stackLessonNumbers])].sort((a, b) => {
+      const na = parseInt(a.replace(/\D/g, ''), 10) || 0;
+      const nb = parseInt(b.replace(/\D/g, ''), 10) || 0;
+      return na - nb;
+    });
+    setAllLessonsData(newAllLessonsData);
+    setLessonNumbers(newLessonNumbers);
+    const dataToSave = {
+      allLessonsData: newAllLessonsData,
+      lessonNumbers: newLessonNumbers,
+      teachingUnits,
+      lessonStandards: lessonStandardsData
+    };
+    localStorage.setItem(`lesson-data-${currentSheetInfo.sheet}`, JSON.stringify(dataToSave));
+    if (isSupabaseConfigured()) {
+      try {
+        await lessonsApi.updateSheet(currentSheetInfo.sheet, dataToSave, currentAcademicYear);
+      } catch (e) {
+        console.warn('Failed to save stack lessons to Supabase:', e);
+      }
+    }
+    toast.success(`Added ${stackLessonNumbers.length} lesson(s). Assign the unit to a term in Lesson Stacks.`);
+  };
+
   const uploadExcelFile = async (file: File) => {
     try {
       setLoading(true);
@@ -4058,7 +4110,8 @@ const updateLessonData = async (lessonNumber: string, updatedData: any) => {
     // Class Copy
     copyLessonsToClass,
 
-    loadExampleLessonsFromUrl
+    loadExampleLessonsFromUrl,
+    loadStackIntoSheet
   };
 
   return (

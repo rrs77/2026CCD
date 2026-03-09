@@ -1799,6 +1799,8 @@ export interface ActivityPack {
   price: number;
   icon: string;
   category_ids: string[];
+  /** Lesson stack IDs included in this pack; buyers can add these units in one click. */
+  stack_ids?: string[];
   is_active: boolean;
   created_at: string;
   updated_at: string;

@@ -105,12 +105,15 @@ export function LessonLibrary({
     restoreLesson,
     permanentDeleteFromTrash,
     refreshData,
-    loadExampleLessonsFromUrl
+    loadExampleLessonsFromUrl,
+    loadStackIntoSheet
   } = useData();
   const { getThemeForClass, categories, customYearGroups, settings } = useSettings();
   const { user, profile } = useAuth();
   const [userPacks, setUserPacks] = useState<string[]>([]);
+  const [packsWithStacks, setPacksWithStacks] = useState<{ pack_id: string; name: string; stack_ids: string[] }[]>([]);
   const [loadingExample, setLoadingExample] = useState(false);
+  const [addingStackId, setAddingStackId] = useState<string | null>(null);
   const showButtonHelp = settings.showButtonHelp !== false;
   const {
     stacks,
@@ -180,6 +183,43 @@ export function LessonLibrary({
     load();
     return () => { cancelled = true; };
   }, [user?.email, profile?.admin_preset_activity_pack_ids]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (userPacks.length === 0) {
+        setPacksWithStacks([]);
+        return;
+      }
+      try {
+        const all = await activityPacksApi.getAllPacks();
+        const withStacks = all.filter(
+          (p: { pack_id: string; stack_ids?: string[] }) =>
+            userPacks.includes(p.pack_id) && p.stack_ids && p.stack_ids.length > 0
+        );
+        if (!cancelled) setPacksWithStacks(withStacks.map((p: { pack_id: string; name: string; stack_ids?: string[] }) => ({ pack_id: p.pack_id, name: p.name, stack_ids: p.stack_ids || [] })));
+      } catch {
+        if (!cancelled) setPacksWithStacks([]);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [userPacks]);
+
+  const packStackIds = packsWithStacks.flatMap(p => p.stack_ids);
+  const stacksFromPacks = stacks.filter(s => packStackIds.includes(s.id));
+
+  const handleAddUnitFromPack = async (stack: StackedLesson) => {
+    setAddingStackId(stack.id);
+    try {
+      await loadStackIntoSheet(stack.lessons || []);
+      await refreshData();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to add unit');
+    } finally {
+      setAddingStackId(null);
+    }
+  };
 
   const hasCommediaPack = userPacks.includes('COMMEDIA_KS3_DRAMA');
   const showLoadCommediaButton = currentSheetInfo.sheet === 'Year8Drama' && hasCommediaPack;
@@ -813,6 +853,18 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
                 <span className="text-sm font-semibold">{loadingExample ? 'Loading…' : 'Load Commedia pack'}</span>
               </button>
             )}
+            {stacksFromPacks.map(stack => (
+              <button
+                key={stack.id}
+                onClick={() => handleAddUnitFromPack(stack)}
+                disabled={addingStackId === stack.id}
+                className="px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 text-white font-medium rounded-lg transition-colors duration-200 flex items-center space-x-2"
+                title={`Add unit: ${stack.name} (${stack.lessons?.length || 0} lessons)`}
+              >
+                <Layers className="h-5 w-5" />
+                <span className="text-sm font-semibold">{addingStackId === stack.id ? 'Adding…' : `Add unit: ${stack.name}`}</span>
+              </button>
+            ))}
             </div>
           </div>
         </div>
@@ -1092,6 +1144,19 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
                 <span>{loadingExample ? 'Loading…' : 'Load Commedia pack'}</span>
               </button>
             )}
+
+            {stacksFromPacks.map(stack => (
+              <button
+                key={stack.id}
+                onClick={() => handleAddUnitFromPack(stack)}
+                disabled={addingStackId === stack.id}
+                className="flex items-center justify-center space-x-2 h-10 px-5 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-lg transition-colors duration-200 whitespace-nowrap"
+                title={`Add unit: ${stack.name} (${stack.lessons?.length || 0} lessons)`}
+              >
+                <Layers className="h-4 w-4" />
+                <span>{addingStackId === stack.id ? 'Adding…' : `Add unit: ${stack.name}`}</span>
+              </button>
+            ))}
 
             {/* Copy Lesson Button */}
             <button
