@@ -143,13 +143,13 @@ export function ActivityLibrary({
       return []; // Empty array = show nothing until year group selected
     }
     
-    // Until year groups have loaded from Settings, show all activities so default class isn't empty on first load
+    // Until year groups have loaded, show no categories (strict: avoid showing wrong activities)
     if (!customYearGroups?.length) {
-      if (import.meta.env.DEV) console.log('📚 ActivityLibrary: Year groups not loaded yet, showing all categories');
-      return null;
+      if (import.meta.env.DEV) console.log('📚 ActivityLibrary: Year groups not loaded yet, showing no categories');
+      return [];
     }
     
-    // Find the current year group object
+    // Find the current year group object (exact match for this class/sheet)
     const currentYearGroup = customYearGroups?.find(
       yg => yg.id === currentYearGroupKey || yg.name === currentYearGroupKey
     );
@@ -161,44 +161,37 @@ export function ActivityLibrary({
       totalCategories: categories.length
     });
     
-    // Keys to check for assignment (ID, name, sheet key, and display so default class matches on first load)
+    // Keys used when saving in UserSettings: yearGroup.id || yearGroup.name. Match exactly only.
     const keysToCheck = [
       currentYearGroup?.id,
       currentYearGroup?.name,
-      currentYearGroupKey,
-      currentSheetInfo?.display
+      currentYearGroupKey
     ].filter(Boolean) as string[];
     
-    // STRICT: Filter categories that are EXPLICITLY assigned to current year group (no special cases)
+    // STRICT: Only categories EXPLICITLY assigned to this year group. Exact match only (no partial/startsWith).
     const filteredCategories = categories
       .filter((category) => {
         if (!category || !category.yearGroups || Object.keys(category.yearGroups).length === 0) {
-          console.log(`❌ Category "${category?.name}" has no yearGroups - excluding`);
+          if (import.meta.env.DEV) console.log(`❌ Category "${category?.name}" has no yearGroups - excluding`);
           return false;
         }
 
         const assignedKeys = Object.keys(category.yearGroups).filter(k => category.yearGroups[k] === true);
         if (assignedKeys.length === 0) {
-          console.log(`❌ Category "${category.name}" has no assigned year groups - excluding`);
+          if (import.meta.env.DEV) console.log(`❌ Category "${category.name}" has no assigned year groups - excluding`);
           return false;
         }
         
-        // Category must be explicitly assigned to current year group
-        // Match exact (case-insensitive) or when sheet name starts with year group name (e.g. "Year 1" matches "Year 1 Music")
+        // Exact match only: assigned key must equal one of this class's keys (case-insensitive)
         const isAssigned = assignedKeys.some(assignedKey => {
-          const assignedKeyLower = assignedKey.toLowerCase().trim();
-          return keysToCheck.some(checkKey => {
-            const checkKeyLower = (checkKey || '').toLowerCase().trim();
-            if (assignedKeyLower === checkKeyLower) return true;
-            if (checkKeyLower.startsWith(assignedKeyLower + ' ') || assignedKeyLower.startsWith(checkKeyLower + ' ')) return true;
-            return false;
-          });
+          const a = (assignedKey || '').toLowerCase().trim();
+          return keysToCheck.some(checkKey => (checkKey || '').toLowerCase().trim() === a);
         });
         
         if (isAssigned) {
           console.log(`✅ Category "${category.name}" assigned to "${currentYearGroup?.name || currentYearGroupKey}"`);
         } else {
-          console.log(`❌ Category "${category.name}" NOT assigned. Has: [${assignedKeys.join(', ')}], Need: [${keysToCheck.join(', ')}]`);
+          if (import.meta.env.DEV) console.log(`❌ Category "${category.name}" NOT assigned. Has: [${assignedKeys.join(', ')}], Need exact: [${keysToCheck.join(', ')}]`);
         }
         
         return isAssigned;
@@ -218,7 +211,7 @@ export function ActivityLibrary({
     return categoryNames.length > 0 ? categoryNames : [];
   }, [categories, className, currentSheetInfo, customYearGroups]);
   
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   useEffect(() => {
@@ -246,14 +239,18 @@ export function ActivityLibrary({
     setLocalSelectedCategory(selectedCategory);
   }, [selectedCategory]);
 
-  // Load user's owned packs
+  // Load user's owned packs (purchases + admin-preset packs; user cannot remove admin presets)
   React.useEffect(() => {
     const loadUserPacks = async () => {
       if (user?.email) {
         try {
-          const packs = await activityPacksApi.getUserPurchases(user.email);
-          setUserOwnedPacks(packs);
-          console.log('📦 User owns these packs:', packs);
+          const purchased = await activityPacksApi.getUserPurchases(user.email);
+          const preset = profile?.admin_preset_activity_pack_ids ?? [];
+          const combined = [...new Set([...purchased, ...preset])];
+          setUserOwnedPacks(combined);
+          if (import.meta.env.DEV && (preset.length > 0 || purchased.length > 0)) {
+            console.log('📦 User packs (purchased + admin preset):', combined);
+          }
         } catch (error) {
           console.error('Failed to load user packs:', error);
         }
@@ -261,7 +258,7 @@ export function ActivityLibrary({
     };
 
     loadUserPacks();
-  }, [user?.email]);
+  }, [user?.email, profile?.admin_preset_activity_pack_ids]);
 
   // Handle local category change
   const handleCategoryChange = (category: string) => {

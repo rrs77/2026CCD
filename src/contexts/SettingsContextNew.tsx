@@ -330,7 +330,13 @@ const DEFAULT_YEAR_GROUPS: YearGroup[] = [
   { id: 'Year6', name: 'Year 6', color: '#14B8A6' },
   { id: 'ReceptionDrama', name: 'Reception Drama', color: '#8B5CF6' },
   { id: 'Year1Drama', name: 'Year 1 Drama', color: '#8B5CF6' },
-  { id: 'Year2Drama', name: 'Year 2 Drama', color: '#8B5CF6' }
+  { id: 'Year2Drama', name: 'Year 2 Drama', color: '#8B5CF6' },
+  { id: 'Year3Drama', name: 'Year 3 Drama', color: '#8B5CF6' },
+  { id: 'Year4Drama', name: 'Year 4 Drama', color: '#8B5CF6' },
+  { id: 'Year5Drama', name: 'Year 5 Drama', color: '#8B5CF6' },
+  { id: 'Year6Drama', name: 'Year 6 Drama', color: '#8B5CF6' },
+  { id: 'Year7Drama', name: 'Year 7 Drama', color: '#8B5CF6' },
+  { id: 'Year8Drama', name: 'Year 8 Drama', color: '#8B5CF6' }
 ];
 
 const DEFAULT_YEAR_GROUP_BANDS: YearGroupBand[] = flatToBands(DEFAULT_YEAR_GROUPS);
@@ -419,7 +425,7 @@ export const useSettings = () => {
 export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const userRef = useRef(user);
   userRef.current = user;
 
@@ -447,6 +453,22 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
   const saveQueueTimeout = useRef<NodeJS.Timeout | null>(null);
   const isCurrentlyLoading = useRef(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  // Ensure admin-preset categories are always in the list (user cannot remove them)
+  React.useEffect(() => {
+    const preset = profile?.admin_preset_categories ?? [];
+    if (preset.length === 0) return;
+    setCategories(prev => {
+      const existingNames = new Set(prev.map(c => c.name));
+      const toAdd = preset.filter((n: string) => !existingNames.has(n));
+      if (toAdd.length === 0) return prev;
+      const newCats = toAdd.map((name: string) => {
+        const f = FIXED_CATEGORIES.find((fixed: Category) => fixed.name === name);
+        return { name, color: f?.color ?? '#6B7280', position: prev.length, yearGroups: {} as Record<string, boolean> };
+      });
+      return [...prev, ...newCats];
+    });
+  }, [profile?.admin_preset_categories]);
 
   // Centralized save queue processor to prevent race conditions
   const processSaveQueue = async () => {

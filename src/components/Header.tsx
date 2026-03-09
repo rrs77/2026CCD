@@ -15,6 +15,24 @@ export function Header() {
   const isViewOnly = useIsViewOnly();
   const { currentSheetInfo, setCurrentSheetInfo, refreshData, loading } = useData();
   const { settings, getThemeForClass, customYearGroups } = useSettings();
+  // Restrict class selector to allowed year groups when admin has set them (user cannot change admin-assigned list)
+  const allowedIds = user?.profile?.allowed_year_groups ?? null;
+  const yearGroupsForSelector = allowedIds != null && allowedIds.length > 0
+    ? customYearGroups.filter(g => allowedIds.includes(g.id) || allowedIds.includes(g.name ?? ''))
+    : customYearGroups;
+
+  // If user has restricted list and current sheet is not in it, switch to first allowed
+  useEffect(() => {
+    if (yearGroupsForSelector.length === 0) return;
+    const currentInList = yearGroupsForSelector.some(g => g.id === currentSheetInfo.sheet || g.name === currentSheetInfo.display);
+    if (!currentInList) {
+      const first = yearGroupsForSelector[0];
+      const newSheetInfo = { sheet: first.id, display: first.name, eyfs: `${first.id} Statements` };
+      setCurrentSheetInfo(newSheetInfo);
+      localStorage.setItem('currentSheetInfo', JSON.stringify(newSheetInfo));
+    }
+  }, [yearGroupsForSelector, currentSheetInfo.sheet, currentSheetInfo.display, setCurrentSheetInfo]);
+
   const { canInstall, isInstalled, install } = usePWAInstall();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -61,7 +79,7 @@ export function Header() {
                 <select
                   value={currentSheetInfo.sheet}
                   onChange={(e) => {
-                    const selected = customYearGroups.find(group => group.id === e.target.value);
+                    const selected = yearGroupsForSelector.find(group => group.id === e.target.value);
                     if (selected) {
                       const newSheetInfo = {
                         sheet: selected.id,
@@ -81,7 +99,7 @@ export function Header() {
                     e.target.style.boxShadow = 'none';
                   }}
                 >
-                  {customYearGroups.map((group) => (
+                  {yearGroupsForSelector.map((group) => (
                     <option key={group.id} value={group.id}>
                       {group.name}
                     </option>
@@ -182,7 +200,7 @@ export function Header() {
                   <select
                     value={currentSheetInfo.sheet}
                     onChange={(e) => {
-                      const selected = customYearGroups.find(group => group.id === e.target.value);
+                      const selected = yearGroupsForSelector.find(group => group.id === e.target.value);
                       if (selected) {
                         setCurrentSheetInfo({
                           sheet: selected.id,
@@ -198,7 +216,7 @@ export function Header() {
                       e.target.style.boxShadow = 'none';
                     }}
                   >
-                    {customYearGroups.map((group) => (
+                    {yearGroupsForSelector.map((group) => (
                       <option key={group.id} value={group.id}>
                         {group.name}
                       </option>

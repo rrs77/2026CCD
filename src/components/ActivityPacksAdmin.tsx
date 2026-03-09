@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Save, X, Package, DollarSign, Tag, Receipt, UserPlus } from 'lucide-react';
 import { activityPacksApi, ActivityPack, UserPurchase } from '../config/api';
 import { useSettings } from '../contexts/SettingsContextNew';
+import { AddSoftwarePackModal } from './AddSoftwarePackModal';
 import toast from 'react-hot-toast';
 
 interface ActivityPacksAdminProps {
@@ -55,37 +56,8 @@ export const ActivityPacksAdmin: React.FC<ActivityPacksAdminProps> = ({ userEmai
   };
 
   const handleCreatePack = () => {
-    setEditingPack({
-      pack_id: '',
-      name: '',
-      description: '',
-      price: 24.99,
-      icon: '🎭',
-      category_ids: [],
-      is_active: true
-    });
+    setEditingPack(null);
     setShowCreateForm(true);
-  };
-
-  const handleSavePack = async () => {
-    if (!editingPack) return;
-
-    try {
-      // Validation
-      if (!editingPack.pack_id || !editingPack.name) {
-        toast.error('Pack ID and Name are required');
-        return;
-      }
-
-      await activityPacksApi.upsertPack(editingPack);
-      toast.success('Pack saved successfully!');
-      setShowCreateForm(false);
-      setEditingPack(null);
-      loadPacks();
-    } catch (error) {
-      console.error('Failed to save pack:', error);
-      toast.error('Failed to save pack: ' + (error as Error).message);
-    }
   };
 
   const handleDeletePack = async (packId: string) => {
@@ -137,28 +109,6 @@ export const ActivityPacksAdmin: React.FC<ActivityPacksAdminProps> = ({ userEmai
     }
   };
 
-  const toggleCategory = (categoryId: string) => {
-    if (!editingPack) return;
-
-    const currentCategories = editingPack.category_ids || [];
-    const newCategories = currentCategories.includes(categoryId)
-      ? currentCategories.filter(id => id !== categoryId)
-      : [...currentCategories, categoryId];
-
-    setEditingPack({
-      ...editingPack,
-      category_ids: newCategories
-    });
-  };
-
-  // Group categories by group
-  const groupedCategories = categories.reduce((acc, category) => {
-    const group = category.group || 'Ungrouped';
-    if (!acc[group]) acc[group] = [];
-    acc[group].push(category);
-    return acc;
-  }, {} as Record<string, typeof categories>);
-
   if (loading) {
     return <div className="p-6 text-center text-gray-600">Loading activity packs...</div>;
   }
@@ -206,7 +156,7 @@ export const ActivityPacksAdmin: React.FC<ActivityPacksAdminProps> = ({ userEmai
                 <span>Manage Activity Packs</span>
               </h3>
               <p className="text-sm text-gray-600 mt-1">
-                Create and manage purchasable activity packs. Link categories to packs to control access.
+                Share and sell your lesson plans: add software packs that others can purchase in the app. Link categories to control access.
               </p>
             </div>
             <button
@@ -214,7 +164,7 @@ export const ActivityPacksAdmin: React.FC<ActivityPacksAdminProps> = ({ userEmai
               className="flex items-center space-x-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
             >
               <Plus className="h-4 w-4" />
-              <span>Create Pack</span>
+              <span>Add software pack</span>
             </button>
           </div>
 
@@ -258,6 +208,7 @@ export const ActivityPacksAdmin: React.FC<ActivityPacksAdminProps> = ({ userEmai
                     setShowCreateForm(true);
                   }}
                   className="px-3 py-1.5 text-teal-600 border border-teal-600 rounded hover:bg-teal-50 transition-colors text-sm"
+                  aria-label={`Edit ${pack.name}`}
                 >
                   Edit
                 </button>
@@ -481,173 +432,17 @@ export const ActivityPacksAdmin: React.FC<ActivityPacksAdminProps> = ({ userEmai
         </div>
       )}
 
-      {/* Create/Edit Form Modal */}
-      {showCreateForm && editingPack && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-gray-900">
-                {editingPack.id ? 'Edit Activity Pack' : 'Create New Activity Pack'}
-              </h3>
-              <button
-                onClick={() => {
-                  setShowCreateForm(false);
-                  setEditingPack(null);
-                }}
-                className="p-1 hover:bg-gray-100 rounded transition-colors"
-              >
-                <X className="h-5 w-5 text-gray-500" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-6">
-              {/* Basic Information */}
-              <div className="space-y-4">
-                <h4 className="font-semibold text-gray-900">Basic Information</h4>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Pack ID <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={editingPack.pack_id || ''}
-                      onChange={(e) => setEditingPack({ ...editingPack, pack_id: e.target.value.toUpperCase().replace(/\s/g, '_') })}
-                      placeholder="DRAMA_PACK"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      disabled={!!editingPack.id}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Unique identifier (cannot be changed after creation)</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Icon
-                    </label>
-                    <input
-                      type="text"
-                      value={editingPack.icon || ''}
-                      onChange={(e) => setEditingPack({ ...editingPack, icon: e.target.value })}
-                      placeholder="🎭"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-2xl text-center"
-                      maxLength={2}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Pack Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={editingPack.name || ''}
-                    onChange={(e) => setEditingPack({ ...editingPack, name: e.target.value })}
-                    placeholder="Drama Games Activity Pack"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Description
-                  </label>
-                  <textarea
-                    value={editingPack.description || ''}
-                    onChange={(e) => setEditingPack({ ...editingPack, description: e.target.value })}
-                    placeholder="Describe what's included in this pack..."
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Price (£)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={editingPack.price || 0}
-                    onChange={(e) => setEditingPack({ ...editingPack, price: parseFloat(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-
-                <div>
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={editingPack.is_active !== false}
-                      onChange={(e) => setEditingPack({ ...editingPack, is_active: e.target.checked })}
-                      className="rounded"
-                    />
-                    <span className="text-sm font-medium text-gray-700">Active (available for purchase)</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Category Linking */}
-              <div className="border-t border-gray-200 pt-6">
-                <h4 className="font-semibold text-gray-900 mb-3">Link Categories</h4>
-                <p className="text-sm text-gray-600 mb-4">
-                  Select which categories belong to this pack. Activities in these categories will only be visible to users who purchase this pack.
-                </p>
-
-                <div className="space-y-4">
-                  {Object.entries(groupedCategories).map(([groupName, groupCategories]) => (
-                    <div key={groupName} className="bg-gray-50 rounded-lg p-4">
-                      <h5 className="font-medium text-gray-900 mb-3">{groupName}</h5>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                        {groupCategories.map((category) => {
-                          const isSelected = (editingPack.category_ids || []).includes(category.id);
-                          return (
-                            <button
-                              key={category.id}
-                              onClick={() => toggleCategory(category.id)}
-                              className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                                isSelected
-                                  ? 'bg-teal-100 border-2 border-teal-600 text-teal-900'
-                                  : 'bg-white border border-gray-300 text-gray-700 hover:border-teal-300'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <span>{category.name}</span>
-                                {isSelected && <span className="text-teal-600">✓</span>}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex items-center justify-end space-x-3">
-              <button
-                onClick={() => {
-                  setShowCreateForm(false);
-                  setEditingPack(null);
-                }}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSavePack}
-                className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors flex items-center space-x-2"
-              >
-                <Save className="h-4 w-4" />
-                <span>Save Pack</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Add / Edit software pack modal */}
+      <AddSoftwarePackModal
+        isOpen={showCreateForm}
+        onClose={() => {
+          setShowCreateForm(false);
+          setEditingPack(null);
+        }}
+        onSave={loadPacks}
+        editingPack={editingPack}
+        categories={categories}
+      />
     </div>
   );
 };

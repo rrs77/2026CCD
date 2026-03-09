@@ -39,7 +39,7 @@ export async function OPTIONS() {
 export async function POST(request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const { email, password, display_name, role, status, send_invite_email } = body || {};
+    const { email, password, display_name, role, status, send_invite_email, allowed_year_groups, admin_preset_categories, admin_preset_activity_pack_ids } = body || {};
 
     const emailTrimmed = typeof email === 'string' ? email.trim() : '';
     if (!emailTrimmed) {
@@ -93,7 +93,7 @@ export async function POST(request) {
       return jsonResponse({ error: 'User could not be created.' }, 500);
     }
 
-    // Ensure profile has correct role, display_name, status (trigger may have created it)
+    // Ensure profile has correct role, display_name, status, and admin presets (trigger may have created it)
     const profileRow = {
       id: user.id,
       email: user.email ?? emailTrimmed,
@@ -101,6 +101,9 @@ export async function POST(request) {
       role: roleVal,
       status: statusVal,
       updated_at: new Date().toISOString(),
+      ...(Array.isArray(allowed_year_groups) && allowed_year_groups.length > 0 && { allowed_year_groups }),
+      ...(Array.isArray(admin_preset_categories) && admin_preset_categories.length > 0 && { admin_preset_categories }),
+      ...(Array.isArray(admin_preset_activity_pack_ids) && admin_preset_activity_pack_ids.length > 0 && { admin_preset_activity_pack_ids }),
     };
     const { error: profileError } = await supabase
       .from('profiles')

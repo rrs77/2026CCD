@@ -3,7 +3,8 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
-    { "source": "/reset-password", "destination": "/index.html" }
+    { "source": "/reset-password", "destination": "/index.html" },
+    { "source": "/pdf/:id", "destination": "/api/pdf/:id" }
   ],
   "crons": [
     {

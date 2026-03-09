@@ -134,8 +134,14 @@ export function LessonPlanBuilder({
       console.log('📋 Lesson Builder: No year group selected, showing NO categories');
       return [];
     }
+
+    // Until year groups have loaded, show no categories (avoid showing wrong activities; list may be empty briefly)
+    if (!customYearGroups?.length) {
+      if (import.meta.env.DEV) console.log('📋 Lesson Builder: Year groups not loaded yet, showing no categories until loaded');
+      return [];
+    }
     
-    // Find the current year group object
+    // Find the current year group object (exact match for this class/sheet)
     const currentYearGroup = customYearGroups?.find(
       yg => yg.id === currentYearGroupKey || yg.name === currentYearGroupKey
     );
@@ -147,41 +153,36 @@ export function LessonPlanBuilder({
       totalCategories: categories.length
     });
     
-    // Keys to check for assignment (ID and name of current year group)
+    // Keys used when saving assignments in UserSettings: yearGroup.id || yearGroup.name. Match exactly only.
     const keysToCheck = [
       currentYearGroup?.id,
       currentYearGroup?.name,
       currentYearGroupKey
     ].filter(Boolean) as string[];
     
-    // Include categories: explicitly assigned to current year group OR no yearGroups set (show for all classes)
+    // STRICT: Only include categories that are EXPLICITLY assigned to this year group. No "show for all" fallback.
     const filteredCategories = categories
       .filter((category) => {
         if (!category?.name) return false;
-        // No yearGroups or empty: treat as "available to all" so activities aren't missing in Build Your Lesson
+        // No yearGroups or empty: do NOT show to any class until admin assigns
         if (!category.yearGroups || Object.keys(category.yearGroups).length === 0) {
-          console.log(`✅ Category "${category.name}" has no yearGroups - including for all classes`);
-          return true;
+          if (import.meta.env.DEV) console.log(`❌ Category "${category.name}" has no yearGroups - excluding`);
+          return false;
         }
         const assignedKeys = Object.keys(category.yearGroups).filter(k => category.yearGroups[k] === true);
         if (assignedKeys.length === 0) {
-          console.log(`✅ Category "${category.name}" has no assignments - including for all classes`);
-          return true;
+          if (import.meta.env.DEV) console.log(`❌ Category "${category.name}" has no assignments - excluding`);
+          return false;
         }
-        // Category has year groups: must be explicitly assigned to current year group
+        // Exact match only: assigned key must equal one of this class's keys (case-insensitive). No partial/startsWith.
         const isAssigned = assignedKeys.some(assignedKey => {
-          const assignedKeyLower = assignedKey.toLowerCase().trim();
-          return keysToCheck.some(checkKey => {
-            const checkKeyLower = (checkKey || '').toLowerCase().trim();
-            if (assignedKeyLower === checkKeyLower) return true;
-            if (checkKeyLower.startsWith(assignedKeyLower + ' ') || assignedKeyLower.startsWith(checkKeyLower + ' ')) return true;
-            return false;
-          });
+          const a = (assignedKey || '').toLowerCase().trim();
+          return keysToCheck.some(checkKey => (checkKey || '').toLowerCase().trim() === a);
         });
         if (isAssigned) {
           console.log(`✅ Category "${category.name}" assigned to "${currentYearGroup?.name || currentYearGroupKey}"`);
         } else {
-          console.log(`❌ Category "${category.name}" NOT assigned. Has: [${assignedKeys.join(', ')}], Need: [${keysToCheck.join(', ')}]`);
+          if (import.meta.env.DEV) console.log(`❌ Category "${category.name}" NOT assigned. Has: [${assignedKeys.join(', ')}], Need exact: [${keysToCheck.join(', ')}]`);
         }
         return isAssigned;
       });

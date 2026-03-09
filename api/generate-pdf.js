@@ -2,15 +2,13 @@
  * Vercel Serverless Function: Generate lesson PDF and upload to Vercel Blob Storage.
  * Returns a public URL for the saved PDF (shortcut link for the lesson plan).
  *
- * POST body: { html: string (base64), footerTemplate?: string (base64), fileName?: string }
- * Env: VITE_PDFBOLT_API_KEY or PDFBOLT_API_KEY, BLOB_READ_WRITE_TOKEN (auto-created by Vercel)
- * 
- * Storage Options:
- * - Vercel Blob: 1 GB/month free, 2,000 uploads/month free (RECOMMENDED - integrated with Vercel)
- * - Cloudflare R2: 10 GB/month free, 1M uploads/month free (better free tier, requires Cloudflare account)
+ * POST body: { html: string (base64), footerTemplate?: string (base64), headerTemplate?: string (base64), fileName?: string, lessonNumber?: string, returnPdfBlob?: boolean }
+ * - If lessonNumber is provided, registers a short URL (e.g. ccdesigner.co.uk/pdf/1) that redirects to this PDF; same lessonNumber overwrites so the short link always points to the latest PDF.
+ * Env: VITE_PDFBOLT_API_KEY or PDFBOLT_API_KEY, BLOB_READ_WRITE_TOKEN, VITE_APP_URL or PDF_SHORT_BASE_URL (e.g. https://ccdesigner.co.uk), SUPABASE_SERVICE_ROLE_KEY (or anon), VITE_SUPABASE_URL or SUPABASE_URL
  */
 
 import { put } from '@vercel/blob';
+import { createClient } from '@supabase/supabase-js';
 
 const PDFBOLT_API_URL = 'https://api.pdfbolt.com/v1/direct';
 
@@ -43,7 +41,7 @@ export async function POST(request) {
     console.log('[generate-pdf] Function called');
     
     const body = await request.json();
-    const { html: encodedHtml, footerTemplate: encodedFooter, headerTemplate: encodedHeader, fileName, returnPdfBlob } = body || {};
+    const { html: encodedHtml, footerTemplate: encodedFooter, headerTemplate: encodedHeader, fileName, returnPdfBlob, lessonNumber } = body || {};
 
     if (!encodedHtml) {
       console.error('[generate-pdf] Missing html content');
@@ -117,7 +115,35 @@ export async function POST(request) {
         addRandomSuffix: false,
       });
       console.log('[generate-pdf] PDF uploaded successfully to Vercel Blob:', blob.url);
-      return jsonResponse({ success: true, url: blob.url, path: storageFileName });
+
+      let shortUrl = null;
+      const shortCode = lessonNumber != null && String(lessonNumber).trim() ? String(lessonNumber).trim().replace(/[^a-zA-Z0-9_-]/g, '') || null : null;
+      // Use PDF_SHORT_BASE_URL or VITE_APP_URL; VERCEL_URL is available in serverless so short links work even without custom domain set
+      const baseUrlRaw = process.env.PDF_SHORT_BASE_URL || process.env.VITE_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
+      const baseUrl = baseUrlRaw.replace(/\/$/, '');
+      if (shortCode && baseUrl) {
+        const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+        if (supabaseUrl && supabaseKey) {
+          try {
+            const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+            const { error: upsertError } = await supabase.from('share_short_links').upsert(
+              { short_code: shortCode, blob_url: blob.url, lesson_number: lessonNumber, updated_at: new Date().toISOString() },
+              { onConflict: 'short_code' }
+            );
+            if (!upsertError) {
+              shortUrl = `${baseUrl}/pdf/${shortCode}`;
+              console.log('[generate-pdf] Short URL registered:', shortUrl);
+            } else {
+              console.warn('[generate-pdf] Short link upsert failed:', upsertError.message);
+            }
+          } catch (e) {
+            console.warn('[generate-pdf] Short link registration error:', e.message);
+          }
+        }
+      }
+
+      return jsonResponse({ success: true, url: blob.url, path: storageFileName, shortUrl: shortUrl || undefined });
     } catch (blobError) {
       console.error('[generate-pdf] Vercel Blob upload error:', blobError);
       return jsonResponse({ error: `Upload to Vercel Blob failed: ${blobError.message || 'Unknown error'}` }, 500);

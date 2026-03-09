@@ -1,0 +1,292 @@
+import React, { useState, useEffect } from 'react';
+import { X, Save, Package, DollarSign } from 'lucide-react';
+import { activityPacksApi } from '../config/api';
+import type { ActivityPack } from '../config/api';
+import type { Category } from '../contexts/SettingsContextNew';
+import toast from 'react-hot-toast';
+
+const COMMON_ICONS = ['🎭', '📚', '🎵', '🎨', '📖', '✨', '🎪', '📦', '🎯', '🌟'];
+
+interface AddSoftwarePackModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave?: () => void;
+  /** When set, modal is in edit mode for this pack. */
+  editingPack?: Partial<ActivityPack> | null;
+  categories: Category[];
+}
+
+export function AddSoftwarePackModal({
+  isOpen,
+  onClose,
+  onSave,
+  editingPack,
+  categories
+}: AddSoftwarePackModalProps) {
+  const isEditing = !!editingPack?.pack_id && !!editingPack?.id;
+  const [packId, setPackId] = useState('');
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [price, setPrice] = useState(19.99);
+  const [icon, setIcon] = useState('📦');
+  const [categoryIds, setCategoryIds] = useState<string[]>([]);
+  const [isActive, setIsActive] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (editingPack) {
+      setPackId(editingPack.pack_id ?? '');
+      setName(editingPack.name ?? '');
+      setDescription(editingPack.description ?? '');
+      setPrice(editingPack.price ?? 19.99);
+      setIcon(editingPack.icon ?? '📦');
+      setCategoryIds(editingPack.category_ids ?? []);
+      setIsActive(editingPack.is_active !== false);
+    } else {
+      setPackId('');
+      setName('');
+      setDescription('');
+      setPrice(19.99);
+      setIcon('📦');
+      setCategoryIds([]);
+      setIsActive(true);
+    }
+  }, [isOpen, editingPack]);
+
+  const toggleCategory = (id: string) => {
+    setCategoryIds(prev =>
+      prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
+    );
+  };
+
+  const suggestPackId = () => {
+    if (name.trim()) {
+      const suggested = name
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, '_')
+        .replace(/^_|_$/g, '');
+      setPackId(suggested || 'PACK');
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedId = packId.trim().toUpperCase().replace(/\s/g, '_');
+    const trimmedName = name.trim();
+    if (!trimmedId || !trimmedName) {
+      toast.error('Pack ID and Name are required');
+      return;
+    }
+    setSaving(true);
+    try {
+      await activityPacksApi.upsertPack({
+        ...(editingPack?.id && { id: editingPack.id }),
+        pack_id: trimmedId,
+        name: trimmedName,
+        description: description.trim() || undefined,
+        price: Number(price) || 0,
+        icon: icon || '📦',
+        category_ids: categoryIds,
+        is_active: isActive
+      });
+      toast.success(isEditing ? 'Pack updated.' : 'Software pack added. It can now be purchased in the app.');
+      onSave?.();
+      onClose();
+    } catch (err) {
+      toast.error((err as Error).message || 'Failed to save pack');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  const groupedCategories = categories.reduce((acc, cat) => {
+    const group = (cat as Category & { group?: string }).group || 'Ungrouped';
+    if (!acc[group]) acc[group] = [];
+    acc[group].push(cat);
+    return acc;
+  }, {} as Record<string, Category[]>);
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[80]" role="dialog" aria-modal="true" aria-labelledby="add-pack-title">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-teal-50">
+          <div>
+            <h2 id="add-pack-title" className="text-xl font-bold text-gray-900">
+              {isEditing ? 'Edit software pack' : 'Add software pack'}
+            </h2>
+            <p className="text-sm text-gray-600 mt-0.5">
+              Share and sell your lesson plans. Packs you add can be purchased by others in the app.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-white/80 rounded-lg"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto p-6 space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Pack ID <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={packId}
+                  onChange={(e) => setPackId(e.target.value.toUpperCase().replace(/\s/g, '_'))}
+                  placeholder="e.g. COMMEDIA_KS3_DRAMA"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  disabled={isEditing}
+                />
+                {!isEditing && (
+                  <button
+                    type="button"
+                    onClick={suggestPackId}
+                    className="text-xs text-teal-600 hover:underline mt-1"
+                  >
+                    Suggest from name
+                  </button>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Icon</label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {COMMON_ICONS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => setIcon(emoji)}
+                      className={`text-2xl p-1 rounded border-2 transition-colors ${
+                        icon === emoji ? 'border-teal-600 bg-teal-50' : 'border-transparent hover:bg-gray-100'
+                      }`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                  <input
+                    type="text"
+                    value={icon}
+                    onChange={(e) => setIcon(e.target.value)}
+                    className="w-14 px-2 py-1 border border-gray-300 rounded text-center text-xl"
+                    maxLength={2}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Pack name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Commedia dell'arte – KS3 Drama"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Describe what's included so buyers know what they're getting..."
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Price (£)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={price}
+                  onChange={(e) => setPrice(parseFloat(e.target.value) || 0)}
+                  className="w-28 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                />
+              </div>
+              <label className="flex items-center gap-2 pt-7">
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={(e) => setIsActive(e.target.checked)}
+                  className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                />
+                <span className="text-sm text-gray-700">Available for purchase</span>
+              </label>
+            </div>
+
+            {Object.keys(groupedCategories).length > 0 && (
+              <div className="border-t border-gray-200 pt-4">
+                <h4 className="text-sm font-semibold text-gray-900 mb-2">Link to categories (optional)</h4>
+                <p className="text-xs text-gray-600 mb-3">
+                  Categories linked to this pack can be restricted to buyers only.
+                </p>
+                <div className="space-y-3">
+                  {Object.entries(groupedCategories).map(([groupName, groupCats]) => (
+                    <div key={groupName} className="bg-gray-50 rounded-lg p-3">
+                      <h5 className="text-xs font-medium text-gray-700 mb-2">{groupName}</h5>
+                      <div className="flex flex-wrap gap-2">
+                        {groupCats.map((cat) => {
+                          const id = (cat as Category & { id?: string }).id ?? cat.name;
+                          const isSelected = categoryIds.includes(id);
+                          return (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={() => toggleCategory(id)}
+                              className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                                isSelected
+                                  ? 'bg-teal-600 text-white'
+                                  : 'bg-white border border-gray-300 text-gray-700 hover:border-teal-400'
+                              }`}
+                            >
+                              {cat.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-60 flex items-center gap-2"
+            >
+              <Save className="h-4 w-4" />
+              {saving ? 'Saving…' : isEditing ? 'Update pack' : 'Add software pack'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

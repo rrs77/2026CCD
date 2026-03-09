@@ -183,6 +183,10 @@ export function useShareLesson() {
           .resource-vocals { color: #ea580c; border: 2px solid #ea580c; background: #fff7ed; }
           .resource-image { color: #db2777; border: 2px solid #db2777; background: #fdf2f8; }
           .resource-canva { color: #4f46e5; border: 2px solid #4f46e5; background: #eef2ff; }
+          /* Prevent trailing blank page with only footer */
+          .lesson-pdf-content { page-break-after: avoid; break-after: avoid; }
+          .content-wrapper { page-break-after: avoid; break-after: avoid; }
+          .pdf-end { page-break-after: avoid; break-after: avoid; height: 0; overflow: hidden; margin: 0; padding: 0; }
           @media print { body { background: white; } .lesson-pdf-content { background: white; } * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }
         </style>
       </head>
@@ -331,6 +335,7 @@ export function useShareLesson() {
 
     htmlContent += `
           </div>
+          <div class="pdf-end" aria-hidden="true"></div>
         </div>
       </body>
       </html>
@@ -419,25 +424,24 @@ export function useShareLesson() {
       return null;
     }
 
-    // Check if we already have a stored URL for this lesson FIRST
-    // If it exists, just copy it to clipboard and return immediately - no PDF generation needed
+    // Reuse stored URL only if it's already a short link (not the long blob URL)
     const storedUrl = getStoredShareUrl(lessonNumber);
-    if (storedUrl) {
+    const isBlobUrl = storedUrl && /blob\.vercel-storage\.com|vercel-storage\.com/.test(storedUrl);
+    if (storedUrl && !isBlobUrl) {
       console.log('✅ Found stored share URL for lesson', lessonNumber, '- reusing existing link');
-      // Copy existing URL to clipboard
       const clipboardSuccess = await copyToClipboard(storedUrl);
       if (clipboardSuccess) {
         setShareUrl(storedUrl);
-        // Don't set isSharing to true - we're just retrieving, not generating
         return storedUrl;
-      } else {
-        console.warn('⚠️ Failed to copy stored URL to clipboard, will generate new one');
-        // If clipboard copy fails, continue to generate new PDF
       }
     }
+    if (storedUrl && isBlobUrl) {
+      console.log('🔄 Stored URL is long blob link – regenerating to get short URL');
+    } else if (!storedUrl) {
+      console.log('🔄 No stored URL found for lesson', lessonNumber, '- generating new PDF');
+    }
 
-    // Only proceed with PDF generation if no stored URL exists
-    console.log('🔄 No stored URL found for lesson', lessonNumber, '- generating new PDF');
+    // Proceed with PDF generation to get (or refresh) short URL
     setIsSharing(true);
     setShareUrl(null);
     setShareError(null);
@@ -483,7 +487,8 @@ export function useShareLesson() {
             html: encodedHtml,
             footerTemplate: encodedFooter,
             headerTemplate: encodedHeader,
-            fileName: fileName
+            fileName: fileName,
+            lessonNumber: lessonNumber
           })
         });
       } catch (fetchError: any) {
@@ -543,7 +548,7 @@ export function useShareLesson() {
         throw new Error(errorData.error || `Upload failed: ${uploadResponse.status}`);
       }
 
-      let responseData: { url?: string; publicUrl?: string; error?: string };
+      let responseData: { url?: string; publicUrl?: string; shortUrl?: string; error?: string };
       try {
         responseData = await uploadResponse.json();
       } catch (parseErr) {
@@ -556,19 +561,20 @@ export function useShareLesson() {
         const serverMsg = responseData?.error ? ` Server: ${responseData.error}` : '';
         throw new Error(`No share URL was returned.${serverMsg}`);
       }
-      
-      // Store the URL for future retrieval
-      storeShareUrl(lessonNumber, publicUrl);
-      setShareUrl(publicUrl);
+      // Prefer short URL (e.g. ccdesigner.co.uk/pdf/1) when the API registered one
+      const displayUrl = (responseData?.shortUrl && typeof responseData.shortUrl === 'string') ? responseData.shortUrl : publicUrl;
+
+      storeShareUrl(lessonNumber, displayUrl);
+      setShareUrl(displayUrl);
 
       // Copy to clipboard (may fail after async when browser requires a user gesture)
-      const clipboardSuccess = await copyToClipboard(publicUrl);
+      const clipboardSuccess = await copyToClipboard(displayUrl);
       if (!clipboardSuccess) {
         // Don't throw: URL is still shown; user can click the Copy button (fresh gesture) to copy
         if (import.meta.env.DEV) console.warn('Auto-copy failed; URL is shown for manual copy');
       }
 
-      return publicUrl;
+      return displayUrl;
     } catch (error: any) {
       console.error('Share failed:', error);
       setShareError(error.message);
@@ -611,7 +617,13 @@ export function useShareLesson() {
       const uploadResponse = await fetch(pdfApiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ html: encodedHtml, footerTemplate: encodedFooter, headerTemplate: encodedHeader, fileName })
+        body: JSON.stringify({
+          html: encodedHtml,
+          footerTemplate: encodedFooter,
+          headerTemplate: encodedHeader,
+          fileName,
+          lessonNumber,
+        }),
       });
 
       if (!uploadResponse.ok) {
@@ -627,8 +639,10 @@ export function useShareLesson() {
       const responseData = await uploadResponse.json();
       const publicUrl = responseData.url || responseData.publicUrl;
       if (!publicUrl) throw new Error('No URL returned from PDF service');
-      storeShareUrl(lessonNumber, publicUrl);
-      return publicUrl;
+      // Prefer short URL (e.g. yoursite.com/pdf/1) when the API registered one
+      const displayUrl = (responseData.shortUrl && typeof responseData.shortUrl === 'string') ? responseData.shortUrl : publicUrl;
+      storeShareUrl(lessonNumber, displayUrl);
+      return displayUrl;
     } catch (error: any) {
       setShareError(error.message);
       throw error;

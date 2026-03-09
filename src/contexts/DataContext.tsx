@@ -245,6 +245,9 @@ interface DataContextType {
   
   // Class Copy
   copyLessonsToClass: (lessonNumbers: string[], targetClassId: string) => Promise<void>;
+
+  /** Load example lessons from a JSON URL (e.g. purchasable pack); merges into current sheet. */
+  loadExampleLessonsFromUrl: (url: string) => Promise<void>;
 }
 
 interface DataProviderProps {
@@ -3075,6 +3078,38 @@ const updateLessonData = async (lessonNumber: string, updatedData: any) => {
     return true;
   };
 
+  /** Load example lessons from a JSON URL (e.g. Commedia dell'arte pack). Merges into current sheet. */
+  const loadExampleLessonsFromUrl = async (url: string): Promise<void> => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Failed to load: ${res.status}`);
+    const data = await res.json();
+    const incoming = data.allLessonsData || {};
+    const incomingNums = data.lessonNumbers || Object.keys(incoming);
+    const newAllLessonsData = { ...allLessonsData, ...incoming };
+    const newLessonNumbers = [...new Set([...lessonNumbers, ...incomingNums])].sort((a, b) => {
+      const na = parseInt(a.replace(/\D/g, ''), 10) || 0;
+      const nb = parseInt(b.replace(/\D/g, ''), 10) || 0;
+      return na - nb;
+    });
+    setAllLessonsData(newAllLessonsData);
+    setLessonNumbers(newLessonNumbers);
+    const dataToSave = {
+      allLessonsData: newAllLessonsData,
+      lessonNumbers: newLessonNumbers,
+      teachingUnits: data.teachingUnits || teachingUnits,
+      lessonStandards: data.lessonStandards || lessonStandards
+    };
+    localStorage.setItem(`lesson-data-${currentSheetInfo.sheet}`, JSON.stringify(dataToSave));
+    if (isSupabaseConfigured()) {
+      try {
+        await lessonsApi.updateSheet(currentSheetInfo.sheet, dataToSave, currentAcademicYear);
+      } catch (e) {
+        console.warn('Failed to save example lessons to Supabase:', e);
+      }
+    }
+    toast.success(`Loaded ${incomingNums.length} example lesson(s).`);
+  };
+
   const uploadExcelFile = async (file: File) => {
     try {
       setLoading(true);
@@ -4021,7 +4056,9 @@ const updateLessonData = async (lessonNumber: string, updatedData: any) => {
     unstackActivities,
     
     // Class Copy
-    copyLessonsToClass
+    copyLessonsToClass,
+
+    loadExampleLessonsFromUrl
   };
 
   return (

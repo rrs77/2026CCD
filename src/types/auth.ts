@@ -17,6 +17,10 @@ export interface Profile {
   can_manage_year_groups: boolean;
   can_manage_users: boolean;
   allowed_year_groups: string[] | null;
+  /** Category names assigned by admin; user cannot remove these. */
+  admin_preset_categories?: string[] | null;
+  /** Activity pack IDs granted by admin (e.g. paid content). */
+  admin_preset_activity_pack_ids?: string[] | null;
   created_at: string;
   updated_at: string;
 }

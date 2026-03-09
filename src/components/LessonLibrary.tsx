@@ -33,6 +33,8 @@ import { LessonStackBuilder } from './LessonStackBuilder';
 import { MinimizableActivityCard } from './MinimizableActivityCard';
 import { useData } from '../contexts/DataContext';
 import { useSettings } from '../contexts/SettingsContextNew';
+import { useAuth } from '../hooks/useAuth';
+import { activityPacksApi } from '../config/api';
 import { useLessonStacks, type StackedLesson } from '../hooks/useLessonStacks';
 import { LessonExporter } from './LessonExporter';
 import { SimpleNestedCategoryDropdown } from './SimpleNestedCategoryDropdown';
@@ -41,6 +43,7 @@ import { AssignToHalfTermModal } from './AssignToHalfTermModal';
 import { ClassCopyModal } from './ClassCopyModal';
 import { StandaloneLessonCreator } from './StandaloneLessonCreator';
 import { IndexCard } from './IndexCard';
+import { LessonPrintModal } from './LessonPrintModal';
 
 // Helper function to safely render HTML content
 const renderHtmlContent = (htmlContent) => {
@@ -101,9 +104,13 @@ export function LessonLibrary({
     trashLessons,
     restoreLesson,
     permanentDeleteFromTrash,
-    refreshData
+    refreshData,
+    loadExampleLessonsFromUrl
   } = useData();
   const { getThemeForClass, categories, customYearGroups, settings } = useSettings();
+  const { user, profile } = useAuth();
+  const [userPacks, setUserPacks] = useState<string[]>([]);
+  const [loadingExample, setLoadingExample] = useState(false);
   const showButtonHelp = settings.showButtonHelp !== false;
   const {
     stacks,
@@ -139,11 +146,12 @@ export function LessonLibrary({
   // Stack Management State
   const [showStackBuilder, setShowStackBuilder] = useState(false);
   const [editingStack, setEditingStack] = useState<StackedLesson | null>(null);
-  const [showStacksSection, setShowStacksSection] = useState(false); // Always start collapsed
+  const [showStacksSection, setShowStacksSection] = useState(false); // Collapsed by default; open to show stacks
   const [expandedStacks, setExpandedStacks] = useState<Set<string>>(new Set());
   const [showIndexCardsSection, setShowIndexCardsSection] = useState(false); // Collapsed by default
   const [showAssignToTermModal, setShowAssignToTermModal] = useState(false);
   const [selectedStackForAssignment, setSelectedStackForAssignment] = useState<StackedLesson | null>(null);
+  const [printStackId, setPrintStackId] = useState<string | null>(null);
   
   // Class Copy State
   const [showClassCopyModal, setShowClassCopyModal] = useState(false);
@@ -153,6 +161,41 @@ export function LessonLibrary({
   const [showStandaloneLessonCreator, setShowStandaloneLessonCreator] = useState(false);
   const [editingLessonForCreator, setEditingLessonForCreator] = useState<{ lessonNumber: string; lessonData: any } | null>(null);
   
+  // User's activity packs (purchased + admin preset) for showing "Load example pack" when applicable
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (!user?.email) {
+        setUserPacks(profile?.admin_preset_activity_pack_ids ?? []);
+        return;
+      }
+      try {
+        const purchased = await activityPacksApi.getUserPurchases(user.email);
+        const preset = profile?.admin_preset_activity_pack_ids ?? [];
+        if (!cancelled) setUserPacks([...new Set([...purchased, ...preset])]);
+      } catch {
+        if (!cancelled) setUserPacks(profile?.admin_preset_activity_pack_ids ?? []);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [user?.email, profile?.admin_preset_activity_pack_ids]);
+
+  const hasCommediaPack = userPacks.includes('COMMEDIA_KS3_DRAMA');
+  const showLoadCommediaButton = currentSheetInfo.sheet === 'Year8Drama' && hasCommediaPack;
+
+  const handleLoadCommediaLessons = async () => {
+    setLoadingExample(true);
+    try {
+      await loadExampleLessonsFromUrl('/commedia-year8-drama-lessons.json');
+      await refreshData();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to load example lessons');
+    } finally {
+      setLoadingExample(false);
+    }
+  };
+
   // Lesson stacks section starts collapsed by default - user can expand it manually
   
   // Debug: Log expanded stacks state (removed to reduce console spam)
@@ -746,6 +789,7 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
               <BookOpen className="h-6 w-6" />
               <h2 className="text-xl font-bold">Lesson Library</h2>
             </div>
+            <div className="flex items-center gap-2">
             {/* Create Lesson Button in Header */}
             <button
               onClick={() => {
@@ -758,6 +802,18 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
               <Plus className="h-5 w-5" />
               <span className="text-sm font-semibold">Create Lesson</span>
             </button>
+            {showLoadCommediaButton && (
+              <button
+                onClick={handleLoadCommediaLessons}
+                disabled={loadingExample}
+                className="px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 text-white font-medium rounded-lg transition-colors duration-200 flex items-center space-x-2"
+                title="Load Commedia dell'arte example lessons (8 lessons)"
+              >
+                <span className="text-lg" aria-hidden>🎭</span>
+                <span className="text-sm font-semibold">{loadingExample ? 'Loading…' : 'Load Commedia pack'}</span>
+              </button>
+            )}
+            </div>
           </div>
         </div>
         <div className="p-8 text-center">
@@ -891,6 +947,67 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
 
 
       <div className="p-8">
+        {/* Lesson Stacks (collapsible unit) – assign to term; add to calendar splits over timetable days */}
+        {!showTrash && (
+          <div className="mb-6 border border-gray-200 rounded-xl bg-gray-50 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowStacksSection(prev => !prev)}
+              className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-100 transition-colors"
+              aria-expanded={showStacksSection}
+            >
+              <div className="flex items-center gap-3">
+                <Layers className="h-5 w-5 text-teal-600" />
+                <span className="font-semibold text-gray-900">Lesson Stacks / Units</span>
+                <span className="text-sm text-gray-600">({stacks.length})</span>
+              </div>
+              <span className="text-gray-500">
+                {showStacksSection ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+              </span>
+            </button>
+            {showStacksSection && (
+              <div className="px-5 pb-5 pt-0 border-t border-gray-200">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-sm text-gray-600">
+                    Stacks are units of lessons. Assign a stack to a term, then add it to the calendar from a start date—it will split over the days you have this class.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleCreateStack}
+                    className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Create Stack
+                  </button>
+                </div>
+                {stacks.length === 0 ? (
+                  <p className="text-sm text-gray-500 py-4">No stacks yet. Create a stack to group lessons and assign them to a term.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {stacks.map((stack) => (
+                      <StackedLessonCard
+                        key={stack.id}
+                        stack={stack}
+                        allLessonsData={allLessonsData}
+                        theme={getThemeForClass(currentSheetInfo.sheet)}
+                        onClick={() => handleStackClick(stack)}
+                        onEdit={() => handleEditStack(stack)}
+                        onDelete={() => handleDeleteStack(stack.id)}
+                        onRename={(newName) => handleRenameStack(stack.id, newName)}
+                        onAssignToTerm={() => handleAssignStackToTerm(stack.id)}
+                        onPrint={(s) => setPrintStackId(s.id)}
+                        viewMode="list"
+                        isExpanded={expandedStacks.has(stack.id)}
+                        onToggleExpansion={() => handleToggleStackExpansion(stack.id)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Search and Filters */}
         <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center mb-6">
           <div className="relative flex-1 max-w-md">
@@ -963,6 +1080,18 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
               <FileText className="h-4 w-4" />
               <span>Create Lesson</span>
             </button>
+
+            {showLoadCommediaButton && (
+              <button
+                onClick={handleLoadCommediaLessons}
+                disabled={loadingExample}
+                className="flex items-center justify-center space-x-2 h-10 px-5 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors duration-200 whitespace-nowrap"
+                title="Load Commedia dell'arte – KS3 Drama example lessons (8 lessons)"
+              >
+                <span aria-hidden>🎭</span>
+                <span>{loadingExample ? 'Loading…' : 'Load Commedia pack'}</span>
+              </button>
+            )}
 
             {/* Copy Lesson Button */}
             <button
@@ -1376,6 +1505,20 @@ style={{ background: 'linear-gradient(to right, #2DD4BF, #14B8A6)' }}>
           existingStacks={stacks}
         />
       )}
+
+      {/* Print Stack as Unit Modal */}
+      {printStackId && (() => {
+        const stackToPrint = stacks.find(s => s.id === printStackId);
+        const lessonNums = stackToPrint?.lessons?.filter((l): l is string => typeof l === 'string') ?? [];
+        return (
+          <LessonPrintModal
+            lessonNumbers={lessonNums}
+            unitName={stackToPrint?.name ?? 'Stack'}
+            isUnitPrint={true}
+            onClose={() => setPrintStackId(null)}
+          />
+        );
+      })()}
 
       {/* Assign Stack to Term Modal */}
       {selectedStackForAssignment && (

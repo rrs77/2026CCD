@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Clock, Users, Edit3, Layers, X, MoreVertical, ChevronDown, ChevronUp, Calendar, Trash2, Settings } from 'lucide-react';
+import { Clock, Users, Edit3, Layers, X, MoreVertical, ChevronDown, ChevronUp, Calendar, Trash2, Settings, Printer } from 'lucide-react';
 import type { LessonData } from '../contexts/DataContext';
 import { useSettings } from '../contexts/SettingsContextNew';
 
@@ -28,6 +28,7 @@ interface StackedLessonCardProps {
   onDelete?: () => void;
   onRename?: (newName: string) => void;
   onAssignToTerm?: (stackId: string) => void;
+  onPrint?: (stack: StackedLesson) => void;
   viewMode: 'grid' | 'list' | 'compact' | 'activity-stack-style';
   isExpanded?: boolean;
   onToggleExpansion?: () => void;
@@ -42,6 +43,7 @@ export function StackedLessonCard({
   onDelete,
   onRename,
   onAssignToTerm,
+  onPrint,
   viewMode,
   isExpanded = false,
   onToggleExpansion
@@ -111,6 +113,9 @@ export function StackedLessonCard({
         break;
       case 'assign':
         onAssignToTerm?.(stack.id);
+        break;
+      case 'print':
+        onPrint?.(stack);
         break;
     }
   };
@@ -284,6 +289,18 @@ export function StackedLessonCard({
                       <Calendar className="h-3 w-3" />
                       <span>Assign to Term</span>
                     </button>
+                    {onPrint && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMenuAction('print');
+                        }}
+                        className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                      >
+                        <Printer className="h-3 w-3" />
+                        <span>Print stack</span>
+                      </button>
+                    )}
                     <hr className="my-1" />
                     <button
                       onClick={(e) => {

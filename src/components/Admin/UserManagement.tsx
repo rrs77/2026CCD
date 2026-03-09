@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Users, Edit2, Loader2, Mail, Plus, X, MoreVertical, ShoppingBag, UserX, Send } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import { getVercelApiUrl } from '../../utils/apiUrl';
+import { activityPacksApi } from '../../config/api';
 import { useSettings } from '../../contexts/SettingsContextNew';
 import { useAuth } from '../../hooks/useAuth';
 import type { Profile, ProfileRole, ProfileStatus } from '../../types/auth';
@@ -71,7 +72,7 @@ function formatDate(iso: string | undefined): string {
 }
 
 export function UserManagement() {
-  const { customYearGroups } = useSettings();
+  const { customYearGroups, categories } = useSettings();
   const { profile: currentProfile } = useAuth();
   const menuRef = useRef<HTMLDivElement>(null);
   const [users, setUsers] = useState<Profile[]>([]);
@@ -92,8 +93,13 @@ export function UserManagement() {
   const [createSendInvite, setCreateSendInvite] = useState(true);
   const [createSending, setCreateSending] = useState(false);
   const [createError, setCreateError] = useState('');
+  const [createAllowedYearGroups, setCreateAllowedYearGroups] = useState<string[]>([]);
+  const [createPresetCategories, setCreatePresetCategories] = useState<string[]>([]);
+  const [createPresetPackIds, setCreatePresetPackIds] = useState<string[]>([]);
+  const [createPacks, setCreatePacks] = useState<{ pack_id: string; name: string }[]>([]);
 
   const yearGroupNames = customYearGroups.map(g => g.name);
+  const categoryNames = categories.map(c => c.name);
   const isSuperuser = currentProfile?.role === 'superuser';
   const createUserRoles = isSuperuser ? [...BASE_ROLES, { value: 'superuser' as const, label: 'Superuser' }] : BASE_ROLES;
 
@@ -131,6 +137,13 @@ export function UserManagement() {
       });
     return () => { cancelled = true; };
   }, [fetchUsers]);
+
+  useEffect(() => {
+    if (!showCreateUserModal) return;
+    activityPacksApi.getAllPacksAdmin().then(packs => {
+      setCreatePacks(packs.map(p => ({ pack_id: p.pack_id, name: p.name })));
+    }).catch(() => setCreatePacks([]));
+  }, [showCreateUserModal]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -239,7 +252,10 @@ export function UserManagement() {
           display_name: createName.trim() || undefined,
           role: createRole,
           status: createStatus,
-          send_invite_email: createSendInvite
+          send_invite_email: createSendInvite,
+          allowed_year_groups: createAllowedYearGroups.length > 0 ? createAllowedYearGroups : undefined,
+          admin_preset_categories: createPresetCategories.length > 0 ? createPresetCategories : undefined,
+          admin_preset_activity_pack_ids: createPresetPackIds.length > 0 ? createPresetPackIds : undefined,
         })
       });
       const data = await res.json().catch(() => ({}));
@@ -259,6 +275,9 @@ export function UserManagement() {
       setCreateRole('viewer');
       setCreateStatus('invited');
       setCreateSendInvite(true);
+      setCreateAllowedYearGroups([]);
+      setCreatePresetCategories([]);
+      setCreatePresetPackIds([]);
       fetchUsers().then(setUsers);
     } catch (e) {
       setCreateError(e instanceof Error ? e.message : 'Failed to create user');
@@ -411,7 +430,7 @@ export function UserManagement() {
       </div>
 
       {editingUser && (
-        <EditUserModal user={editingUser} yearGroupNames={yearGroupNames} onSave={handleSave} onClose={() => setEditingUser(null)} />
+        <EditUserModal user={editingUser} yearGroupNames={yearGroupNames} categoryNames={categoryNames} onSave={handleSave} onClose={() => setEditingUser(null)} />
       )}
       {viewPurchasesUser && (
         <ViewPurchasesModal user={viewPurchasesUser} onClose={() => setViewPurchasesUser(null)} />
@@ -473,6 +492,59 @@ export function UserManagement() {
                 <input type="checkbox" checked={createSendInvite} onChange={e => setCreateSendInvite(e.target.checked)} />
                 <span className="text-sm text-gray-700">Send invite email</span>
               </label>
+              {yearGroupNames.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Allowed year groups (optional)</label>
+                  <div className="flex flex-wrap gap-2">
+                    {yearGroupNames.map(name => (
+                      <label key={name} className="inline-flex items-center gap-1.5 px-2 py-1 rounded border border-gray-200 bg-gray-50">
+                        <input
+                          type="checkbox"
+                          checked={createAllowedYearGroups.includes(name)}
+                          onChange={() => setCreateAllowedYearGroups(prev => prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name])}
+                        />
+                        <span className="text-sm">{name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {categoryNames.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Preset categories (optional)</label>
+                  <p className="text-xs text-gray-500 mb-1">User will have these categories and cannot remove them.</p>
+                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                    {categoryNames.map(name => (
+                      <label key={name} className="inline-flex items-center gap-1.5 px-2 py-1 rounded border border-gray-200 bg-gray-50">
+                        <input
+                          type="checkbox"
+                          checked={createPresetCategories.includes(name)}
+                          onChange={() => setCreatePresetCategories(prev => prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name])}
+                        />
+                        <span className="text-sm">{name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {createPacks.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Assign purchased resources to this user (optional)</label>
+                  <p className="text-xs text-gray-500 mb-1">Grant access to activity packs (e.g. paid resources) on their login without them purchasing. They cannot remove these.</p>
+                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                    {createPacks.map(p => (
+                      <label key={p.pack_id} className="inline-flex items-center gap-1.5 px-2 py-1 rounded border border-gray-200 bg-gray-50">
+                        <input
+                          type="checkbox"
+                          checked={createPresetPackIds.includes(p.pack_id)}
+                          onChange={() => setCreatePresetPackIds(prev => prev.includes(p.pack_id) ? prev.filter(id => id !== p.pack_id) : [...prev, p.pack_id])}
+                        />
+                        <span className="text-sm">{p.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => !createSending && setShowCreateUserModal(false)} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</button>
                 <button type="submit" disabled={createSending} className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 inline-flex items-center gap-2">

@@ -41,6 +41,14 @@ export function CalendarLessonAssignmentModal({
   const [selectedStack, setSelectedStack] = useState<string | null>(null);
   const [spreadDays, setSpreadDays] = useState<number>(1);
 
+  // When a stack is selected, spread over that many sessions (one lesson per session on timetable days)
+  const selectedStackData = selectedStack ? stacks.find(s => s.id === selectedStack) : null;
+  React.useEffect(() => {
+    if (selectedStackData && selectedStackData.lessons.length > 0) {
+      setSpreadDays(selectedStackData.lessons.length);
+    }
+  }, [selectedStack, selectedStackData?.lessons.length]);
+
   // Filter lessons based on search
   const filteredLessons = useMemo(() => {
     if (!searchQuery) return lessonNumbers;
@@ -224,7 +232,7 @@ export function CalendarLessonAssignmentModal({
             </div>
           </div>
 
-          {/* Spread Days Input */}
+          {/* Spread Days Input – for stacks, auto-set to lesson count (one lesson per session on timetable days) */}
           <div className="mb-6 p-4 bg-teal-50 rounded-card border border-teal-200">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Spread over how many sessions?
@@ -240,7 +248,12 @@ export function CalendarLessonAssignmentModal({
               />
               <span className="text-sm text-gray-600">
                 {spreadDays === 1 ? 'session' : 'sessions'}
-                {timetableClasses.length > 0 && (
+                {activeTab === 'stack' && selectedStackData && (
+                  <span className="text-teal-600 ml-2">
+                    (1 lesson per session from start date)
+                  </span>
+                )}
+                {activeTab === 'lesson' && timetableClasses.length > 0 && (
                   <span className="text-teal-600 ml-2">
                     (Based on your timetable)
                   </span>
@@ -250,6 +263,11 @@ export function CalendarLessonAssignmentModal({
             {timetableClasses.length === 0 && (
               <p className="text-xs text-amber-600 mt-2">
                 ⚠️ No timetable configured. Lessons will be added on consecutive days.
+              </p>
+            )}
+            {timetableClasses.length > 0 && activeTab === 'stack' && selectedStackData && (
+              <p className="text-xs text-teal-700 mt-2">
+                Sessions will use your class timetable days from the start date you chose.
               </p>
             )}
           </div>

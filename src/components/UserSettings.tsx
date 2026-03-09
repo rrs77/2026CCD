@@ -445,6 +445,11 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
       alert('View-only mode: Cannot delete categories.');
       return;
     }
+    const categoryToDelete = tempCategories[index];
+    if (categoryToDelete && profile?.admin_preset_categories?.includes(categoryToDelete.name)) {
+      alert('This category was assigned by an admin and cannot be removed.');
+      return;
+    }
     if (confirm('Are you sure you want to delete this category? This may affect existing activities.')) {
       try {
         // Set deletion flag to prevent useEffect from resetting tempCategories
@@ -453,7 +458,6 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
         // Start user change to pause real-time sync
         startUserChange();
         
-        const categoryToDelete = tempCategories[index];
       const updatedCategories = tempCategories.filter((_, i) => i !== index);
         
       // Update positions
@@ -2006,7 +2010,9 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                               </button>
                               <button
                                 onClick={() => handleDeleteCategory(index)}
-                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors duration-200"
+                                disabled={profile?.admin_preset_categories?.includes(category.name) === true}
+                                title={profile?.admin_preset_categories?.includes(category.name) ? 'Assigned by admin; cannot remove' : 'Delete category'}
+                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>
