@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Download, Edit3, Save, Check, Tag, Clock, Users, ExternalLink, FileText, Trash2, Share2, Target, Link } from 'lucide-react';
+import { X, Download, Edit3, Save, Check, Tag, Clock, Users, ExternalLink, FileText, Trash2, Share2, Target, Link, Loader2 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useSettings } from '../contexts/SettingsContextNew';
 import { ActivityDetails } from './ActivityDetails';
@@ -269,8 +269,8 @@ export function LessonDetailsModal({
               >
                 {isSharingLink ? (
                   <>
-                    <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                    <span className="text-sm font-medium">Creating link...</span>
+                    <Loader2 className="h-5 w-5 animate-spin flex-shrink-0" aria-hidden="true" />
+                    <span className="text-sm font-medium">Creating link…</span>
                   </>
                 ) : (
                   <>

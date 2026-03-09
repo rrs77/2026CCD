@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Download, X, Check, Tag, ChevronDown, Share2, Copy, Link2, Target } from 'lucide-react';
+import { Download, X, Check, Tag, ChevronDown, Share2, Copy, Link2, Target, Loader2 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import type { Activity } from '../contexts/DataContext';
 import { useSettings } from '../contexts/SettingsContextNew';
@@ -1354,21 +1354,17 @@ export function LessonPrintModal({
     // For single lesson, use the useShareLesson hook
     // The hook already checks localStorage internally and will reuse existing URLs
     if (exportMode === 'single' && lessonNumber) {
+      // Show spinner immediately so user knows the action started
+      setIsSharing(true);
+      setShareSuccess(false);
       try {
         console.log('🔄 Starting share process for single lesson:', lessonNumber);
         
         // Check if URL already exists in localStorage before calling shareSingleLesson
-        // This allows us to show the right message (retrieved vs created)
         const storedUrl = getStoredShareUrl ? getStoredShareUrl(lessonNumber) : null;
         const wasStored = !!storedUrl;
         
         console.log('📦 Stored URL check:', { wasStored, storedUrl });
-        
-        // Only set loading state if we're actually generating a new PDF
-        if (!wasStored) {
-          setIsSharing(true);
-          setShareSuccess(false);
-        }
         
         // shareSingleLesson will check localStorage internally and return immediately if found
         const url = await shareSingleLesson(lessonNumber);
@@ -1414,20 +1410,23 @@ export function LessonPrintModal({
         });
         setShareSuccess(false);
         
-        // Provide more helpful error messages
+        // Map known API/server errors to user-friendly messages; otherwise show the real error
         let errorMessage = error.message || 'Failed to create share link';
-        
-        if (error.message?.includes('bucket')) {
-          errorMessage = 'Storage bucket not configured. Please ensure the "lesson-pdfs" bucket exists in Supabase Storage and is set to public.';
-        } else if (error.message?.includes('Service role key')) {
-          errorMessage = 'Server configuration error. Please ensure SUPABASE_SERVICE_ROLE_KEY is set in Vercel environment variables.';
-        } else if (error.message?.includes('Network error') || error.message?.includes('Failed to connect')) {
-          errorMessage = 'Network error. Please check your internet connection and try again.';
+        const msg = error.message ?? '';
+        if (msg.includes('BLOB_READ_WRITE_TOKEN') || msg.includes('Blob store')) {
+          errorMessage = 'Vercel Blob Storage not set up. In Vercel Dashboard: Storage → Create Blob Store, then redeploy.';
+        } else if (msg.includes('PDFBOLT_API_KEY') || msg.includes('VITE_PDFBOLT_API_KEY')) {
+          errorMessage = 'PDF API key missing. Set PDFBOLT_API_KEY (or VITE_PDFBOLT_API_KEY) in Vercel environment variables, then redeploy.';
+        } else if (msg.includes('bucket')) {
+          errorMessage = 'Storage not configured. Create a Blob store in Vercel Dashboard → Storage.';
+        } else if (msg.includes('Service role key') || msg.includes('SUPABASE_SERVICE_ROLE')) {
+          errorMessage = 'Set SUPABASE_SERVICE_ROLE_KEY in Vercel environment variables and redeploy.';
+        } else if (msg.includes('Network error') || msg.includes('Failed to connect') || msg.includes('fetch')) {
+          errorMessage = 'Cannot reach the PDF service. Check your connection and that the app is deployed (Create Link works on the live site, not always in local dev).';
+        } else if (msg.includes('404') || msg.includes('not found')) {
+          errorMessage = 'PDF API not found. Deploy the project to Vercel and ensure api/generate-pdf is deployed. In local dev, set VITE_VERCEL_URL in .env to your deployed URL.';
         }
-        
-        toast.error(errorMessage, {
-          duration: 8000,
-        });
+        toast.error(errorMessage, { duration: 10000 });
       } finally {
         setIsSharing(false);
         // Note: isSharingSingle is managed by the useShareLesson hook internally
@@ -1554,14 +1553,17 @@ export function LessonPrintModal({
         }
       }, 100);
 
-      // Copy to clipboard directly - NO native sharing, NO window.open, NO auto-open
-      // This is the ONLY action allowed - clipboard copy only
+      // Copy to clipboard (may fail after async; user can click Copy button for a fresh gesture)
       const clipboardSuccess = await copyToClipboard(publicUrl);
-      
-      if (!clipboardSuccess) {
-        throw new Error('Failed to copy URL to clipboard. Please copy it manually from the URL shown.');
+      if (clipboardSuccess) {
+        toast.success('Shareable URL copied to clipboard!', { duration: 3000, icon: '📋' });
+      } else {
+        toast('Link ready! Click the Copy button below to copy the URL.', {
+          duration: 6000,
+          icon: '🔗',
+        });
       }
-      
+
       // Store the URL for future retrieval
       try {
         localStorage.setItem(`share-url-unit-${unitId || halfTermId || 'unknown'}`, JSON.stringify({
@@ -1583,38 +1585,48 @@ export function LessonPrintModal({
   };
 
   const copyToClipboard = async (text: string): Promise<boolean> => {
+    if (!text) return false;
     try {
-      await navigator.clipboard.writeText(text);
-      toast.success('Shareable URL copied to clipboard!', {
-        duration: 3000,
-        icon: '📋',
-      });
-      return true;
-    } catch (error) {
-      console.error('Failed to copy to clipboard:', error);
-      // Fallback: create a temporary textarea
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      try {
-        document.execCommand('copy');
-        toast.success('Shareable URL copied to clipboard!', {
-          duration: 3000,
-          icon: '📋',
-        });
-        document.body.removeChild(textarea);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        toast.success('URL copied to clipboard!', { duration: 3000, icon: '📋' });
         return true;
-      } catch (err) {
-        toast.error(`Failed to copy URL. Here it is: ${text}`, {
-          duration: 8000,
-        });
-        document.body.removeChild(textarea);
-        return false;
       }
+    } catch (_) {}
+    // Fallback when clipboard API is blocked (e.g. after async, or non-HTTPS)
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '0';
+      ta.style.left = '0';
+      ta.style.width = '2em';
+      ta.style.height = '2em';
+      ta.style.padding = '0';
+      ta.style.border = 'none';
+      ta.style.outline = 'none';
+      ta.style.boxShadow = 'none';
+      ta.style.background = 'transparent';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      ta.setSelectionRange(0, text.length);
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (ok) {
+        toast.success('URL copied to clipboard!', { duration: 3000, icon: '📋' });
+        return true;
+      }
+    } catch (err) {
+      if (import.meta.env.DEV) console.warn('Clipboard fallback failed:', err);
     }
+    toast('Could not copy automatically. Please select and copy the URL above.', {
+      duration: 6000,
+      icon: '🔗',
+    });
+    return false;
   };
 
   // When autoDownload is true, run export once then close (no preview)
@@ -1782,8 +1794,8 @@ export function LessonPrintModal({
                 >
                   {isExporting ? (
                       <>
-                        <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                        <span>Exporting...</span>
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                        <span>Exporting…</span>
                       </>
                   ) : exportSuccess ? (
                       <>
@@ -1814,8 +1826,8 @@ export function LessonPrintModal({
                 >
                   {(isSharing || isSharingSingle) ? (
                       <>
-                        <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                        <span>Copying...</span>
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                        <span>Creating link…</span>
                       </>
                   ) : shareSuccess ? (
                       <>

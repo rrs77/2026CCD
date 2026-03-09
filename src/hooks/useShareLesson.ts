@@ -370,46 +370,44 @@ export function useShareLesson() {
     return btoa(binaryString);
   };
 
-  // Copy to clipboard
-  // IMPORTANT: Native sharing (navigator.share) is intentionally disabled by design.
-  // This function ONLY copies to clipboard - no native share dialogs, no window.open, no auto-open.
+  // Copy to clipboard (works best when called from a direct user gesture; may fail after async delay).
   const copyToClipboard = async (text: string): Promise<boolean> => {
-    // Defensive guard: explicitly prevent native sharing
-    if ('share' in navigator) {
-      console.warn('Native share API detected but intentionally disabled - using clipboard only');
-    }
-    
+    if (!text) return false;
     try {
-      // Try modern clipboard API first
-      await navigator.clipboard.writeText(text);
-      // Verify it worked by checking clipboard (if possible)
-      return true;
-    } catch (err) {
-      console.warn('Clipboard API failed, trying fallback:', err);
-      // Fallback for older browsers or when clipboard API is blocked
-      try {
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        textArea.style.position = 'fixed';
-        textArea.style.top = '0';
-        textArea.style.left = '0';
-        textArea.style.opacity = '0';
-        textArea.style.pointerEvents = 'none';
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        
-        const successful = document.execCommand('copy');
-        document.body.removeChild(textArea);
-        
-        if (!successful) {
-          throw new Error('execCommand copy failed');
-        }
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
         return true;
-      } catch (fallbackErr) {
-        console.error('Fallback clipboard copy failed:', fallbackErr);
-        return false;
       }
+    } catch (err) {
+      if (import.meta.env.DEV) console.warn('Clipboard API failed, trying fallback:', err);
+    }
+    // Fallback: execCommand works in more contexts and when clipboard API is blocked (e.g. after async)
+    try {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.setAttribute('readonly', '');
+      textArea.style.position = 'fixed';
+      textArea.style.top = '0';
+      textArea.style.left = '0';
+      textArea.style.width = '2em';
+      textArea.style.height = '2em';
+      textArea.style.padding = '0';
+      textArea.style.border = 'none';
+      textArea.style.outline = 'none';
+      textArea.style.boxShadow = 'none';
+      textArea.style.background = 'transparent';
+      textArea.style.opacity = '0';
+      textArea.style.pointerEvents = 'none';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      textArea.setSelectionRange(0, text.length);
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      return !!successful;
+    } catch (fallbackErr) {
+      if (import.meta.env.DEV) console.warn('Fallback clipboard copy failed:', fallbackErr);
+      return false;
     }
   };
 
@@ -445,13 +443,18 @@ export function useShareLesson() {
     setShareError(null);
 
     try {
-      // Generate HTML content
-      // Note: Vercel Blob Storage is automatically available when configured in Vercel Dashboard
-      // No bucket check needed - the API will handle errors if Blob store doesn't exist
+      // Basic validation: need lesson data and some HTML (avoid sending completely empty body)
+      const lessonData = allLessonsData[lessonNumber];
+      if (!lessonData) {
+        throw new Error('No lesson data. Save the lesson and try again.');
+      }
       const [htmlContent, footerContent, headerContent] = generateHTMLContent(lessonNumber);
+      if (htmlContent == null || String(htmlContent).length === 0) {
+        throw new Error('Lesson has no content to export. Add activities or content first.');
+      }
       const encodedHtml = encodeUnicodeBase64(htmlContent);
-      const encodedFooter = encodeUnicodeBase64(footerContent);
-      const encodedHeader = encodeUnicodeBase64(headerContent);
+      const encodedFooter = encodeUnicodeBase64(footerContent || '');
+      const encodedHeader = encodeUnicodeBase64(headerContent || '');
 
       // Generate filename
       const getLessonDisplayNumber = (num: string): string => {
@@ -540,23 +543,29 @@ export function useShareLesson() {
         throw new Error(errorData.error || `Upload failed: ${uploadResponse.status}`);
       }
 
-      const responseData = await uploadResponse.json();
-      const publicUrl = responseData.url || responseData.publicUrl;
-      
-      if (!publicUrl) {
-        throw new Error('No URL returned from upload function');
+      let responseData: { url?: string; publicUrl?: string; error?: string };
+      try {
+        responseData = await uploadResponse.json();
+      } catch (parseErr) {
+        throw new Error(
+          'PDF service returned an invalid response. The server may be misconfigured—check Vercel function logs.'
+        );
+      }
+      const publicUrl = responseData?.url ?? responseData?.publicUrl;
+      if (!publicUrl || typeof publicUrl !== 'string') {
+        const serverMsg = responseData?.error ? ` Server: ${responseData.error}` : '';
+        throw new Error(`No share URL was returned.${serverMsg}`);
       }
       
       // Store the URL for future retrieval
       storeShareUrl(lessonNumber, publicUrl);
       setShareUrl(publicUrl);
 
-      // Copy to clipboard directly - NO native sharing, NO window.open, NO auto-open
-      // This is the ONLY action allowed - clipboard copy only
+      // Copy to clipboard (may fail after async when browser requires a user gesture)
       const clipboardSuccess = await copyToClipboard(publicUrl);
-      
       if (!clipboardSuccess) {
-        throw new Error('Failed to copy URL to clipboard. Please copy it manually from the URL shown.');
+        // Don't throw: URL is still shown; user can click the Copy button (fresh gesture) to copy
+        if (import.meta.env.DEV) console.warn('Auto-copy failed; URL is shown for manual copy');
       }
 
       return publicUrl;

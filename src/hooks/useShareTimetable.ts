@@ -199,43 +199,42 @@ export function useShareTimetable() {
     return btoa(binaryString);
   };
 
-  // Copy to clipboard
-  // IMPORTANT: Native sharing (navigator.share) is intentionally disabled by design.
-  // This function ONLY copies to clipboard - no native share dialogs, no window.open, no auto-open.
   const copyToClipboard = async (text: string): Promise<boolean> => {
-    // Defensive guard: explicitly prevent native sharing
-    if ('share' in navigator) {
-      console.warn('Native share API detected but intentionally disabled - using clipboard only');
-    }
-    
+    if (!text) return false;
     try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch (err) {
-      console.warn('Clipboard API failed, trying fallback:', err);
-      try {
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        textArea.style.position = 'fixed';
-        textArea.style.top = '0';
-        textArea.style.left = '0';
-        textArea.style.opacity = '0';
-        textArea.style.pointerEvents = 'none';
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        
-        const successful = document.execCommand('copy');
-        document.body.removeChild(textArea);
-        
-        if (!successful) {
-          throw new Error('execCommand copy failed');
-        }
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
         return true;
-      } catch (fallbackErr) {
-        console.error('Fallback clipboard copy failed:', fallbackErr);
-        return false;
       }
+    } catch (err) {
+      if (import.meta.env.DEV) console.warn('Clipboard API failed, trying fallback:', err);
+    }
+    try {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.setAttribute('readonly', '');
+      textArea.style.position = 'fixed';
+      textArea.style.top = '0';
+      textArea.style.left = '0';
+      textArea.style.width = '2em';
+      textArea.style.height = '2em';
+      textArea.style.padding = '0';
+      textArea.style.border = 'none';
+      textArea.style.outline = 'none';
+      textArea.style.boxShadow = 'none';
+      textArea.style.background = 'transparent';
+      textArea.style.opacity = '0';
+      textArea.style.pointerEvents = 'none';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      textArea.setSelectionRange(0, text.length);
+      const ok = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      return !!ok;
+    } catch (fallbackErr) {
+      if (import.meta.env.DEV) console.warn('Fallback clipboard failed:', fallbackErr);
+      return false;
     }
   };
 
@@ -324,14 +323,10 @@ export function useShareTimetable() {
       }
       setShareUrl(publicUrl);
 
-      // Copy to clipboard directly - NO native sharing, NO window.open, NO auto-open
-      // This is the ONLY action allowed - clipboard copy only
       const clipboardSuccess = await copyToClipboard(publicUrl);
-      
-      if (!clipboardSuccess) {
-        throw new Error('Failed to copy URL to clipboard. Please copy it manually from the URL shown.');
+      if (!clipboardSuccess && import.meta.env.DEV) {
+        console.warn('Auto-copy failed; URL is shown for manual copy');
       }
-
       return publicUrl;
     } catch (error: any) {
       console.error('Share failed:', error);

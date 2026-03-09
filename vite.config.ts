@@ -104,19 +104,20 @@ export default defineConfig({
       host: 'localhost',
       port: 5173,
     },
-    // Proxy API routes to Vercel in development (for local testing)
-    // In production, these routes are handled by Vercel serverless functions
-    proxy: {
-      '/api': {
-        target: process.env.VITE_VERCEL_URL || 'https://your-vercel-app.vercel.app',
-        changeOrigin: true,
-        secure: true,
-        // Only proxy in development if VERCEL_URL is set
-        configure: (proxy, _options) => {
-          // If no VERCEL_URL is set, the proxy will fail gracefully
-          // and the app will try to use the relative path (which works in production)
-        },
-      },
-    },
+    // Proxy /api to deployed Vercel app only when VITE_VERCEL_URL is set (e.g. in .env)
+    // If not set, /api requests 404 locally and the app shows a clear error; Create Link works on the live deployment
+    ...(process.env.VITE_VERCEL_URL
+      ? {
+          proxy: {
+            '/api': {
+              target: process.env.VITE_VERCEL_URL.startsWith('http')
+                ? process.env.VITE_VERCEL_URL
+                : `https://${process.env.VITE_VERCEL_URL}`,
+              changeOrigin: true,
+              secure: true,
+            },
+          },
+        }
+      : {}),
   },
 });

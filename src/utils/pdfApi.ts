@@ -29,6 +29,7 @@ export function getPdfApiUrl(): string {
     console.warn('[pdfApi] Development mode: VITE_VERCEL_URL not set. API route will only work when deployed to Vercel.');
   }
   
-  // In production or if no VITE_VERCEL_URL, use relative path
+  // Production, or dev without VITE_VERCEL_URL: relative path.
+  // In dev this hits the Vite server; proxy only works when VITE_VERCEL_URL is in .env, so Create Link may 404 until then.
   return VERCEL_PDF_PATH;
 }
