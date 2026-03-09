@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Users, Edit2, Loader2, Mail, Plus, X, MoreVertical, ShoppingBag, UserX, Send } from 'lucide-react';
+import { Users, Edit2, Loader2, Mail, Plus, X, MoreVertical, ShoppingBag, UserX, Send, Package } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import { getVercelApiUrl } from '../../utils/apiUrl';
 import { activityPacksApi } from '../../config/api';
@@ -9,6 +9,7 @@ import { useAuth } from '../../hooks/useAuth';
 import type { Profile, ProfileRole, ProfileStatus } from '../../types/auth';
 import { EditUserModal } from './EditUserModal';
 import { ViewPurchasesModal } from './ViewPurchasesModal';
+import { AssignPacksModal } from './AssignPacksModal';
 import toast from 'react-hot-toast';
 
 const BASE_ROLES: { value: ProfileRole; label: string }[] = [
@@ -84,6 +85,7 @@ export function UserManagement() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
   const [viewPurchasesUser, setViewPurchasesUser] = useState<Profile | null>(null);
+  const [assignPacksUser, setAssignPacksUser] = useState<Profile | null>(null);
   const [deleteConfirmUser, setDeleteConfirmUser] = useState<Profile | null>(null);
   const [menuOpenForId, setMenuOpenForId] = useState<string | null>(null);
   const [sendingResetFor, setSendingResetFor] = useState<string | null>(null);
@@ -179,6 +181,14 @@ export function UserManagement() {
     setUsers(prev => prev.map(u => (u.id === editingUser.id ? { ...u, ...updates } : u)));
     setEditingUser(null);
     setMenuOpenForId(null);
+  };
+
+  const handleAssignPacksSave = async (updates: Partial<Profile>) => {
+    if (!assignPacksUser) return;
+    const { error } = await supabase.from('profiles').update(updates).eq('id', assignPacksUser.id);
+    if (error) throw new Error(error.message);
+    setUsers(prev => prev.map(u => (u.id === assignPacksUser.id ? { ...u, ...updates } : u)));
+    setAssignPacksUser(null);
   };
 
   const handleSendResetEmail = async (profile: Profile) => {
@@ -440,6 +450,9 @@ export function UserManagement() {
             <button type="button" onClick={() => { setViewPurchasesUser(menuUser); setMenuOpenForId(null); }} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
               <ShoppingBag className="h-4 w-4" /> View Purchases
             </button>
+            <button type="button" onClick={() => { setAssignPacksUser(menuUser); setMenuOpenForId(null); }} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
+              <Package className="h-4 w-4" /> Assign packs
+            </button>
             <button type="button" onClick={() => handleSendResetEmail(menuUser)} disabled={!menuUser.email?.trim() || sendingResetFor === menuUser.id} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50">
               {sendingResetFor === menuUser.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />} Send Password Reset Email
             </button>
@@ -464,6 +477,14 @@ export function UserManagement() {
       )}
       {viewPurchasesUser && (
         <ViewPurchasesModal user={viewPurchasesUser} onClose={() => setViewPurchasesUser(null)} />
+      )}
+
+      {assignPacksUser && (
+        <AssignPacksModal
+          user={assignPacksUser}
+          onSave={handleAssignPacksSave}
+          onClose={() => setAssignPacksUser(null)}
+        />
       )}
 
       {deleteConfirmUser && (

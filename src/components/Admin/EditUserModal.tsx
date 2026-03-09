@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-import { activityPacksApi } from '../../config/api';
 import type { Profile, ProfileRole, ProfileStatus } from '../../types/auth';
 
 interface EditUserModalProps {
@@ -38,14 +37,8 @@ export function EditUserModal({ user, yearGroupNames, categoryNames, onSave, onC
   const [canManageUsers, setCanManageUsers] = useState(user.can_manage_users);
   const [allowedYearGroups, setAllowedYearGroups] = useState<string[]>(user.allowed_year_groups ?? []);
   const [adminPresetCategories, setAdminPresetCategories] = useState<string[]>(user.admin_preset_categories ?? []);
-  const [adminPresetPackIds, setAdminPresetPackIds] = useState<string[]>(user.admin_preset_activity_pack_ids ?? []);
-  const [packs, setPacks] = useState<{ pack_id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    activityPacksApi.getAllPacksAdmin().then(list => setPacks(list.map(p => ({ pack_id: p.pack_id, name: p.name })))).catch(() => setPacks([]));
-  }, []);
 
   const toggleYearGroup = (name: string) => {
     setAllowedYearGroups(prev =>
@@ -67,7 +60,6 @@ export function EditUserModal({ user, yearGroupNames, categoryNames, onSave, onC
         can_manage_users: canManageUsers,
         allowed_year_groups: allowedYearGroups.length > 0 ? allowedYearGroups : null,
         admin_preset_categories: adminPresetCategories.length > 0 ? adminPresetCategories : null,
-        admin_preset_activity_pack_ids: adminPresetPackIds.length > 0 ? adminPresetPackIds : null,
         updated_at: new Date().toISOString()
       });
       onClose();
@@ -204,28 +196,9 @@ export function EditUserModal({ user, yearGroupNames, categoryNames, onSave, onC
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Assign purchased resources to this user</label>
-            <p className="text-xs text-gray-500 mb-2">Grant access to activity packs (e.g. Commedia, paid resources) so this user has them on their login without purchasing. User cannot remove these.</p>
-            {packs.length > 0 ? (
-              <div className="flex flex-wrap gap-2 max-h-28 overflow-y-auto">
-                {packs.map(p => (
-                  <label key={p.pack_id} className="inline-flex items-center gap-1.5 px-2 py-1 rounded border border-gray-200 bg-gray-50">
-                    <input
-                      type="checkbox"
-                      checked={adminPresetPackIds.includes(p.pack_id)}
-                      onChange={() => setAdminPresetPackIds(prev => prev.includes(p.pack_id) ? prev.filter(id => id !== p.pack_id) : [...prev, p.pack_id])}
-                    />
-                    <span className="text-sm">{p.name}</span>
-                  </label>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                No activity packs yet. Add packs in <strong>Settings → Admin → Activity Packs</strong> (or run the Commedia pack migration in Supabase), then refresh and assign them here.
-              </p>
-            )}
-          </div>
+          <p className="text-xs text-gray-500">
+            To assign activity packs to this user, use the <strong>⋮ Actions</strong> menu → <strong>Assign packs</strong>.
+          </p>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>

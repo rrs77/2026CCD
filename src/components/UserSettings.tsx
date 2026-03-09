@@ -843,8 +843,26 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
             }`}
             style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif', border: 'none', borderLeft: 'none', borderRight: 'none' }}
           >
-            <span className="hidden sm:inline">🛒</span> Purchases
+            <span className="hidden sm:inline">🛒</span> Resource Shop
           </button>
+
+          {/* Users – dedicated tab for superuser/admin: user info, types, password reset */}
+          {showUserManagement && (
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
+                activeTab === 'users'
+                  ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
+              }`}
+              style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif', border: 'none', borderLeft: 'none', borderRight: 'none' }}
+            >
+              <div className="flex items-center space-x-2">
+                <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span>Users</span>
+              </div>
+            </button>
+          )}
 
           {/* Admin – dropdown: General, Resource Links, Data & Backup (all users); Manage Packs, Branding (admin only) */}
           <div className="relative flex-shrink-0" ref={adminMenuRef}>
@@ -918,24 +936,6 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
               </div>
             )}
           </div>
-
-          {/* Users – dedicated tab for superuser/admin: user info, types, password reset */}
-          {showUserManagement && (
-            <button
-              onClick={() => setActiveTab('users')}
-              className={`px-4 sm:px-7 py-3 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-all duration-200 focus:outline-none ${
-                activeTab === 'users'
-                  ? 'text-white bg-gradient-to-r from-teal-500 to-teal-600'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-teal-50'
-              }`}
-              style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif', border: 'none', borderLeft: 'none', borderRight: 'none' }}
-            >
-              <div className="flex items-center space-x-2">
-                <Users className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span>Users</span>
-              </div>
-            </button>
-          )}
 
         </div>
 
@@ -2035,11 +2035,11 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
 
           {activeTab === 'purchases' && (
             <div className="space-y-6">
-              {/* Purchases Header */}
+              {/* Resource Shop Header */}
               <div className="rounded-lg p-6 bg-gradient-to-br from-teal-50 to-cyan-50 border border-teal-200">
                 <div className="flex items-center space-x-3 mb-4">
                   <span className="text-3xl">🛒</span>
-                  <h3 className="text-xl font-bold text-gray-900">Purchase Activity Card Sets</h3>
+                  <h3 className="text-xl font-bold text-gray-900">Resource Shop</h3>
                 </div>
                 <p className="text-sm text-gray-700 mb-2">
                   Expand your curriculum with specialised activity card sets. Each set includes professionally designed activities tailored to specific subjects and age groups.
