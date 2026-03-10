@@ -40,11 +40,11 @@ export function ResetPasswordPage() {
       }
       timeoutId = setTimeout(() => {
         supabase.auth.getSession().then(({ data: { session: s } }) => applySession(s));
-      }, 500);
+      }, 800);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) applySession(session);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' || session) applySession(session);
     });
 
     return () => {
@@ -69,9 +69,10 @@ export function ResetPasswordPage() {
       const { error: err } = await supabase.auth.updateUser({ password });
       if (err) throw new Error(err.message);
       setSuccess(true);
+      await supabase.auth.signOut();
       setTimeout(() => {
         window.location.href = '/';
-      }, 2000);
+      }, 2500);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to update password';
       if (msg.toLowerCase().includes('same') || msg.toLowerCase().includes('different')) {
@@ -138,9 +139,14 @@ export function ResetPasswordPage() {
         </div>
         <div className="bg-white rounded-2xl shadow-xl p-8">
           {success ? (
-            <p className="text-green-700 bg-green-50 p-4 rounded-lg text-center">
-              Password updated. Taking you into the app…
-            </p>
+            <div className="space-y-3 text-center">
+              <p className="text-green-700 bg-green-50 p-4 rounded-lg">
+                Password updated successfully.
+              </p>
+              <p className="text-sm text-gray-600">
+                You will be taken to the sign-in page. Use your new password to log in.
+              </p>
+            </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
               <h2 className="text-lg font-semibold text-gray-900">Set new password</h2>
