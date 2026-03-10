@@ -1748,6 +1748,10 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
     // Supabase save is now handled automatically in the useEffect hook
   };
 
+  const updateYearGroupBands = React.useCallback((bands: YearGroupBand[]) => {
+    setYearGroupBands(bands);
+  }, []);
+
   // Manual sync function to force refresh from Supabase
   const forceSyncYearGroups = async () => {
     if (isSupabaseConfigured()) {

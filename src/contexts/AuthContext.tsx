@@ -272,11 +272,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
           password
         });
         if (error) {
-          const msg = error.message || 'Sign-in failed';
-          if (msg.toLowerCase().includes('invalid') && msg.toLowerCase().includes('credential')) {
-            throw new Error('Email or password incorrect. Try again or use Forgot password.');
-          }
-          throw new Error(msg);
+          const msg = (error.message || '').toLowerCase();
+          const isWrongPassword = /invalid|credential|wrong|incorrect|login credentials/.test(msg);
+          throw new Error(isWrongPassword ? 'Email or password incorrect. Try again or use Forgot password.' : (error.message || 'Sign-in failed'));
         }
         if (!data.session?.user) throw new Error('No session after sign in');
         // Timeout so we never hang on slow profiles table – use session data if profile times out

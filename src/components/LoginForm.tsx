@@ -55,7 +55,8 @@ export function LoginForm() {
         ),
       ]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      const message = err instanceof Error ? err.message : 'Login failed';
+      setError(message || 'Email or password incorrect. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -165,7 +166,11 @@ export function LoginForm() {
           {showForgotPassword ? (
             <div className="space-y-6">
               <h2 className="text-lg font-semibold text-gray-900">Forgot password?</h2>
-              {forgotSent ? (
+              {!isSupabaseAuthEnabled() ? (
+                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 p-4 rounded-lg">
+                  Password reset is not available because email sign-in is disabled for this site. Contact your administrator or enable Supabase Auth to use reset.
+                </p>
+              ) : forgotSent ? (
                 <p className="text-sm text-green-700 bg-green-50 p-4 rounded-lg">Check your email. We sent a link to reset your password.</p>
               ) : (
                 <form onSubmit={handleForgotPassword} className="space-y-4">
@@ -249,48 +254,8 @@ export function LoginForm() {
                 </button>
               </div>
             </div>
-            {isSupabaseAuthEnabled() && (
-              <div>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={staySignedIn}
-                    onChange={(e) => setStaySignedIn(e.target.checked)}
-                    className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
-                  />
-                  <span className="text-sm text-gray-700">Stay signed in on this device</span>
-                </label>
-                <p className="text-xs text-gray-500 mt-1 ml-6">Uncheck on a shared computer to require your password each time.</p>
-              </div>
-            )}
-            {/* Forgot password – only when Supabase Auth is enabled (same as login method) */}
-            {isSupabaseAuthEnabled() && (
-              <div className="flex flex-col items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setShowForgotPassword(true)}
-                  className="text-sm font-semibold hover:underline focus:outline-none focus:ring-2 focus:ring-offset-1 rounded px-1"
-                  style={{ color: loginButtonColor }}
-                >
-                  Forgot password?
-                </button>
-              </div>
-            )}
-            {isSupabaseConfigured() && !isSupabaseAuthEnabled() && (
-              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                Email/password sign-in is off. Set VITE_USE_SUPABASE_AUTH=true in your environment and redeploy to sign in and use password reset.
-              </p>
-            )}
 
-            {/* Supabase Auth status – only when checking or when there's a problem */}
-            {isSupabaseAuthEnabled() && authStatus && authStatus !== 'ok' && (
-              <div className={`p-2 rounded-lg text-xs ${authStatus === 'fail' ? 'bg-amber-50 text-amber-800' : 'bg-gray-50 text-gray-600'}`}>
-                {authStatus === 'checking' && 'Checking Supabase…'}
-                {authStatus === 'fail' && `✗ Supabase Auth: ${authError || 'Not reachable'}. Check Supabase Dashboard → Project paused?`}
-              </div>
-            )}
-
-            {/* Error Message */}
+            {/* Error message – show immediately after password so wrong-password is visible */}
             {error && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-lg space-y-2">
                 <div className="flex items-center space-x-2">
@@ -308,6 +273,53 @@ export function LoginForm() {
                     Try again
                   </button>
                 )}
+              </div>
+            )}
+
+            {/* Forgot password – always show when using email/password (Supabase configured) */}
+            {isSupabaseConfigured() && (
+              <div className="flex flex-col items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-sm font-semibold hover:underline focus:outline-none focus:ring-2 focus:ring-offset-1 rounded px-1"
+                  style={{ color: loginButtonColor }}
+                >
+                  Forgot password?
+                </button>
+                {!isSupabaseAuthEnabled() && (
+                  <p className="text-xs text-amber-600 mt-1 text-center">
+                    Reset requires email sign-in to be enabled for your site.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {isSupabaseAuthEnabled() && (
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={staySignedIn}
+                    onChange={(e) => setStaySignedIn(e.target.checked)}
+                    className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                  />
+                  <span className="text-sm text-gray-700">Stay signed in on this device</span>
+                </label>
+                <p className="text-xs text-gray-500 mt-1 ml-6">Uncheck on a shared computer to require your password each time.</p>
+              </div>
+            )}
+            {isSupabaseConfigured() && !isSupabaseAuthEnabled() && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                Email/password sign-in is off. Set VITE_USE_SUPABASE_AUTH=true in your environment and redeploy to sign in and use password reset.
+              </p>
+            )}
+
+            {/* Supabase Auth status – only when checking or when there's a problem */}
+            {isSupabaseAuthEnabled() && authStatus && authStatus !== 'ok' && (
+              <div className={`p-2 rounded-lg text-xs ${authStatus === 'fail' ? 'bg-amber-50 text-amber-800' : 'bg-gray-50 text-gray-600'}`}>
+                {authStatus === 'checking' && 'Checking Supabase…'}
+                {authStatus === 'fail' && `✗ Supabase Auth: ${authError || 'Not reachable'}. Check Supabase Dashboard → Project paused?`}
               </div>
             )}
 
