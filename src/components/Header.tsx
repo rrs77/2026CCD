@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Menu, X, User, LogOut, BookOpen, RefreshCw, Settings, HelpCircle, Download } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Menu, X, User, LogOut, BookOpen, RefreshCw, Settings, HelpCircle, Download, ChevronDown, ChevronRight, Check } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useIsViewOnly } from '../hooks/useIsViewOnly';
 import { useData } from '../contexts/DataContext';
@@ -14,7 +14,10 @@ export function Header() {
   const { user, logout } = useAuth();
   const isViewOnly = useIsViewOnly();
   const { currentSheetInfo, setCurrentSheetInfo, refreshData, loading } = useData();
-  const { settings, getThemeForClass, customYearGroups } = useSettings();
+  const { settings, getThemeForClass, customYearGroups, yearGroupSections } = useSettings();
+  const yearGroupDropdownRef = useRef<HTMLDivElement>(null);
+  const [yearGroupDropdownOpen, setYearGroupDropdownOpen] = useState(false);
+  const [yearGroupSectionsExpanded, setYearGroupSectionsExpanded] = useState<Set<string>>(new Set());
   // Restrict class selector to allowed year groups when admin has set them (user cannot change admin-assigned list)
   const allowedIds = user?.profile?.allowed_year_groups ?? null;
   const yearGroupsForSelector = allowedIds != null && allowedIds.length > 0
@@ -39,6 +42,48 @@ export function Header() {
   const [showWalkthrough, setShowWalkthrough] = useState(false);
   const [showHelpGuide, setShowHelpGuide] = useState(false);
   const [helpGuideSection, setHelpGuideSection] = useState<'activity' | 'lesson' | 'unit' | 'assign' | undefined>(undefined);
+
+  // Sections that have at least one year group the user can access (only show key stages with resources)
+  const selectorIdSet = new Set(yearGroupsForSelector.map(g => g.id));
+  const visibleSections = React.useMemo(() => {
+    return [...yearGroupSections]
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .filter(section => section.yearGroupIds.some(id => selectorIdSet.has(id)))
+      .map(section => ({
+        ...section,
+        groups: section.yearGroupIds
+          .map(id => yearGroupsForSelector.find(g => g.id === id))
+          .filter((g): g is { id: string; name: string; color?: string } => Boolean(g))
+      }));
+  }, [yearGroupSections, yearGroupsForSelector]);
+
+  const toggleSectionExpanded = (sectionId: string) => {
+    setYearGroupSectionsExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(sectionId)) next.delete(sectionId);
+      else next.add(sectionId);
+      return next;
+    });
+  };
+
+  const selectYearGroup = (group: { id: string; name: string }) => {
+    const newSheetInfo = { sheet: group.id, display: group.name, eyfs: `${group.id} Statements` };
+    setCurrentSheetInfo(newSheetInfo);
+    localStorage.setItem('currentSheetInfo', JSON.stringify(newSheetInfo));
+    setYearGroupDropdownOpen(false);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (yearGroupDropdownRef.current && !yearGroupDropdownRef.current.contains(e.target as Node)) {
+        setYearGroupDropdownOpen(false);
+      }
+    };
+    if (yearGroupDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [yearGroupDropdownOpen]);
 
   // Get theme colors for current class
   const theme = getThemeForClass(currentSheetInfo.sheet);
@@ -74,37 +119,56 @@ export function Header() {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-1 lg:space-x-2 flex-shrink-0">
-              {/* Year Group Selector */}
-              <div className="relative min-w-0">
-                <select
-                  value={currentSheetInfo.sheet}
-                  onChange={(e) => {
-                    const selected = yearGroupsForSelector.find(group => group.id === e.target.value);
-                    if (selected) {
-                      const newSheetInfo = {
-                        sheet: selected.id,
-                        display: selected.name,
-                        eyfs: `${selected.id} Statements`
-                      };
-                      setCurrentSheetInfo(newSheetInfo);
-                      
-                      // Save to localStorage so it persists across sessions
-                      localStorage.setItem('currentSheetInfo', JSON.stringify(newSheetInfo));
-                    }
-                  }}
-                  className="bg-gray-50 border border-gray-300 text-gray-900 text-xs lg:text-sm rounded-lg focus:border-teal-500 focus:ring-0 focus:outline-none outline-none block w-full p-1.5 lg:p-2 pr-6 lg:pr-8 appearance-none cursor-pointer transition-colors duration-200 hover:bg-gray-100 min-w-[120px] lg:min-w-[180px]"
-                  style={{ outline: 'none', boxShadow: 'none', WebkitAppearance: 'none', MozAppearance: 'none' }}
-                  onFocus={(e) => {
-                    e.target.style.outline = 'none';
-                    e.target.style.boxShadow = 'none';
-                  }}
+              {/* Year Group Selector – collapsible key stages (only sections with resources) */}
+              <div className="relative min-w-0" ref={yearGroupDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setYearGroupDropdownOpen(prev => !prev)}
+                  className="bg-gray-50 border border-gray-300 text-gray-900 text-xs lg:text-sm rounded-lg focus:border-teal-500 focus:ring-0 focus:outline-none px-3 py-1.5 lg:py-2 pr-8 flex items-center justify-between gap-2 min-w-[120px] lg:min-w-[180px] hover:bg-gray-100 transition-colors"
                 >
-                  {yearGroupsForSelector.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
-                    </option>
-                  ))}
-                </select>
+                  <span className="truncate">{currentSheetInfo.display || currentSheetInfo.sheet}</span>
+                  <ChevronDown className={`h-4 w-4 flex-shrink-0 text-gray-500 transition-transform ${yearGroupDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {yearGroupDropdownOpen && visibleSections.length > 0 && (
+                  <div className="absolute top-full left-0 mt-1 w-64 max-h-[70vh] overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+                    {visibleSections.map((section) => {
+                      const isExpanded = yearGroupSectionsExpanded.has(section.id);
+                      return (
+                        <div key={section.id} className="border-b border-gray-100 last:border-b-0">
+                          <button
+                            type="button"
+                            onClick={() => toggleSectionExpanded(section.id)}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                          >
+                            {isExpanded ? <ChevronDown className="h-4 w-4 flex-shrink-0" /> : <ChevronRight className="h-4 w-4 flex-shrink-0" />}
+                            <span>{section.label}</span>
+                            <span className="text-xs font-normal text-gray-500">({section.groups.length})</span>
+                          </button>
+                          {isExpanded && (
+                            <div className="pb-1">
+                              {section.groups.map((group) => (
+                                <button
+                                  key={group.id}
+                                  type="button"
+                                  onClick={() => selectYearGroup(group)}
+                                  className={`w-full flex items-center gap-2 px-3 py-2 pl-8 text-left text-sm hover:bg-teal-50 ${currentSheetInfo.sheet === group.id ? 'bg-teal-50 text-teal-800 font-medium' : 'text-gray-700'}`}
+                                >
+                                  {currentSheetInfo.sheet === group.id && <Check className="h-4 w-4 flex-shrink-0 text-teal-600" />}
+                                  <span className={currentSheetInfo.sheet === group.id ? 'font-medium' : ''}>{group.name}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {yearGroupDropdownOpen && visibleSections.length === 0 && (
+                  <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-3 text-sm text-gray-500">
+                    No year groups. Add and assign key stages in Settings → Year Groups.
+                  </div>
+                )}
               </div>
 
               {/* Install App Button */}
@@ -192,36 +256,47 @@ export function Header() {
           {mobileMenuOpen && (
             <div className="md:hidden py-4 border-t border-gray-200">
               <div className="space-y-4">
-                {/* Year Group Selector Mobile */}
+                {/* Year Group Selector Mobile – collapsible key stages */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Select Year Group
                   </label>
-                  <select
-                    value={currentSheetInfo.sheet}
-                    onChange={(e) => {
-                      const selected = yearGroupsForSelector.find(group => group.id === e.target.value);
-                      if (selected) {
-                        setCurrentSheetInfo({
-                          sheet: selected.id,
-                          display: selected.name,
-                          eyfs: `${selected.id} Statements`
-                        });
-                      }
-                    }}
-                    className="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:border-teal-500 focus:ring-0 focus:outline-none outline-none block p-2.5"
-                    style={{ outline: 'none', boxShadow: 'none', WebkitAppearance: 'none', MozAppearance: 'none' }}
-                    onFocus={(e) => {
-                      e.target.style.outline = 'none';
-                      e.target.style.boxShadow = 'none';
-                    }}
-                  >
-                    {yearGroupsForSelector.map((group) => (
-                      <option key={group.id} value={group.id}>
-                        {group.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="space-y-1 border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
+                    {visibleSections.map((section) => {
+                      const isExpanded = yearGroupSectionsExpanded.has(section.id);
+                      return (
+                        <div key={section.id}>
+                          <button
+                            type="button"
+                            onClick={() => toggleSectionExpanded(section.id)}
+                            className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 border-b border-gray-100"
+                          >
+                            {isExpanded ? <ChevronDown className="h-4 w-4 flex-shrink-0" /> : <ChevronRight className="h-4 w-4 flex-shrink-0" />}
+                            <span>{section.label}</span>
+                            <span className="text-xs font-normal text-gray-500">({section.groups.length})</span>
+                          </button>
+                          {isExpanded && (
+                            <div className="bg-gray-50">
+                              {section.groups.map((group) => (
+                                <button
+                                  key={group.id}
+                                  type="button"
+                                  onClick={() => { selectYearGroup(group); setMobileMenuOpen(false); }}
+                                  className={`w-full flex items-center gap-2 px-3 py-2 pl-8 text-left text-sm ${currentSheetInfo.sheet === group.id ? 'bg-teal-100 text-teal-800 font-medium' : 'text-gray-700 hover:bg-gray-100'}`}
+                                >
+                                  {currentSheetInfo.sheet === group.id && <Check className="h-4 w-4 flex-shrink-0 text-teal-600" />}
+                                  {group.name}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {visibleSections.length === 0 && (
+                      <p className="px-3 py-2 text-sm text-gray-500">No year groups. Add key stages in Settings.</p>
+                    )}
+                  </div>
                 </div>
 
                 {/* User Info Mobile */}

@@ -366,16 +366,16 @@ const DEFAULT_SECTION_LABELS = [
   { id: 'other', label: 'Other', sortOrder: 5 },
 ];
 
-/** Assign a year group id to a section key by name/id pattern. */
+/** Assign a year group id to a section key by name/id pattern. EYFS=LKG/UKG/Reception, KS1=1-2, KS2=3-6, KS3=7-9, KS4=10-11. Drama/Music follow the same key stage as the year. */
 function getDefaultSectionIdForYearGroup(id: string, name: string): string {
   const n = name || id || '';
   const lower = n.toLowerCase();
-  if (['lkg', 'ukg', 'lower kindergarten', 'upper kindergarten', 'reception'].some(k => lower.includes(k)) && !lower.includes('drama')) return 'eyfs';
-  if (lower.includes('year 1') || lower.includes('year1')) return lower.includes('drama') ? 'other' : 'ks1';
-  if (lower.includes('year 2') || lower.includes('year2')) return lower.includes('drama') ? 'other' : 'ks1';
-  if (['year 3', 'year 4', 'year 5', 'year 6'].some(y => lower.includes(y.replace(' ', '')) || lower.includes(y))) return lower.includes('drama') ? 'other' : 'ks2';
-  if (['year 7', 'year 8', 'year 9'].some(y => lower.includes(y.replace(' ', '')) || lower.includes(y))) return lower.includes('drama') ? 'other' : 'ks3';
-  if (['year 10', 'year 11'].some(y => lower.includes(y.replace(' ', '')) || lower.includes(y))) return lower.includes('drama') ? 'other' : 'ks4';
+  if (['lkg', 'ukg', 'lower kindergarten', 'upper kindergarten', 'reception'].some(k => lower.includes(k))) return 'eyfs';
+  if (lower.includes('year 1') || lower.includes('year1')) return 'ks1';
+  if (lower.includes('year 2') || lower.includes('year2')) return 'ks1';
+  if (['year 3', 'year 4', 'year 5', 'year 6'].some(y => lower.includes(y.replace(' ', '')) || lower.includes(y))) return 'ks2';
+  if (['year 7', 'year 8', 'year 9'].some(y => lower.includes(y.replace(' ', '')) || lower.includes(y))) return 'ks3';
+  if (['year 10', 'year 11'].some(y => lower.includes(y.replace(' ', '')) || lower.includes(y))) return 'ks4';
   return 'other';
 }
 
@@ -392,7 +392,7 @@ function buildDefaultYearGroupSections(yearGroups: YearGroup[]): YearGroupSectio
     id: s.id,
     label: s.label,
     sortOrder: s.sortOrder,
-    collapsed: false,
+    collapsed: true,
     yearGroupIds: bySection.get(s.id) || []
   }));
 }
