@@ -45,25 +45,33 @@ const TERM_LABELS: Record<string, string> = {
 
 const DRAG_TYPE_TIMETABLE_BLOCK = 'timetable-block';
 
-// Continuous time strip: 7:00–18:00, 1.5px per minute (660 min = 990px)
-const DAY_START_MINUTES = 7 * 60;   // 7:00
-const DAY_END_MINUTES = 18 * 60;   // 18:00
-const TOTAL_MINUTES = DAY_END_MINUTES - DAY_START_MINUTES;
 const PX_PER_MINUTE = 1.5;
-const GRID_HEIGHT_PX = TOTAL_MINUTES * PX_PER_MINUTE;
-
-// Hour labels and slot grid (one slot per hour for clear drop targets)
-const HOUR_LABELS = Array.from({ length: 12 }, (_, i) => {
-  const hour = i + 7;
-  return { hour, label: `${hour}:00`, topPx: (hour * 60 - DAY_START_MINUTES) * PX_PER_MINUTE };
-});
-
-const SLOT_DURATION_MINUTES = 60;
-const SLOT_START_TIMES: string[] = Array.from({ length: 11 }, (_, i) => {
-  const h = i + 7;
-  return `${h}:00`;
-}); // 7:00 .. 17:00
 const MIN_SLOT_HEIGHT_PX = 48;
+
+const DEFAULT_DAY_START = '7:00';
+const DEFAULT_DAY_END = '18:00';
+const DEFAULT_SLOT_INTERVAL = 15; // minutes; 5, 15, 30, 60 supported
+
+function parseTimeToMinutes(time: string): number {
+  const [h, m] = time.split(':').map(s => parseInt(s, 10) || 0);
+  return h * 60 + m;
+}
+
+function formatMinutesToTime(totalMinutes: number): string {
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return `${h}:${String(m).padStart(2, '0')}`;
+}
+
+function generateSlotStartTimes(dayStart: string, dayEnd: string, intervalMinutes: number): string[] {
+  const startM = parseTimeToMinutes(dayStart);
+  const endM = parseTimeToMinutes(dayEnd);
+  const out: string[] = [];
+  for (let m = startM; m < endM; m += intervalMinutes) {
+    out.push(formatMinutesToTime(m));
+  }
+  return out;
+}
 
 export function TimetableBuilder({
   isOpen,
@@ -107,6 +115,35 @@ export function TimetableBuilder({
 
   const getStorageKey = (termId: string) => `timetable-${className}-${termId}`;
   const globalFlagKey = () => `timetable-${className}-global`;
+
+  const timeConfigKey = (key: string) => `timetable-${className}-${key}`;
+  const [dayStart, setDayStart] = useState<string>(() => {
+    try { return localStorage.getItem(timeConfigKey('dayStart')) || DEFAULT_DAY_START; } catch { return DEFAULT_DAY_START; }
+  });
+  const [dayEnd, setDayEnd] = useState<string>(() => {
+    try { return localStorage.getItem(timeConfigKey('dayEnd')) || DEFAULT_DAY_END; } catch { return DEFAULT_DAY_END; }
+  });
+  const [slotInterval, setSlotInterval] = useState<number>(() => {
+    try {
+      const v = localStorage.getItem(timeConfigKey('slotInterval'));
+      const n = v ? parseInt(v, 10) : DEFAULT_SLOT_INTERVAL;
+      return [5, 15, 30, 60].includes(n) ? n : DEFAULT_SLOT_INTERVAL;
+    } catch { return DEFAULT_SLOT_INTERVAL; }
+  });
+
+  const persistTimeConfig = (key: string, value: string) => {
+    try { localStorage.setItem(timeConfigKey(key), value); } catch { /* ignore */ }
+  };
+
+  const dayStartMinutes = parseTimeToMinutes(dayStart);
+  const dayEndMinutes = parseTimeToMinutes(dayEnd);
+  const totalMinutes = Math.max(0, dayEndMinutes - dayStartMinutes);
+  const gridHeightPx = totalMinutes * PX_PER_MINUTE;
+  const slotStartTimes = useMemo(
+    () => generateSlotStartTimes(dayStart, dayEnd, slotInterval),
+    [dayStart, dayEnd, slotInterval]
+  );
+  const slotDurationMinutes = slotInterval;
 
   const [isGlobalTimetable, setIsGlobalTimetable] = useState<boolean>(() => {
     try {
@@ -278,11 +315,13 @@ export function TimetableBuilder({
   };
 
   const handleAddYearGroup = (day: number, timeSlot: string, yearGroup: any) => {
+    const startM = parseTimeToMinutes(timeSlot);
+    const endM = Math.min(dayEndMinutes, startM + slotDurationMinutes);
     const newClass: TimetableClass = {
       id: `class-${Date.now()}`,
       day,
       startTime: timeSlot,
-      endTime: `${parseInt(timeSlot.split(':')[0]) + 1}:${timeSlot.split(':')[1] || '00'}`,
+      endTime: formatMinutesToTime(endM),
       className: yearGroup.name,
       location: '',
       color: yearGroup.color || getThemeForClass(className).primary,
@@ -296,12 +335,13 @@ export function TimetableBuilder({
   const handleAddNonCurriculum = (day: number, timeSlot: string) => {
     const name = prompt('Enter name for non-curriculum time (e.g., Break, Lunch, Club):');
     if (!name) return;
-    
+    const startM = parseTimeToMinutes(timeSlot);
+    const endM = Math.min(dayEndMinutes, startM + slotDurationMinutes);
     const newClass: TimetableClass = {
       id: `class-${Date.now()}`,
       day,
       startTime: timeSlot,
-      endTime: `${parseInt(timeSlot.split(':')[0]) + 1}:${timeSlot.split(':')[1] || '00'}`,
+      endTime: formatMinutesToTime(endM),
       className: name,
       location: '',
       color: '#9CA3AF', // Gray for non-curriculum
@@ -352,7 +392,7 @@ export function TimetableBuilder({
     if (!cls) return;
     const durationMin = timeToMinutes(cls.endTime) - timeToMinutes(cls.startTime);
     const newStartMin = timeToMinutes(newStartTime);
-    const newEndMin = Math.min(DAY_END_MINUTES, newStartMin + Math.max(5, durationMin));
+    const newEndMin = Math.min(dayEndMinutes, newStartMin + Math.max(5, durationMin));
     const newEndTime = minutesToTime(newEndMin);
     saveTimetable(timetableClasses.map(c =>
       c.id === classId ? { ...c, day: newDay, startTime: newStartTime, endTime: newEndTime } : c
@@ -468,6 +508,59 @@ export function TimetableBuilder({
                 {isGlobalTimetable
                   ? 'One timetable for the whole year. Uncheck above to edit per term.'
                   : 'Each term has its own timetable. Change semester to view or edit that term.'}
+              </p>
+            </div>
+
+            {/* Grid times – customisable so lessons can start at e.g. 2:15 or 4:05 */}
+            <div className="p-4 border-b border-gray-200 bg-white">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase mb-2">Grid times</h3>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <div>
+                  <label className="block text-xs text-gray-600 mb-0.5">Day start</label>
+                  <input
+                    type="time"
+                    value={normalizeTimeForInput(dayStart)}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setDayStart(v);
+                      persistTimeConfig('dayStart', v);
+                    }}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-0.5">Day end</label>
+                  <input
+                    type="time"
+                    value={normalizeTimeForInput(dayEnd)}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setDayEnd(v);
+                      persistTimeConfig('dayEnd', v);
+                    }}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 mb-0.5">Slot interval</label>
+                <select
+                  value={slotInterval}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    setSlotInterval(v);
+                    persistTimeConfig('slotInterval', String(v));
+                  }}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                >
+                  <option value={5}>5 min</option>
+                  <option value={15}>15 min</option>
+                  <option value={30}>30 min</option>
+                  <option value={60}>60 min</option>
+                </select>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Slots define drop targets. Edit any entry to set times like 2:15 or 4:05.
               </p>
             </div>
 
@@ -629,14 +722,14 @@ export function TimetableBuilder({
               className="flex-1 overflow-auto min-h-0 grid"
               style={{ gridTemplateColumns: `80px repeat(${displayDayIndices.length}, minmax(0, 1fr))` }}
             >
-              {/* Time ruler column with hour grid lines (one row per slot) */}
-              <div className="sticky left-0 z-20 bg-gray-50 border-r border-gray-300 flex flex-col" style={{ height: GRID_HEIGHT_PX }}>
-                {SLOT_START_TIMES.map((slotTime) => (
+              {/* Time ruler column (one row per slot) */}
+              <div className="sticky left-0 z-20 bg-gray-50 border-r border-gray-300 flex flex-col" style={{ height: gridHeightPx }}>
+                {slotStartTimes.map((slotTime) => (
                   <div
                     key={slotTime}
                     className="flex items-center justify-end pr-2 border-b border-gray-200 flex-shrink-0"
                     style={{
-                      height: Math.max(SLOT_DURATION_MINUTES * PX_PER_MINUTE, MIN_SLOT_HEIGHT_PX)
+                      height: Math.max(slotDurationMinutes * PX_PER_MINUTE, MIN_SLOT_HEIGHT_PX)
                     }}
                   >
                     <span className="text-xs text-gray-600 font-medium">{slotTime}</span>
@@ -650,10 +743,12 @@ export function TimetableBuilder({
                 day={dayIndex}
                 dayLabel={viewMode === 'days' ? `Day ${index + 1}` : displayDays[index]}
                 classes={getClassesForDay(dayIndex)}
-                dayStartMinutes={DAY_START_MINUTES}
-                dayEndMinutes={DAY_END_MINUTES}
+                dayStartMinutes={dayStartMinutes}
+                dayEndMinutes={dayEndMinutes}
                 pxPerMinute={PX_PER_MINUTE}
-                gridHeightPx={GRID_HEIGHT_PX}
+                gridHeightPx={gridHeightPx}
+                slotStartTimes={slotStartTimes}
+                slotDurationMinutes={slotDurationMinutes}
                 onAddYearGroup={(timeSlot) => (yearGroup: any) => handleAddYearGroup(dayIndex, timeSlot, yearGroup)}
                 onAddNonCurriculum={(timeSlot) => () => handleAddNonCurriculum(dayIndex, timeSlot)}
                 onEdit={(cls) => setEditingClass(cls)}
@@ -740,6 +835,8 @@ function TimetableDayColumn({
   dayEndMinutes,
   pxPerMinute,
   gridHeightPx,
+  slotStartTimes,
+  slotDurationMinutes,
   onAddYearGroup,
   onAddNonCurriculum,
   onEdit,
@@ -757,6 +854,8 @@ function TimetableDayColumn({
   dayEndMinutes: number;
   pxPerMinute: number;
   gridHeightPx: number;
+  slotStartTimes: string[];
+  slotDurationMinutes: number;
   onAddYearGroup: (timeSlot: string) => (yearGroup: any) => void;
   onAddNonCurriculum: (timeSlot: string) => () => void;
   onEdit: (cls: TimetableClass) => void;
@@ -770,7 +869,7 @@ function TimetableDayColumn({
   const [resizingId, setResizingId] = useState<string | null>(null);
   const columnRef = React.useRef<HTMLDivElement>(null);
 
-  const slotHeightPx = SLOT_DURATION_MINUTES * pxPerMinute;
+  const slotHeightPx = slotDurationMinutes * pxPerMinute;
 
   const [{ isOver, isDraggingBlock }, drop] = useDrop(() => ({
     accept: [DRAG_TYPE_TIMETABLE_BLOCK],
@@ -822,8 +921,8 @@ function TimetableDayColumn({
         style={{ height: gridHeightPx }}
         onClick={handleColumnClick}
       >
-        {/* Grid: one drop target per hour slot */}
-        {SLOT_START_TIMES.map((slotTime) => (
+        {/* Grid: one drop target per slot */}
+        {slotStartTimes.map((slotTime) => (
           <TimetableSlotRow
             key={slotTime}
             slotTime={slotTime}
