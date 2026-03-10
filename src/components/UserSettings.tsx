@@ -743,6 +743,21 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
     });
   };
 
+  /** Drop a year group onto a key stage section (header or empty area) to move it into that section. */
+  const handleYearGroupDropOnSection = (draggedId: string, sectionId: string) => {
+    if (!draggedId) return;
+    const targetSection = yearGroupSections.find(s => s.id === sectionId);
+    const sourceSection = yearGroupSections.find(s => s.yearGroupIds.includes(draggedId));
+    if (!targetSection) return;
+    if (sourceSection?.id === sectionId) return;
+    updateYearGroupSections(prev => prev.map(s => {
+      if (s.id === sectionId) return { ...s, yearGroupIds: [...(s.yearGroupIds || []), draggedId], collapsed: false };
+      if (sourceSection && s.id === sourceSection.id) return { ...s, yearGroupIds: s.yearGroupIds.filter(id => id !== draggedId) };
+      return s;
+    }));
+    setDraggedYearGroup(null);
+  };
+
   const handleYearGroupDrop = async (e: React.DragEvent, targetId: string) => {
     e.preventDefault();
     if (!draggedYearGroup || draggedYearGroup === targetId) return;
@@ -1193,6 +1208,16 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                         .filter(Boolean) as typeof tempYearGroups;
                       return (
                         <div key={section.id} className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+                          <div
+                            onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              const id = draggedYearGroup || e.dataTransfer.getData('text/plain') || null;
+                              if (id) handleYearGroupDropOnSection(id, section.id);
+                              handleYearGroupDragEnd();
+                            }}
+                            className="w-full"
+                          >
                           <button
                             type="button"
                             onClick={() => updateYearGroupSections(prev => prev.map(s => s.id === section.id ? { ...s, collapsed: !s.collapsed } : s))}
@@ -1260,10 +1285,22 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                             )}
                             <span className="text-xs text-gray-500">({yearGroupsInSection.length})</span>
                           </button>
+                          </div>
                           {!section.collapsed && (
                             <div className="p-2 pt-0 space-y-1.5 border-t border-gray-100">
                               {yearGroupsInSection.length === 0 ? (
-                                <p className="text-sm text-gray-500 py-2 px-2">No year groups in this section. Add year groups above, then drag them here.</p>
+                                <div
+                                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                                  onDrop={(e) => {
+                                    e.preventDefault();
+                                    const id = draggedYearGroup || e.dataTransfer.getData('text/plain') || null;
+                                    if (id) handleYearGroupDropOnSection(id, section.id);
+                                    handleYearGroupDragEnd();
+                                  }}
+                                  className="min-h-[3rem] rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center py-3 px-2"
+                                >
+                                  <p className="text-sm text-gray-500 text-center">Drop year groups here, or drag from Other above.</p>
+                                </div>
                               ) : (
                                 yearGroupsInSection.map((yearGroup) => {
                                   const index = tempYearGroups.findIndex(g => g.id === yearGroup.id);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Plus, Save, Trash2, Clock, MapPin, GripVertical, Edit3, Users, BookOpen, Settings, Calendar, ChevronDown, Copy, CopyPlus } from 'lucide-react';
+import { X, Plus, Save, Trash2, Clock, MapPin, GripVertical, Edit3, Users, BookOpen, Settings, Calendar, ChevronDown, ChevronRight, Copy, CopyPlus } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContextNew';
 import { useDrop, useDrag, DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -52,11 +52,18 @@ const TOTAL_MINUTES = DAY_END_MINUTES - DAY_START_MINUTES;
 const PX_PER_MINUTE = 1.5;
 const GRID_HEIGHT_PX = TOTAL_MINUTES * PX_PER_MINUTE;
 
-// Hour labels for the time ruler
+// Hour labels and slot grid (one slot per hour for clear drop targets)
 const HOUR_LABELS = Array.from({ length: 12 }, (_, i) => {
   const hour = i + 7;
   return { hour, label: `${hour}:00`, topPx: (hour * 60 - DAY_START_MINUTES) * PX_PER_MINUTE };
 });
+
+const SLOT_DURATION_MINUTES = 60;
+const SLOT_START_TIMES: string[] = Array.from({ length: 11 }, (_, i) => {
+  const h = i + 7;
+  return `${h}:00`;
+}); // 7:00 .. 17:00
+const MIN_SLOT_HEIGHT_PX = 48;
 
 export function TimetableBuilder({
   isOpen,
@@ -65,7 +72,32 @@ export function TimetableBuilder({
   onTimetableUpdate,
   initialEditClass
 }: TimetableBuilderProps) {
-  const { customYearGroups, getThemeForClass } = useSettings();
+  const { customYearGroups, getThemeForClass, yearGroupSections } = useSettings();
+  const [timetableKeyStagesExpanded, setTimetableKeyStagesExpanded] = useState<Set<string>>(new Set());
+
+  const yearGroupsByKeyStage = useMemo(() => {
+    const sections = [...yearGroupSections].sort((a, b) => a.sortOrder - b.sortOrder);
+    return sections
+      .map(section => ({
+        sectionId: section.id,
+        label: section.label,
+        sortOrder: section.sortOrder,
+        yearGroups: (section.yearGroupIds || [])
+          .map(id => customYearGroups.find(g => g.id === id))
+          .filter((g): g is NonNullable<typeof g> => Boolean(g))
+      }))
+      .filter(s => s.yearGroups.length > 0);
+  }, [yearGroupSections, customYearGroups]);
+
+  const toggleTimetableKeyStage = (sectionId: string) => {
+    setTimetableKeyStagesExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(sectionId)) next.delete(sectionId);
+      else next.add(sectionId);
+      return next;
+    });
+  };
+
   const [selectedTermId, setSelectedTermId] = useState<string>('A1');
   const [timetableClasses, setTimetableClasses] = useState<TimetableClass[]>([]);
   const [editingClass, setEditingClass] = useState<TimetableClass | null>(initialEditClass || null);
@@ -463,13 +495,33 @@ export function TimetableBuilder({
                 </button>
               </div>
 
-              {/* Year Groups for Dragging */}
+              {/* Year Groups for Dragging – same key stage structure as Settings */}
               <div className="mb-4">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Drag to Add</h4>
-                <div className="space-y-2">
-                  {customYearGroups.map(yearGroup => (
-                    <DraggableYearGroup key={yearGroup.id} yearGroup={yearGroup} />
-                  ))}
+                <div className="space-y-1">
+                  {yearGroupsByKeyStage.map(({ sectionId, label, yearGroups: sectionYearGroups }) => {
+                    const isExpanded = timetableKeyStagesExpanded.has(sectionId);
+                    return (
+                      <div key={sectionId} className="rounded-lg border border-gray-200 overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => toggleTimetableKeyStage(sectionId)}
+                          className="w-full flex items-center gap-2 px-2.5 py-2 bg-gray-100 hover:bg-gray-200 text-left text-sm font-semibold text-gray-800"
+                        >
+                          {isExpanded ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-500" />}
+                          <span>{label}</span>
+                          <span className="text-xs font-normal text-gray-500">({sectionYearGroups.length})</span>
+                        </button>
+                        {isExpanded && (
+                          <div className="p-2 pt-0 space-y-2 border-t border-gray-100">
+                            {sectionYearGroups.map(yearGroup => (
+                              <DraggableYearGroup key={yearGroup.id} yearGroup={yearGroup} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -577,15 +629,19 @@ export function TimetableBuilder({
               className="flex-1 overflow-auto min-h-0 grid"
               style={{ gridTemplateColumns: `80px repeat(${displayDayIndices.length}, minmax(0, 1fr))` }}
             >
-              {/* Time ruler column */}
-              <div className="sticky left-0 z-20 bg-gray-50 border-r border-gray-300" style={{ height: GRID_HEIGHT_PX }}>
-                <div className="relative" style={{ height: GRID_HEIGHT_PX }}>
-                  {HOUR_LABELS.map(({ hour, label, topPx }) => (
-                    <div key={hour} className="absolute left-1 text-xs text-gray-600 font-medium" style={{ top: topPx }}>
-                      {label}
-                    </div>
-                  ))}
-                </div>
+              {/* Time ruler column with hour grid lines (one row per slot) */}
+              <div className="sticky left-0 z-20 bg-gray-50 border-r border-gray-300 flex flex-col" style={{ height: GRID_HEIGHT_PX }}>
+                {SLOT_START_TIMES.map((slotTime) => (
+                  <div
+                    key={slotTime}
+                    className="flex items-center justify-end pr-2 border-b border-gray-200 flex-shrink-0"
+                    style={{
+                      height: Math.max(SLOT_DURATION_MINUTES * PX_PER_MINUTE, MIN_SLOT_HEIGHT_PX)
+                    }}
+                  >
+                    <span className="text-xs text-gray-600 font-medium">{slotTime}</span>
+                  </div>
+                ))}
               </div>
               {/* Day columns */}
               {displayDayIndices.map((dayIndex, index) => (
@@ -638,7 +694,44 @@ function minutesToTime(totalMinutes: number): string {
   return `${h}:${m.toString().padStart(2, '0')}`;
 }
 
-// Single day column with continuous time and stretchable blocks
+// One grid slot row: drop target for adding a class at this time
+function TimetableSlotRow({
+  slotTime,
+  heightPx,
+  onDropYearGroup,
+  onSelectSlot
+}: {
+  slotTime: string;
+  heightPx: number;
+  onDropYearGroup: (yearGroup: any) => void;
+  onSelectSlot: () => void;
+}) {
+  const [{ isOver }, drop] = useDrop(() => ({
+    accept: 'year-group',
+    drop: (item: any) => onDropYearGroup(item.yearGroup),
+    collect: (monitor) => ({ isOver: monitor.isOver() })
+  }), [slotTime, onDropYearGroup]);
+
+  return (
+    <div
+      ref={drop}
+      data-slot-row
+      className={`border-b border-gray-200 flex items-center justify-center transition-colors cursor-pointer ${
+        isOver ? 'bg-teal-100 border-teal-300' : 'bg-white hover:bg-gray-50'
+      }`}
+      style={{ height: Math.max(heightPx, MIN_SLOT_HEIGHT_PX) }}
+      onClick={(e) => { e.stopPropagation(); onSelectSlot(); }}
+    >
+      {isOver ? (
+        <span className="text-xs font-medium text-teal-700">Drop here</span>
+      ) : (
+        <span className="text-xs text-gray-300 opacity-0 hover:opacity-100" aria-hidden>+</span>
+      )}
+    </div>
+  );
+}
+
+// Single day column: slot grid + overlay of class blocks
 function TimetableDayColumn({
   day,
   dayLabel,
@@ -677,41 +770,36 @@ function TimetableDayColumn({
   const [resizingId, setResizingId] = useState<string | null>(null);
   const columnRef = React.useRef<HTMLDivElement>(null);
 
+  const slotHeightPx = SLOT_DURATION_MINUTES * pxPerMinute;
+
   const [{ isOver, isDraggingBlock }, drop] = useDrop(() => ({
-    accept: [DRAG_TYPE_TIMETABLE_BLOCK, 'year-group'],
+    accept: [DRAG_TYPE_TIMETABLE_BLOCK],
     drop: (item: any, monitor) => {
+      if (item.type !== DRAG_TYPE_TIMETABLE_BLOCK || !item.class || !columnRef.current) return;
       const offset = monitor.getSourceClientOffset();
       const clientOffset = monitor.getClientOffset();
       const dropY = (clientOffset?.y ?? offset?.y) ?? 0;
-      if (!columnRef.current) return;
       const rect = columnRef.current.getBoundingClientRect();
       const scrollEl = columnRef.current.closest('.overflow-auto') as HTMLElement | null;
       const scrollTop = scrollEl?.scrollTop ?? 0;
       const y = dropY - rect.top + scrollTop;
       const minutes = dayStartMinutes + Math.round(y / pxPerMinute);
       const clamped = Math.max(dayStartMinutes, Math.min(dayEndMinutes - 5, minutes));
-      const timeSlot = minutesToTime(clamped);
-
-      if (item.type === DRAG_TYPE_TIMETABLE_BLOCK && item.class) {
-        onMoveClass(item.class.id, day, timeSlot);
-      } else if (item.yearGroup) {
-        onAddYearGroup(timeSlot)(item.yearGroup);
-      }
+      onMoveClass(item.class.id, day, minutesToTime(clamped));
     },
     collect: (monitor) => {
       const item = monitor.getItem() as any;
-      const isBlock = item?.type === DRAG_TYPE_TIMETABLE_BLOCK;
       return {
         isOver: monitor.isOver(),
-        isDraggingBlock: isBlock
+        isDraggingBlock: item?.type === DRAG_TYPE_TIMETABLE_BLOCK
       };
     }
-  }), [day, onAddYearGroup, onMoveClass, pxPerMinute, dayStartMinutes, dayEndMinutes]);
+  }), [day, onMoveClass, pxPerMinute, dayStartMinutes, dayEndMinutes]);
 
   const showDropHint = isOver && isDraggingBlock;
 
   const handleColumnClick = (e: React.MouseEvent) => {
-    if (!columnRef.current || (e.target as HTMLElement).closest('[data-class-block]')) return;
+    if (!columnRef.current || (e.target as HTMLElement).closest('[data-class-block]') || (e.target as HTMLElement).closest('[data-slot-row]')) return;
     const rect = columnRef.current.getBoundingClientRect();
     const y = e.clientY - rect.top - 40;
     const minutes = dayStartMinutes + Math.round(y / pxPerMinute);
@@ -724,16 +812,27 @@ function TimetableDayColumn({
       ref={drop}
       data-day-column
       className={`min-w-0 border-r border-gray-200 relative transition-colors last:border-r-0 ${
-        showDropHint ? 'bg-teal-100 ring-2 ring-teal-400 ring-inset' : isOver ? 'bg-teal-50' : 'bg-white'
+        showDropHint ? 'bg-teal-100 ring-2 ring-teal-400 ring-inset' : 'bg-white'
       }`}
       style={{ height: gridHeightPx }}
     >
       <div
         ref={columnRef}
-        className="relative cursor-pointer"
+        className="relative cursor-pointer flex flex-col"
         style={{ height: gridHeightPx }}
         onClick={handleColumnClick}
       >
+        {/* Grid: one drop target per hour slot */}
+        {SLOT_START_TIMES.map((slotTime) => (
+          <TimetableSlotRow
+            key={slotTime}
+            slotTime={slotTime}
+            heightPx={slotHeightPx}
+            onDropYearGroup={(yg) => onAddYearGroup(slotTime)(yg)}
+            onSelectSlot={() => onSelectSlot(slotTime)}
+          />
+        ))}
+        {/* Class blocks (absolute so they sit on top of slot grid and remain interactive) */}
         {classes.map((cls) => {
           const startMin = timeToMinutes(cls.startTime);
           const endMin = timeToMinutes(cls.endTime);
