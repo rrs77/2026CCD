@@ -108,10 +108,10 @@ export function LessonLibrary({
     loadExampleLessonsFromUrl,
     loadStackIntoSheet
   } = useData();
-  const { getThemeForClass, categories, customYearGroups, settings } = useSettings();
+  const { getThemeForClass, categories, customYearGroups, settings, yearGroupSections } = useSettings();
   const { user, profile } = useAuth();
   const [userPacks, setUserPacks] = useState<string[]>([]);
-  const [packsWithStacks, setPacksWithStacks] = useState<{ pack_id: string; name: string; stack_ids: string[] }[]>([]);
+  const [packsWithStacks, setPacksWithStacks] = useState<{ pack_id: string; name: string; stack_ids: string[]; year_group_sections?: string[] }[]>([]);
   const [loadingExample, setLoadingExample] = useState(false);
   const [addingStackId, setAddingStackId] = useState<string | null>(null);
   const showButtonHelp = settings.showButtonHelp !== false;
@@ -164,7 +164,8 @@ export function LessonLibrary({
   const [showStandaloneLessonCreator, setShowStandaloneLessonCreator] = useState(false);
   const [editingLessonForCreator, setEditingLessonForCreator] = useState<{ lessonNumber: string; lessonData: any } | null>(null);
   
-  // User's activity packs (purchased + admin preset) for showing "Load example pack" when applicable
+  // All lesson packs the user has (bought or assigned via Admin → Assign packs) are treated the same.
+  // Merged list is used for: pack stacks in Lesson Library ("Add unit"), Resource Shop "you have this", etc.
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -184,6 +185,7 @@ export function LessonLibrary({
     return () => { cancelled = true; };
   }, [user?.email, profile?.admin_preset_activity_pack_ids]);
 
+  // Packs that have linked lesson stacks: show "Add unit" in Lesson Library (for all packs user has, bought or assigned).
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -197,7 +199,12 @@ export function LessonLibrary({
           (p: { pack_id: string; stack_ids?: string[] }) =>
             userPacks.includes(p.pack_id) && p.stack_ids && p.stack_ids.length > 0
         );
-        if (!cancelled) setPacksWithStacks(withStacks.map((p: { pack_id: string; name: string; stack_ids?: string[] }) => ({ pack_id: p.pack_id, name: p.name, stack_ids: p.stack_ids || [] })));
+        if (!cancelled) setPacksWithStacks(withStacks.map((p: { pack_id: string; name: string; stack_ids?: string[]; year_group_sections?: string[] }) => ({
+          pack_id: p.pack_id,
+          name: p.name,
+          stack_ids: p.stack_ids || [],
+          year_group_sections: p.year_group_sections
+        })));
       } catch {
         if (!cancelled) setPacksWithStacks([]);
       }
@@ -206,7 +213,12 @@ export function LessonLibrary({
     return () => { cancelled = true; };
   }, [userPacks]);
 
-  const packStackIds = packsWithStacks.flatMap(p => p.stack_ids);
+  // Show "Add unit" only for packs whose year_group_sections include the current class (same for all packs: bought or assigned).
+  const currentSectionId = yearGroupSections.find(s => s.yearGroupIds.includes(currentSheetInfo.sheet))?.id ?? null;
+  const packsVisibleForSection = packsWithStacks.filter(
+    p => !p.year_group_sections?.length || (currentSectionId != null && p.year_group_sections.includes(currentSectionId))
+  );
+  const packStackIds = packsVisibleForSection.flatMap(p => p.stack_ids);
   const stacksFromPacks = stacks.filter(s => packStackIds.includes(s.id));
 
   const handleAddUnitFromPack = async (stack: StackedLesson) => {

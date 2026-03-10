@@ -36,10 +36,22 @@ export function AddSoftwarePackModal({
   const [icon, setIcon] = useState('📦');
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [stackIds, setStackIds] = useState<string[]>([]);
+  const [yearGroupSections, setYearGroupSections] = useState<string[]>([]);
   const [categoriesExpanded, setCategoriesExpanded] = useState(false);
   const [stacks, setStacks] = useState<StackedLesson[]>([]);
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  /** Section ids for "Show in Lesson Library for" (EYFS, KS1–KS5, Other). Empty = all year groups. */
+  const PACK_YEAR_GROUP_SECTIONS = [
+    { id: 'eyfs', label: 'EYFS' },
+    { id: 'ks1', label: 'KS1' },
+    { id: 'ks2', label: 'KS2' },
+    { id: 'ks3', label: 'KS3' },
+    { id: 'ks4', label: 'KS4' },
+    { id: 'ks5', label: 'KS5' },
+    { id: 'other', label: 'Other' },
+  ];
 
   useEffect(() => {
     if (!isOpen) return;
@@ -51,6 +63,7 @@ export function AddSoftwarePackModal({
       setIcon(editingPack.icon ?? '📦');
       setCategoryIds(editingPack.category_ids ?? []);
       setStackIds(editingPack.stack_ids ?? []);
+      setYearGroupSections(editingPack.year_group_sections ?? []);
       setIsActive(editingPack.is_active !== false);
     } else {
       setPackId('');
@@ -60,6 +73,7 @@ export function AddSoftwarePackModal({
       setIcon('📦');
       setCategoryIds([]);
       setStackIds([]);
+      setYearGroupSections([]);
       setIsActive(true);
     }
   }, [isOpen, editingPack]);
@@ -77,6 +91,12 @@ export function AddSoftwarePackModal({
 
   const toggleStack = (id: string) => {
     setStackIds(prev =>
+      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
+    );
+  };
+
+  const toggleYearGroupSection = (id: string) => {
+    setYearGroupSections(prev =>
       prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
     );
   };
@@ -111,6 +131,7 @@ export function AddSoftwarePackModal({
         icon: icon || '📦',
         category_ids: categoryIds,
         stack_ids: stackIds.length > 0 ? stackIds : undefined,
+        year_group_sections: yearGroupSections.length > 0 ? yearGroupSections : undefined,
         is_active: isActive,
         ...(!isEditing && creatorEmail && { creator_email: creatorEmail })
       });
@@ -252,6 +273,33 @@ export function AddSoftwarePackModal({
                 />
                 <span className="text-sm text-gray-700">Available for purchase</span>
               </label>
+            </div>
+
+            {/* Show in Lesson Library for — which year group sections see this pack's stacks */}
+            <div className="border-t border-gray-200 pt-4">
+              <h4 className="text-sm font-semibold text-gray-900 mb-1">Show in Lesson Library for</h4>
+              <p className="text-xs text-gray-600 mb-3">
+                Choose which year group sections can see and add this pack’s units. Leave all unchecked to show for every year group.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {PACK_YEAR_GROUP_SECTIONS.map((section) => {
+                  const isSelected = yearGroupSections.includes(section.id);
+                  return (
+                    <button
+                      key={section.id}
+                      type="button"
+                      onClick={() => toggleYearGroupSection(section.id)}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        isSelected
+                          ? 'bg-teal-600 text-white'
+                          : 'bg-gray-100 border border-gray-300 text-gray-700 hover:border-teal-400'
+                      }`}
+                    >
+                      {section.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Link lesson stacks / units — whole unit in one click for sale */}

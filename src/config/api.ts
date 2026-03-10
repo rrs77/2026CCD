@@ -1801,6 +1801,8 @@ export interface ActivityPack {
   category_ids: string[];
   /** Lesson stack IDs included in this pack; buyers can add these units in one click. */
   stack_ids?: string[];
+  /** Section ids (eyfs, ks1, ks2, ks3, ks4, ks5, other) where this pack appears in Lesson Library; empty = all. */
+  year_group_sections?: string[];
   is_active: boolean;
   /** Email of the creator who owns this pack. Creators can only edit/delete their own. */
   creator_email?: string | null;
@@ -1864,12 +1866,16 @@ export const activityPacksApi = {
   upsertPack: async (pack: Partial<ActivityPack>): Promise<ActivityPack> => {
     if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
     
+    const payload: Record<string, unknown> = {
+      ...pack,
+      updated_at: new Date().toISOString()
+    };
+    if (pack.year_group_sections !== undefined) {
+      payload.year_group_sections = pack.year_group_sections;
+    }
     const { data, error } = await supabase
       .from('activity_packs')
-      .upsert({
-        ...pack,
-        updated_at: new Date().toISOString()
-      })
+      .upsert(payload)
       .select()
       .single();
     
