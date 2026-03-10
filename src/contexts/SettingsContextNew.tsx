@@ -971,11 +971,15 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
             }
             setYearGroupBands(bandsToUse);
             setYearGroupSectionsState(prev => {
-              const merged = mergeSectionsWithYearGroups(prev, deduplicated.map((g: any) => g.id));
+              const loadedIds = deduplicated.map((g: any) => g.id);
+              const hasMatchingIds = prev.length > 0 && prev.some(s => s.yearGroupIds.some((id: string) => loadedIds.includes(id)));
+              const next = hasMatchingIds
+                ? mergeSectionsWithYearGroups(prev, loadedIds)
+                : buildDefaultYearGroupSections(deduplicated);
               try {
-                localStorage.setItem(YEAR_GROUP_SECTIONS_STORAGE_KEY, JSON.stringify(merged));
+                localStorage.setItem(YEAR_GROUP_SECTIONS_STORAGE_KEY, JSON.stringify(next));
               } catch (_) {}
-              return merged;
+              return next;
             });
             console.log('📦 Loaded year groups from Supabase:', deduplicated.length, '(deduplicated from', formattedYearGroups.length, ')');
             localStorage.setItem('year-group-bands', JSON.stringify(bandsToUse));

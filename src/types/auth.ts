@@ -2,7 +2,7 @@
  * Profile row from public.profiles (Supabase Auth).
  * id matches auth.users(id).
  */
-export type ProfileRole = 'admin' | 'teacher' | 'viewer' | 'student' | 'superuser';
+export type ProfileRole = 'admin' | 'teacher' | 'viewer' | 'student' | 'superuser' | 'creator';
 
 export type ProfileStatus = 'active' | 'invited' | 'suspended';
 

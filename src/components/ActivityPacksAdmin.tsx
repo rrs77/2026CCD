@@ -7,14 +7,20 @@ import toast from 'react-hot-toast';
 
 interface ActivityPacksAdminProps {
   userEmail: string;
+  /** User is a creator (can add packs and edit only their own). */
+  isCreator: boolean;
+  /** User is admin/superuser (can see and edit all packs). */
+  isAdmin: boolean;
 }
 
-export const ActivityPacksAdmin: React.FC<ActivityPacksAdminProps> = ({ userEmail }) => {
+export const ActivityPacksAdmin: React.FC<ActivityPacksAdminProps> = ({ userEmail, isCreator, isAdmin }) => {
   const { categories } = useSettings();
   const [packs, setPacks] = useState<ActivityPack[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingPack, setEditingPack] = useState<Partial<ActivityPack> | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const canAddPack = isCreator || isAdmin;
+  const canEditPack = (pack: ActivityPack) => isAdmin || (isCreator && pack.creator_email === userEmail);
   
   // Purchase management
   const [purchases, setPurchases] = useState<UserPurchase[]>([]);
@@ -29,13 +35,17 @@ export const ActivityPacksAdmin: React.FC<ActivityPacksAdminProps> = ({ userEmai
 
   useEffect(() => {
     loadPacks();
-    loadPurchases();
-  }, []);
+    if (isAdmin) loadPurchases();
+  }, [isAdmin, isCreator, userEmail]);
 
   const loadPacks = async () => {
     try {
       setLoading(true);
-      const data = await activityPacksApi.getAllPacksAdmin();
+      const data = isAdmin
+        ? await activityPacksApi.getAllPacksAdmin()
+        : isCreator
+          ? await activityPacksApi.getPacksForCreator(userEmail)
+          : [];
       setPacks(data);
     } catch (error) {
       console.error('Failed to load packs:', error);
@@ -130,19 +140,21 @@ export const ActivityPacksAdmin: React.FC<ActivityPacksAdminProps> = ({ userEmai
             <span>Activity Packs</span>
           </div>
         </button>
-        <button
-          onClick={() => setActiveTab('purchases')}
-          className={`px-4 py-2 font-medium text-sm transition-all ${
-            activeTab === 'purchases'
-              ? 'text-teal-600 border-b-2 border-teal-600'
-              : 'text-gray-600 hover:text-teal-600'
-          }`}
-        >
-          <div className="flex items-center space-x-2">
-            <Receipt className="h-4 w-4" />
-            <span>Purchases ({purchases.length})</span>
-          </div>
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setActiveTab('purchases')}
+            className={`px-4 py-2 font-medium text-sm transition-all ${
+              activeTab === 'purchases'
+                ? 'text-teal-600 border-b-2 border-teal-600'
+                : 'text-gray-600 hover:text-teal-600'
+            }`}
+          >
+            <div className="flex items-center space-x-2">
+              <Receipt className="h-4 w-4" />
+              <span>Purchases ({purchases.length})</span>
+            </div>
+          </button>
+        )}
       </div>
 
       {/* Packs Tab */}
@@ -159,13 +171,15 @@ export const ActivityPacksAdmin: React.FC<ActivityPacksAdminProps> = ({ userEmai
                 Share and sell your lesson plans: add software packs that others can purchase in the app. Link categories to control access.
               </p>
             </div>
-            <button
-              onClick={handleCreatePack}
-              className="flex items-center space-x-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Add software pack</span>
-            </button>
+            {canAddPack && (
+              <button
+                onClick={handleCreatePack}
+                className="flex items-center space-x-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Add software pack</span>
+              </button>
+            )}
           </div>
 
       {/* Existing Packs */}
@@ -201,24 +215,28 @@ export const ActivityPacksAdmin: React.FC<ActivityPacksAdminProps> = ({ userEmai
                   </span>
                 </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => {
-                    setEditingPack(pack);
-                    setShowCreateForm(true);
-                  }}
-                  className="px-3 py-1.5 text-teal-600 border border-teal-600 rounded hover:bg-teal-50 transition-colors text-sm"
-                  aria-label={`Edit ${pack.name}`}
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDeletePack(pack.pack_id)}
-                  className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
+              {(canEditPack(pack) && (
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => {
+                      setEditingPack(pack);
+                      setShowCreateForm(true);
+                    }}
+                    className="px-3 py-1.5 text-teal-600 border border-teal-600 rounded hover:bg-teal-50 transition-colors text-sm"
+                    aria-label={`Edit ${pack.name}`}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeletePack(pack.pack_id)}
+                    className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              )) || (isCreator && pack.creator_email !== userEmail && (
+                <span className="text-xs text-gray-500">Created by another creator</span>
+              ))}
             </div>
 
             {pack.category_ids && pack.category_ids.length > 0 && (
@@ -442,6 +460,7 @@ export const ActivityPacksAdmin: React.FC<ActivityPacksAdminProps> = ({ userEmai
         onSave={loadPacks}
         editingPack={editingPack}
         categories={categories}
+        creatorEmail={userEmail}
       />
     </div>
   );

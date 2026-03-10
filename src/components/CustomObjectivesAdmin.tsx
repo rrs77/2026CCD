@@ -22,6 +22,8 @@ import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { customObjectivesApi } from '../config/customObjectivesApi';
 import { seedReceptionDramaObjectives } from '../utils/seedReceptionDrama';
+import { setupSecondaryDramaObjectives } from '../utils/setupSecondaryDramaObjectives';
+import { setupDanceObjectives } from '../utils/setupDanceObjectives';
 import type { 
   CustomObjectiveYearGroupWithAreas, 
   CustomObjectiveFormData,
@@ -655,6 +657,56 @@ export function CustomObjectivesAdmin({ isOpen, onClose, embedded = false }: Cus
                 >
                   <span>🎭</span>
                   <span>Add Reception Drama Objectives</span>
+                </button>
+              )}
+
+              {/* Quick Add Dance (Reception–Year 6) Button */}
+              {!yearGroups.some(yg => yg.name === 'Reception Dance') && (
+                <button
+                  onClick={async () => {
+                    try {
+                      setMessage({ type: 'success', text: 'Adding Dance (Reception–Year 6) objectives...' });
+                      const { success } = await setupDanceObjectives();
+                      await loadData();
+                      setMessage({
+                        type: success ? 'success' : 'error',
+                        text: success
+                          ? 'Dance objectives added successfully!'
+                          : 'Some Dance objectives could not be added. Check console for details.'
+                      });
+                    } catch (error) {
+                      setMessage({ type: 'error', text: 'Failed to add Dance objectives' });
+                    }
+                  }}
+                  className="w-full mb-4 p-3 bg-indigo-100 border-2 border-dashed border-indigo-300 text-indigo-700 rounded-lg hover:bg-indigo-200 hover:border-indigo-400 transition-colors duration-200 text-sm font-medium flex items-center justify-center space-x-2"
+                >
+                  <span>💃</span>
+                  <span>Add Dance (Reception–Year 6)</span>
+                </button>
+              )}
+
+              {/* Quick Add Secondary Drama (Year 7–11) Button */}
+              {!yearGroups.some(yg => yg.name === 'Year 7 Drama') && (
+                <button
+                  onClick={async () => {
+                    try {
+                      setMessage({ type: 'success', text: 'Adding Secondary Drama (Year 7–11) objectives...' });
+                      const { success } = await setupSecondaryDramaObjectives();
+                      await loadData();
+                      setMessage({
+                        type: success ? 'success' : 'error',
+                        text: success
+                          ? 'Secondary Drama (Year 7–11) objectives added successfully!'
+                          : 'Some Secondary Drama objectives could not be added. Check console for details.'
+                      });
+                    } catch (error) {
+                      setMessage({ type: 'error', text: 'Failed to add Secondary Drama objectives' });
+                    }
+                  }}
+                  className="w-full mb-4 p-3 bg-violet-100 border-2 border-dashed border-violet-300 text-violet-700 rounded-lg hover:bg-violet-200 hover:border-violet-400 transition-colors duration-200 text-sm font-medium flex items-center justify-center space-x-2"
+                >
+                  <span>🎭</span>
+                  <span>Add Secondary Drama (Year 7–11)</span>
                 </button>
               )}
 

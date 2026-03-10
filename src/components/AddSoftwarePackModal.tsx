@@ -16,6 +16,8 @@ interface AddSoftwarePackModalProps {
   /** When set, modal is in edit mode for this pack. */
   editingPack?: Partial<ActivityPack> | null;
   categories: Category[];
+  /** Set when creating a new pack so the pack is owned by this creator. */
+  creatorEmail?: string;
 }
 
 export function AddSoftwarePackModal({
@@ -23,7 +25,8 @@ export function AddSoftwarePackModal({
   onClose,
   onSave,
   editingPack,
-  categories
+  categories,
+  creatorEmail
 }: AddSoftwarePackModalProps) {
   const isEditing = !!editingPack?.pack_id && !!editingPack?.id;
   const [packId, setPackId] = useState('');
@@ -108,7 +111,8 @@ export function AddSoftwarePackModal({
         icon: icon || '📦',
         category_ids: categoryIds,
         stack_ids: stackIds.length > 0 ? stackIds : undefined,
-        is_active: isActive
+        is_active: isActive,
+        ...(!isEditing && creatorEmail && { creator_email: creatorEmail })
       });
       toast.success(isEditing ? 'Pack updated.' : 'Software pack added. It can now be purchased in the app.');
       onSave?.();

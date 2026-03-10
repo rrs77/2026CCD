@@ -9,7 +9,8 @@ import { useIsViewOnly } from '../hooks/useIsViewOnly';
 import { isSupabaseConfigured, isSupabaseAuthEnabled } from '../config/supabase';
 import { AuthGuard } from './Auth/AuthGuard';
 import { UserManagement } from './Admin/UserManagement';
-import { customCategoriesApi } from '../config/api';
+import { customCategoriesApi, activityPacksApi } from '../config/api';
+import type { ActivityPack } from '../config/api';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import toast from 'react-hot-toast';
@@ -165,6 +166,7 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
   const [newlyAddedYearGroup, setNewlyAddedYearGroup] = useState<{ id: string; name: string } | null>(null);
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [editingSectionLabel, setEditingSectionLabel] = useState('');
+  const [shopPacks, setShopPacks] = useState<ActivityPack[]>([]);
 
   const isAdmin = user?.email === 'rob.reichstorer@gmail.com' ||
                   user?.role === 'administrator' ||
@@ -172,6 +174,7 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
                   user?.role === 'superuser' ||
                   profile?.role === 'admin' ||
                   profile?.role === 'superuser';
+  const isCreator = profile?.role === 'creator';
   const showUserManagement = (isSupabaseAuthEnabled() || isSupabaseConfigured()) && (isAdmin || profile?.role === 'admin' || profile?.role === 'superuser' || profile?.can_manage_users === true);
 
   // When modal opens or permissions change, ensure active tab is one we can show (avoid blank content)
@@ -181,9 +184,10 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
       return;
     }
     if (activeTab === 'users' && !showUserManagement) setActiveTab('resource-links');
-    if ((activeTab === 'branding' || activeTab === 'manage-packs') && !isAdmin) setActiveTab('resource-links');
+    if (activeTab === 'branding' && !isAdmin) setActiveTab('resource-links');
+    if (activeTab === 'manage-packs' && !isAdmin && !isCreator) setActiveTab('resource-links');
     // general, resource-links, data are under Admin for all users – no redirect
-  }, [isOpen, activeTab, showUserManagement, isAdmin]);
+  }, [isOpen, activeTab, showUserManagement, isAdmin, isCreator]);
 
   // When admin dropdown opens, lock its position (fixed) so it doesn't move when content shifts
   React.useEffect(() => {
@@ -260,6 +264,12 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
       });
       return () => cancelAnimationFrame(t);
     }
+  }, [activeTab]);
+
+  // Load activity packs for Resource Shop when viewing purchases tab
+  React.useEffect(() => {
+    if (activeTab !== 'purchases') return;
+    activityPacksApi.getAllPacks().then(setShopPacks).catch(() => setShopPacks([]));
   }, [activeTab]);
 
   // Update temp resource links when resource links change
@@ -678,8 +688,10 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
     }
   };
 
-  const handleYearGroupDragStart = (yearGroupId: string) => {
+  const handleYearGroupDragStart = (e: React.DragEvent, yearGroupId: string) => {
     setDraggedYearGroup(yearGroupId);
+    e.dataTransfer.setData('text/plain', yearGroupId);
+    e.dataTransfer.effectAllowed = 'move';
   };
 
   const handleYearGroupDragOver = (e: React.DragEvent, targetYearGroupId: string) => {
@@ -928,25 +940,25 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                     Users
                   </button>
                 )}
+                {(isAdmin || isCreator) && (
+                  <button
+                    type="button"
+                    onClick={() => { setActiveTab('manage-packs'); setAdminMenuOpen(false); }}
+                    className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'manage-packs' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
+                  >
+                    <Package className="h-4 w-4" />
+                    Manage Packs
+                  </button>
+                )}
                 {isAdmin && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => { setActiveTab('manage-packs'); setAdminMenuOpen(false); }}
-                      className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'manage-packs' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
-                    >
-                      <Package className="h-4 w-4" />
-                      Manage Packs
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setActiveTab('branding'); setAdminMenuOpen(false); }}
-                      className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'branding' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
-                    >
-                      <Palette className="h-4 w-4" />
-                      Branding
-                    </button>
-                  </>
+                  <button
+                    type="button"
+                    onClick={() => { setActiveTab('branding'); setAdminMenuOpen(false); }}
+                    className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${activeTab === 'branding' ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-700'}`}
+                  >
+                    <Palette className="h-4 w-4" />
+                    Branding
+                  </button>
                 )}
                 <button
                   type="button"
@@ -986,7 +998,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
           )}
 
           {activeTab === 'yeargroups' && (
-            <>
+            <div className="space-y-4">
               {/* Class Management */}
               <div className="bg-gradient-to-br from-teal-50 to-cyan-50 rounded-xl p-6">
                 <div className="flex items-center justify-between mb-6">
@@ -1259,11 +1271,12 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                     <div
                                       key={yearGroup.id}
                                       draggable
-                                      onDragStart={() => handleYearGroupDragStart(yearGroup.id)}
-                                      onDragOver={(e) => e.preventDefault()}
+                                      onDragStart={(e) => handleYearGroupDragStart(e, yearGroup.id)}
+                                      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
                                       onDrop={(e) => {
                                         e.preventDefault();
-                                        if (draggedYearGroup) handleYearGroupDropInSection(draggedYearGroup, yearGroup.id, section.id);
+                                        const draggedId = draggedYearGroup || e.dataTransfer.getData('text/plain') || null;
+                                        if (draggedId) handleYearGroupDropInSection(draggedId, yearGroup.id, section.id);
                                         handleYearGroupDragEnd();
                                       }}
                                       onDragEnd={handleYearGroupDragEnd}
@@ -1306,20 +1319,19 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
               </div>
 
               {/* Warning about changing IDs */}
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-6">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-6">
                 <div className="flex items-start space-x-3">
                   <div className="text-yellow-600 flex-shrink-0 mt-0.5">⚠️</div>
                   <div>
                     <h4 className="font-medium text-gray-900 mb-1">Important Note About Year Group IDs</h4>
                     <p className="text-sm text-gray-600">
-                        Changing the ID of an existing year group will break existing lesson assignments and activities. 
-                        Only modify IDs for newly created year groups.
+                      Changing the ID of an existing year group will break existing lesson assignments and activities.
+                      Only modify IDs for newly created year groups.
                     </p>
-                    </div>
                   </div>
                 </div>
               </div>
-            </>
+            </div>
           )}
 
           {activeTab === 'categories' && (
@@ -2127,7 +2139,54 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
               {/* Available Card Sets */}
               <div className="space-y-4">
                 <h4 className="text-lg font-semibold text-gray-900">Available Card Sets</h4>
-                
+
+                {/* Packs from database (e.g. Comedia) – visible for purchase and allocation */}
+                {shopPacks.length > 0 && (
+                  <div className="space-y-4">
+                    {shopPacks.map((pack) => {
+                      const paypalReturn = typeof window !== 'undefined' ? window.location.origin : '';
+                      const paypalLink = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=rob.reichstorer@gmail.com&amount=${pack.price}&currency_code=GBP&item_name=${encodeURIComponent(pack.name)}&return=${encodeURIComponent(paypalReturn)}`;
+                      return (
+                        <div key={pack.pack_id} className="rounded-lg border border-teal-200 bg-white p-6 hover:shadow-lg transition-shadow">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-3 mb-3">
+                                <span className="text-4xl" aria-hidden>{pack.icon || '📦'}</span>
+                                <div>
+                                  <h5 className="text-xl font-bold text-gray-900">{pack.name}</h5>
+                                  <p className="text-sm text-teal-600 font-medium">
+                                    {pack.stack_ids?.length ? 'Full lesson pack' : 'Activity pack'}
+                                  </p>
+                                </div>
+                              </div>
+                              {pack.description && (
+                                <p className="text-sm text-gray-700 mb-4">{pack.description}</p>
+                              )}
+                              <div className="flex items-center space-x-4 mb-4">
+                                <span className="text-3xl font-bold text-teal-600">£{Number(pack.price || 0).toFixed(2)}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <a
+                              href={paypalLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg text-center flex items-center justify-center space-x-2"
+                            >
+                              <span>💳</span>
+                              <span>Purchase via PayPal or card</span>
+                            </a>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-3 text-center">
+                            After purchase, the pack will be added to your account (or contact support with your order details).
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
                 {/* Drama Games Card Set */}
                 <div className="rounded-lg border border-teal-200 bg-white p-6 hover:shadow-lg transition-shadow">
                   <div className="flex items-start justify-between">
@@ -2372,7 +2431,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                   Create and manage activity packs for purchase. Link categories to packs, set prices, and track purchases.
                 </p>
                 
-                <ActivityPacksAdmin userEmail={user?.email || ''} />
+                <ActivityPacksAdmin userEmail={user?.email || ''} isCreator={isCreator} isAdmin={isAdmin} />
               </div>
             </div>
           )}

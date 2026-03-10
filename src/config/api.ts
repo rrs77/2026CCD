@@ -1802,6 +1802,8 @@ export interface ActivityPack {
   /** Lesson stack IDs included in this pack; buyers can add these units in one click. */
   stack_ids?: string[];
   is_active: boolean;
+  /** Email of the creator who owns this pack. Creators can only edit/delete their own. */
+  creator_email?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -1838,6 +1840,20 @@ export const activityPacksApi = {
     const { data, error } = await supabase
       .from('activity_packs')
       .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
+  },
+
+  // Get packs created by a specific creator (for creator role)
+  getPacksForCreator: async (creatorEmail: string): Promise<ActivityPack[]> => {
+    if (!isSupabaseConfigured() || !creatorEmail) return [];
+    
+    const { data, error } = await supabase
+      .from('activity_packs')
+      .select('*')
+      .eq('creator_email', creatorEmail)
       .order('created_at', { ascending: false });
     
     if (error) throw error;
