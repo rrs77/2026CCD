@@ -22,12 +22,15 @@ export function SimpleNestedCategoryDropdown({
   textColor,
   showAllCategories = false
 }: SimpleNestedCategoryDropdownProps) {
-  const { categories, categoryGroups, customYearGroups } = useSettings();
+  const { categories, categoryGroups, customYearGroups, yearGroupSections } = useSettings();
   const { currentSheetInfo } = useData();
   const [isOpen, setIsOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [expandedKeyStages, setExpandedKeyStages] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const KEY_STAGE_LABELS: Record<string, string> = { eyfs: 'EYFS', ks1: 'KS1', ks2: 'KS2', ks3: 'KS3', ks4: 'KS4', ks5: 'KS5', other: 'Other' };
 
   // Helper function to get the year group key(s) to check in category.yearGroups
   // This matches the EXACT logic used in UserSettings when saving categories (line 1557-1560)
@@ -249,26 +252,50 @@ export function SimpleNestedCategoryDropdown({
     });
   }, [filteredCategories, searchQuery]);
 
+  // Group filtered categories by key stage (EYFS, KS1, KS2, KS3, KS4, KS5, Other). Only include key stages that have at least one category assigned.
+  const categoriesByKeyStage = useMemo(() => {
+    const bySection: { sectionId: string; label: string; sortOrder: number; categories: Category[] }[] = [];
+    const sectionIdsSeen = new Set<string>();
+    const sortedSections = [...yearGroupSections].sort((a, b) => a.sortOrder - b.sortOrder);
+    for (const section of sortedSections) {
+      const yearGroupIdsInSection = new Set(section.yearGroupIds || []);
+      const catsInSection = searchFilteredCategories.filter(cat => {
+        if (!cat.yearGroups || Object.keys(cat.yearGroups).length === 0) return false;
+        const assignedToThisSection = Object.entries(cat.yearGroups).some(
+          ([key, val]) => val === true && yearGroupIdsInSection.has(key)
+        );
+        return assignedToThisSection;
+      });
+      if (catsInSection.length > 0) {
+        bySection.push({
+          sectionId: section.id,
+          label: KEY_STAGE_LABELS[section.id] ?? section.label,
+          sortOrder: section.sortOrder,
+          categories: catsInSection
+        });
+        sectionIdsSeen.add(section.id);
+      }
+    }
+    return bySection;
+  }, [yearGroupSections, searchFilteredCategories]);
+
   const handleSelectCategory = (categoryName: string) => {
     onCategoryChange(categoryName);
     setIsOpen(false);
   };
 
   const toggleGroupExpansion = (groupName: string) => {
-    console.log('🔄 Toggling group expansion for:', groupName);
-    console.log('🔄 Current expanded groups:', Array.from(expandedGroups));
-    
     const newExpanded = new Set(expandedGroups);
-    if (newExpanded.has(groupName)) {
-      newExpanded.delete(groupName);
-      console.log('🔄 Collapsing group:', groupName);
-    } else {
-      newExpanded.add(groupName);
-      console.log('🔄 Expanding group:', groupName);
-    }
-    
-    console.log('🔄 New expanded groups:', Array.from(newExpanded));
+    if (newExpanded.has(groupName)) newExpanded.delete(groupName);
+    else newExpanded.add(groupName);
     setExpandedGroups(newExpanded);
+  };
+
+  const toggleKeyStageExpansion = (sectionId: string) => {
+    const next = new Set(expandedKeyStages);
+    if (next.has(sectionId)) next.delete(sectionId);
+    else next.add(sectionId);
+    setExpandedKeyStages(next);
   };
 
   // Group search-filtered categories by their group(s)
@@ -358,41 +385,58 @@ export function SimpleNestedCategoryDropdown({
             </div>
           </div>
           <ul className="py-1 overflow-y-auto flex-1">
-            {/* When filtering is active, show simple flat list */}
+            {/* When filtering by year group: show collapsible key stages (EYFS, KS1, KS2, …); only show headings that have categories */}
             {isFilteringActive ? (
-              // Simple flat list of search-filtered categories
               searchFilteredCategories.length === 0 ? (
-                <li className="px-4 py-3 text-sm text-gray-500">No categories match "{searchQuery}"</li>
-              ) : (
-              searchFilteredCategories.map(category => (
-                <li
-                  key={category.name}
-                  className={`flex items-center gap-2 px-4 py-2 text-sm cursor-pointer transition-colors duration-150 ${
-                    selectedCategory === category.name 
-                      ? 'bg-teal-100 font-medium' 
-                      : 'text-gray-700 hover:bg-teal-50'
-                  }`}
-                  style={{
-                    color: selectedCategory === category.name ? '#374151' : undefined
-                  }}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleSelectCategory(category.name);
-                  }}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onMouseUp={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                >
-                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: category.color }} />
-                  <span className="truncate">{category.name}</span>
+                <li className="px-4 py-3 text-sm text-gray-500">
+                  {searchQuery ? `No categories match "${searchQuery}"` : 'No categories assigned to this year group.'}
                 </li>
-              ))
+              ) : categoriesByKeyStage.length === 0 ? (
+                <li className="px-4 py-3 text-sm text-gray-500">No categories in any key stage for current selection.</li>
+              ) : (
+                <>
+                  <li
+                    className={`px-4 py-2 text-sm cursor-pointer transition-colors duration-150 ${selectedCategory === '' ? 'bg-gray-100 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSelectCategory(''); }}
+                    onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                    onMouseUp={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  >
+                    {placeholder}
+                  </li>
+                  {categoriesByKeyStage.map(({ sectionId, label, categories: sectionCategories }) => {
+                    const isKeyStageExpanded = searchQuery.trim() ? true : expandedKeyStages.has(sectionId);
+                    return (
+                      <React.Fragment key={sectionId}>
+                        <li
+                          className="px-2 py-2 bg-gray-100 border-t border-gray-200 text-sm font-semibold text-gray-800 flex items-center justify-between cursor-pointer hover:bg-teal-50"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleKeyStageExpansion(sectionId); }}
+                          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                          onMouseUp={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        >
+                          <div className="flex items-center gap-2">
+                            {isKeyStageExpanded ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-500" />}
+                            <span>{label}</span>
+                          </div>
+                          <span className="text-xs text-gray-500">{sectionCategories.length}</span>
+                        </li>
+                        {isKeyStageExpanded && sectionCategories.map(category => (
+                          <li
+                            key={category.name}
+                            className={`flex items-center gap-2 px-6 py-2 text-sm cursor-pointer transition-colors duration-150 ${
+                              selectedCategory === category.name ? 'bg-teal-100 font-medium' : 'text-gray-700 hover:bg-teal-50'
+                            }`}
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSelectCategory(category.name); }}
+                            onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                            onMouseUp={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                          >
+                            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: category.color }} />
+                            <span className="truncate">{category.name}</span>
+                          </li>
+                        ))}
+                      </React.Fragment>
+                    );
+                  })}
+                </>
               )
             ) : searchFilteredCategories.length === 0 ? (
               <li className="px-4 py-3 text-sm text-gray-500">No categories match "{searchQuery}"</li>
