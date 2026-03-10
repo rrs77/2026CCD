@@ -103,6 +103,15 @@ export interface YearGroupBand {
   classes: { id: string; name: string }[];
 }
 
+/** Collapsible section for grouping year groups (e.g. EYFS, KS1, KS2, KS3, KS4). */
+export interface YearGroupSection {
+  id: string;
+  label: string;
+  sortOrder: number;
+  collapsed?: boolean;
+  yearGroupIds: string[];
+}
+
 function flattenBands(bands: YearGroupBand[]): YearGroup[] {
   const out: YearGroup[] = [];
   bands.forEach(band => {
@@ -144,9 +153,13 @@ interface SettingsContextType {
   settings: UserSettings;
   customYearGroups: YearGroup[];
   yearGroupBands: YearGroupBand[];
+  yearGroupSections: YearGroupSection[];
+  updateYearGroups: (newYearGroups: YearGroup[]) => void;
+  updateYearGroupSections: (sections: YearGroupSection[] | ((prev: YearGroupSection[]) => YearGroupSection[])) => void;
+  /** Ordered year groups by section (for display/sync). Pass sections to use a candidate list before state updates. */
+  getOrderedYearGroups: (sections?: YearGroupSection[]) => YearGroup[];
   updateSettings: (newSettings: Partial<UserSettings>) => void;
   updateCategories: (newCategories: Category[]) => void;
-  updateYearGroups: (newYearGroups: YearGroup[]) => void;
   updateYearGroupBands: (bands: YearGroupBand[]) => void;
   deleteYearGroup: (yearGroupId: string) => Promise<void>;
   deleteYearGroupClass: (bandIndex: number, classIndex: number) => void;
@@ -341,6 +354,80 @@ const DEFAULT_YEAR_GROUPS: YearGroup[] = [
 
 const DEFAULT_YEAR_GROUP_BANDS: YearGroupBand[] = flatToBands(DEFAULT_YEAR_GROUPS);
 
+const YEAR_GROUP_SECTIONS_STORAGE_KEY = 'year-group-sections';
+
+/** Default section labels (user can customise). */
+const DEFAULT_SECTION_LABELS = [
+  { id: 'eyfs', label: 'EYFS', sortOrder: 0 },
+  { id: 'ks1', label: 'KS1', sortOrder: 1 },
+  { id: 'ks2', label: 'KS2', sortOrder: 2 },
+  { id: 'ks3', label: 'KS3', sortOrder: 3 },
+  { id: 'ks4', label: 'KS4', sortOrder: 4 },
+  { id: 'other', label: 'Other', sortOrder: 5 },
+];
+
+/** Assign a year group id to a section key by name/id pattern. */
+function getDefaultSectionIdForYearGroup(id: string, name: string): string {
+  const n = name || id || '';
+  const lower = n.toLowerCase();
+  if (['lkg', 'ukg', 'lower kindergarten', 'upper kindergarten', 'reception'].some(k => lower.includes(k)) && !lower.includes('drama')) return 'eyfs';
+  if (lower.includes('year 1') || lower.includes('year1')) return lower.includes('drama') ? 'other' : 'ks1';
+  if (lower.includes('year 2') || lower.includes('year2')) return lower.includes('drama') ? 'other' : 'ks1';
+  if (['year 3', 'year 4', 'year 5', 'year 6'].some(y => lower.includes(y.replace(' ', '')) || lower.includes(y))) return lower.includes('drama') ? 'other' : 'ks2';
+  if (['year 7', 'year 8', 'year 9'].some(y => lower.includes(y.replace(' ', '')) || lower.includes(y))) return lower.includes('drama') ? 'other' : 'ks3';
+  if (['year 10', 'year 11'].some(y => lower.includes(y.replace(' ', '')) || lower.includes(y))) return lower.includes('drama') ? 'other' : 'ks4';
+  return 'other';
+}
+
+/** Build default sections with yearGroupIds from a flat list of year groups. */
+function buildDefaultYearGroupSections(yearGroups: YearGroup[]): YearGroupSection[] {
+  const bySection = new Map<string, string[]>();
+  DEFAULT_SECTION_LABELS.forEach(s => bySection.set(s.id, []));
+  yearGroups.forEach(g => {
+    const sectionId = getDefaultSectionIdForYearGroup(g.id, g.name);
+    const arr = bySection.get(sectionId) ?? bySection.get('other')!;
+    arr.push(g.id);
+  });
+  return DEFAULT_SECTION_LABELS.map(s => ({
+    id: s.id,
+    label: s.label,
+    sortOrder: s.sortOrder,
+    collapsed: false,
+    yearGroupIds: bySection.get(s.id) || []
+  }));
+}
+
+/** Merge sections with current year groups: any id not in any section goes to Other. */
+function mergeSectionsWithYearGroups(sections: YearGroupSection[], yearGroupIds: string[]): YearGroupSection[] {
+  const assigned = new Set(sections.flatMap(s => s.yearGroupIds));
+  const otherSection = sections.find(s => s.id === 'other');
+  const otherIds = otherSection ? [...otherSection.yearGroupIds] : [];
+  yearGroupIds.forEach(id => {
+    if (!assigned.has(id)) {
+      otherIds.push(id);
+      assigned.add(id);
+    }
+  });
+  return sections.map(s => s.id === 'other' ? { ...s, yearGroupIds: otherIds } : s);
+}
+
+/** Return year groups in the order defined by sections (for display and sync). */
+function getOrderedYearGroupsFromSections(sections: YearGroupSection[], groups: YearGroup[]): YearGroup[] {
+  const byId = new Map(groups.map(g => [g.id, g]));
+  const ordered: YearGroup[] = [];
+  const sortedSections = [...sections].sort((a, b) => a.sortOrder - b.sortOrder);
+  for (const section of sortedSections) {
+    for (const id of section.yearGroupIds) {
+      const g = byId.get(id);
+      if (g) ordered.push(g);
+    }
+  }
+  for (const g of groups) {
+    if (!ordered.find(o => o.id === g.id)) ordered.push(g);
+  }
+  return ordered;
+}
+
 // Default category groups
 const DEFAULT_CATEGORY_GROUPS: CategoryGroups = {
   groups: []
@@ -390,9 +477,12 @@ export const useSettings = () => {
       },
       customYearGroups: [],
       yearGroupBands: [],
+      yearGroupSections: [],
+      updateYearGroups: () => {},
+      updateYearGroupSections: () => {},
+      getOrderedYearGroups: () => [],
       updateSettings: () => {},
       updateCategories: () => {},
-      updateYearGroups: () => {},
       updateYearGroupBands: () => {},
       deleteYearGroup: async () => {},
       deleteYearGroupClass: () => {},
@@ -438,6 +528,33 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
     const newGroups = typeof value === 'function' ? value(customYearGroups) : value;
     setYearGroupBands(flatToBands(newGroups));
   }, [customYearGroups]);
+
+  const [yearGroupSections, setYearGroupSectionsState] = useState<YearGroupSection[]>(() => {
+    try {
+      const stored = localStorage.getItem(YEAR_GROUP_SECTIONS_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as YearGroupSection[];
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (_) {}
+    return buildDefaultYearGroupSections(DEFAULT_YEAR_GROUPS);
+  });
+  const updateYearGroupSections = React.useCallback((sections: YearGroupSection[] | ((prev: YearGroupSection[]) => YearGroupSection[])) => {
+    setYearGroupSectionsState(prev => {
+      const next = typeof sections === 'function' ? sections(prev) : sections;
+      try {
+        localStorage.setItem(YEAR_GROUP_SECTIONS_STORAGE_KEY, JSON.stringify(next));
+      } catch (_) {}
+      setYearGroupBands(flatToBands(getOrderedYearGroupsFromSections(next, customYearGroups)));
+      return next;
+    });
+  }, [customYearGroups]);
+
+  const getOrderedYearGroups = React.useCallback((sectionsOverride?: YearGroupSection[]) => {
+    const sec = sectionsOverride ?? yearGroupSections;
+    return getOrderedYearGroupsFromSections(sec, customYearGroups);
+  }, [yearGroupSections, customYearGroups]);
+
   const [resourceLinks, setResourceLinks] = useState<ResourceLinkConfig[]>(DEFAULT_RESOURCE_LINKS);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [defaultViewMode, setDefaultViewMode] = useState<
@@ -853,6 +970,13 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
               bandsToUse = flatToBands(deduplicated);
             }
             setYearGroupBands(bandsToUse);
+            setYearGroupSectionsState(prev => {
+              const merged = mergeSectionsWithYearGroups(prev, deduplicated.map((g: any) => g.id));
+              try {
+                localStorage.setItem(YEAR_GROUP_SECTIONS_STORAGE_KEY, JSON.stringify(merged));
+              } catch (_) {}
+              return merged;
+            });
             console.log('📦 Loaded year groups from Supabase:', deduplicated.length, '(deduplicated from', formattedYearGroups.length, ')');
             localStorage.setItem('year-group-bands', JSON.stringify(bandsToUse));
             localStorage.setItem('custom-year-groups', JSON.stringify(deduplicated));
@@ -878,6 +1002,13 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
                 if (deduplicatedGroups.length > 0) {
                   const bands = flatToBands(deduplicatedGroups);
                   setYearGroupBands(bands);
+                  setYearGroupSectionsState(prev => {
+                    const merged = mergeSectionsWithYearGroups(prev, deduplicatedGroups.map((g: any) => g.id));
+                    try {
+                      localStorage.setItem(YEAR_GROUP_SECTIONS_STORAGE_KEY, JSON.stringify(merged));
+                    } catch (_) {}
+                    return merged;
+                  });
                   console.log('📦 Loaded year groups from localStorage:', deduplicatedGroups.length, '(deduplicated from', filteredGroups.length, ', filtered from', localGroups.length, ')');
                   localStorage.setItem('year-group-bands', JSON.stringify(bands));
                   // Sync to Supabase (use deduplicated groups)
@@ -1698,7 +1829,11 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
   
   const resetYearGroupsToDefaults = () => {
     setCustomYearGroups(DEFAULT_YEAR_GROUPS);
+    setYearGroupSectionsState(buildDefaultYearGroupSections(DEFAULT_YEAR_GROUPS));
     localStorage.removeItem('custom-year-groups');
+    try {
+      localStorage.setItem(YEAR_GROUP_SECTIONS_STORAGE_KEY, JSON.stringify(buildDefaultYearGroupSections(DEFAULT_YEAR_GROUPS)));
+    } catch (_) {}
   };
 
   const saveCategoryToSupabase = async (name: string, color: string) => {
@@ -2434,9 +2569,14 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
     setIsAdmin: handleSetIsAdmin,
     settings,
     customYearGroups,
+    yearGroupBands,
+    yearGroupSections,
     updateSettings,
     updateCategories,
     updateYearGroups,
+    updateYearGroupSections,
+    getOrderedYearGroups,
+    updateYearGroupBands,
     deleteYearGroup,
     forceSyncYearGroups,
     cleanupDuplicates,

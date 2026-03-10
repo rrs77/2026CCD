@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { Settings, Palette, RotateCcw, X, Plus, Trash2, GripVertical, Edit3, Save, Users, Database, AlertTriangle, GraduationCap, Package, Filter, Video, Music, Volume2, FileText, Link as LinkIcon, Image, FileVideo, FileMusic, File, Globe, ExternalLink, Share2, Download, Upload, Eye, Play, Pause, Headphones, Mic, Speaker, Film, Camera, BookOpen, Book, Folder, Cloud, Network, Target, HelpCircle, ChevronDown } from 'lucide-react';
-import { useSettings, Category, ResourceLinkConfig, SOCIAL_PLATFORMS } from '../contexts/SettingsContextNew';
+import { Settings, Palette, RotateCcw, X, Plus, Trash2, GripVertical, Edit3, Save, Users, Database, AlertTriangle, GraduationCap, Package, Filter, Video, Music, Volume2, FileText, Link as LinkIcon, Image, FileVideo, FileMusic, File, Globe, ExternalLink, Share2, Download, Upload, Eye, Play, Pause, Headphones, Mic, Speaker, Film, Camera, BookOpen, Book, Folder, Cloud, Network, Target, HelpCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { useSettings, Category, ResourceLinkConfig, SOCIAL_PLATFORMS, YearGroupSection } from '../contexts/SettingsContextNew';
 import { DataSourceSettings } from './DataSourceSettings';
 import { CustomObjectivesAdmin } from './CustomObjectivesAdmin';
 import { ActivityPacksAdmin } from './ActivityPacksAdmin';
@@ -124,7 +124,7 @@ interface UserSettingsProps {
 export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
   const { user, profile } = useAuth();
   const isViewOnly = useIsViewOnly();
-  const { settings, updateSettings, resetToDefaults, categories, updateCategories, resetCategoriesToDefaults, customYearGroups, updateYearGroups, deleteYearGroup, resetYearGroupsToDefaults, forceSyncYearGroups, forceSyncToSupabase, forceRefreshFromSupabase, forceSyncCurrentYearGroups, forceSafariSync, startUserChange, endUserChange, resourceLinks, updateResourceLinks, resetResourceLinksToDefaults } = useSettings();
+  const { settings, updateSettings, resetToDefaults, categories, updateCategories, resetCategoriesToDefaults, customYearGroups, updateYearGroups, updateYearGroupSections, getOrderedYearGroups, yearGroupSections, deleteYearGroup, resetYearGroupsToDefaults, forceSyncYearGroups, forceSyncToSupabase, forceRefreshFromSupabase, forceSyncCurrentYearGroups, forceSafariSync, startUserChange, endUserChange, resourceLinks, updateResourceLinks, resetResourceLinksToDefaults } = useSettings();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [tempSettings, setTempSettings] = useState(settings);
   const [tempCategories, setTempCategories] = useState(categories);
@@ -163,6 +163,8 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showYearGroupsModal, setShowYearGroupsModal] = useState(false);
   const [newlyAddedYearGroup, setNewlyAddedYearGroup] = useState<{ id: string; name: string } | null>(null);
+  const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
+  const [editingSectionLabel, setEditingSectionLabel] = useState('');
 
   const isAdmin = user?.email === 'rob.reichstorer@gmail.com' ||
                   user?.role === 'administrator' ||
@@ -615,9 +617,10 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
     // Add new year group to temp state
     const updatedYearGroups = [...tempYearGroups, newYearGroup];
     setTempYearGroups(updatedYearGroups);
-    
+
     console.log('🔄 Adding year group and persisting immediately:', newYearGroup);
     updateYearGroups(updatedYearGroups);
+    updateYearGroupSections(prev => prev.map(s => s.id === 'other' ? { ...s, yearGroupIds: [...(s.yearGroupIds || []), newYearGroup.id] } : s));
     try {
       await forceSyncToSupabase({ yearGroups: updatedYearGroups });
     } catch (e) {
@@ -664,6 +667,7 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
         const updatedYearGroups = tempYearGroups.filter((_, i) => i !== index);
         setTempYearGroups(updatedYearGroups);
         await updateYearGroups(updatedYearGroups);
+        updateYearGroupSections(prev => prev.map(s => ({ ...s, yearGroupIds: (s.yearGroupIds || []).filter(id => id !== removed.id) })));
         setTimeout(() => setIsDeletingYearGroup(false), 1000);
       } catch (error) {
         console.error('❌ Failed to delete year group:', error);
@@ -697,6 +701,34 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
 
   const handleYearGroupDragEnd = () => {
     setDraggedYearGroup(null);
+  };
+
+  const handleYearGroupDropInSection = (draggedId: string, targetId: string, sectionId: string) => {
+    if (!draggedId) return;
+    const targetSection = yearGroupSections.find(s => s.id === sectionId);
+    const sourceSection = yearGroupSections.find(s => s.yearGroupIds.includes(draggedId));
+    if (!targetSection) return;
+    updateYearGroupSections(prev => {
+      return prev.map(s => {
+        if (s.id === sectionId) {
+          const ids = [...s.yearGroupIds];
+          if (s.yearGroupIds.includes(draggedId)) {
+            const dragIdx = ids.indexOf(draggedId);
+            ids.splice(dragIdx, 1);
+            const insertIdx = ids.indexOf(targetId);
+            ids.splice(insertIdx >= 0 ? insertIdx : ids.length, 0, draggedId);
+          } else {
+            const insertIdx = ids.indexOf(targetId);
+            ids.splice(insertIdx >= 0 ? insertIdx : ids.length, 0, draggedId);
+          }
+          return { ...s, yearGroupIds: ids };
+        }
+        if (sourceSection && s.id === sourceSection.id) {
+          return { ...s, yearGroupIds: s.yearGroupIds.filter(id => id !== draggedId) };
+        }
+        return s;
+      });
+    });
   };
 
   const handleYearGroupDrop = async (e: React.DragEvent, targetId: string) => {
@@ -1127,106 +1159,149 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                     </div>
                   </div>
                   <p className="text-sm text-gray-600 mb-4">
-                    Drag and drop to reorder year groups. Changes will affect how year groups are displayed throughout the application.
+                    Group year groups into collapsible sections (e.g. EYFS, KS1, KS2). Drag to reorder within a section. Sections are customisable.
                   </p>
-                  
-                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                    {tempYearGroups.map((yearGroup, index) => (
-                      <div 
-                        key={yearGroup.id}
-                        draggable
-                        onDragStart={() => handleYearGroupDragStart(yearGroup.id)}
-                        onDragOver={(e) => handleYearGroupDragOver(e, yearGroup.id)}
-                        onDrop={(e) => handleYearGroupDrop(e, yearGroup.id)}
-                        onDragEnd={handleYearGroupDragEnd}
-                        className={`p-3 rounded-lg transition-colors duration-200 cursor-move ${
-                          draggedYearGroup === yearGroup.id ? 'bg-teal-50 border-2 border-teal-300 opacity-50' : 'bg-gray-50 hover:bg-gray-100'
-                        }`}
-                      >
-                        {editingYearGroup === yearGroup.id ? (
-                          <div className="flex items-center space-x-3">
-                            <div className="flex-shrink-0 cursor-move">
-                              <GripVertical className="h-5 w-5 text-gray-400" />
-                            </div>
-                            <div className="flex-1 grid grid-cols-3 gap-3">
+                  <div className="mb-3 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const sorted = [...yearGroupSections].sort((a, b) => a.sortOrder - b.sortOrder);
+                        const maxOrder = sorted.length ? Math.max(...sorted.map(s => s.sortOrder)) : -1;
+                        updateYearGroupSections(prev => [...prev, { id: `section-${Date.now()}`, label: 'New section', sortOrder: maxOrder + 1, collapsed: false, yearGroupIds: [] }]);
+                      }}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium text-teal-700 bg-teal-100 hover:bg-teal-200 rounded-lg transition-colors"
+                    >
+                      <Plus className="h-4 w-4" /> Add section
+                    </button>
+                  </div>
+                  <div className="space-y-2 max-h-[480px] overflow-y-auto">
+                    {[...yearGroupSections].sort((a, b) => a.sortOrder - b.sortOrder).map((section) => {
+                      const yearGroupsInSection = section.yearGroupIds
+                        .map(id => tempYearGroups.find(g => g.id === id))
+                        .filter(Boolean) as typeof tempYearGroups;
+                      return (
+                        <div key={section.id} className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => updateYearGroupSections(prev => prev.map(s => s.id === section.id ? { ...s, collapsed: !s.collapsed } : s))}
+                            className="w-full flex items-center gap-2 px-3 py-2.5 bg-gray-100 hover:bg-gray-200 text-left"
+                          >
+                            {section.collapsed ? (
+                              <ChevronRight className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                            )}
+                            {editingSectionId === section.id ? (
                               <input
-                                id={`editYearGroupId-${index}`}
-                                name={`editYearGroupId-${index}`}
                                 type="text"
-                                value={editingYearGroupDraft?.id ?? yearGroup.id}
-                                onChange={(e) => {
-                                  setEditingYearGroupDraft(prev => prev ? { ...prev, id: e.target.value } : null);
+                                value={editingSectionLabel}
+                                onChange={(e) => setEditingSectionLabel(e.target.value)}
+                                onBlur={() => {
+                                  const label = editingSectionLabel.trim();
+                                  if (label) {
+                                    updateYearGroupSections(prev => prev.map(s => s.id === section.id ? { ...s, label } : s));
+                                  }
+                                  setEditingSectionId(null);
                                 }}
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                                dir="ltr"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    const label = editingSectionLabel.trim();
+                                    if (label) {
+                                      updateYearGroupSections(prev => prev.map(s => s.id === section.id ? { ...s, label } : s));
+                                    }
+                                    setEditingSectionId(null);
+                                  }
+                                }}
+                                className="flex-1 min-w-0 px-2 py-0.5 border border-teal-300 rounded text-sm"
+                                autoFocus
                               />
-                              <input
-                                id={`editYearGroupName-${index}`}
-                                name={`editYearGroupName-${index}`}
-                                type="text"
-                                value={editingYearGroupDraft?.name ?? yearGroup.name}
-                                onChange={(e) => {
-                                  setEditingYearGroupDraft(prev => prev ? { ...prev, name: e.target.value } : null);
-                                }}
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                              />
-                              <input
-                                id={`editYearGroupColor-${index}`}
-                                name={`editYearGroupColor-${index}`}
-                                type="color"
-                                value={editingYearGroupDraft?.color ?? yearGroup.color}
-                                onChange={(e) => {
-                                  setEditingYearGroupDraft(prev => prev ? { ...prev, color: e.target.value } : null);
-                                }}
-                                className="w-10 h-8 rounded border border-gray-300 cursor-pointer"
-                              />
+                            ) : (
+                              <span className="font-medium text-gray-900 flex-1">{section.label}</span>
+                            )}
+                            {editingSectionId !== section.id && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); setEditingSectionId(section.id); setEditingSectionLabel(section.label); }}
+                                  className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded"
+                                  title="Edit section name"
+                                >
+                                  <Edit3 className="h-3.5 w-3.5" />
+                                </button>
+                                {yearGroupSections.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!confirm(`Move all year groups in "${section.label}" to Other and remove this section?`)) return;
+                                      const other = yearGroupSections.find(s => s.id === 'other');
+                                      if (!other) return;
+                                      updateYearGroupSections(prev => prev.filter(s => s.id !== section.id).map(s => s.id === 'other' ? { ...s, yearGroupIds: [...(s.yearGroupIds || []), ...(section.yearGroupIds || [])] } : s));
+                                    }}
+                                    className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
+                                    title="Remove section (year groups move to Other)"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                              </>
+                            )}
+                            <span className="text-xs text-gray-500">({yearGroupsInSection.length})</span>
+                          </button>
+                          {!section.collapsed && (
+                            <div className="p-2 pt-0 space-y-1.5 border-t border-gray-100">
+                              {yearGroupsInSection.length === 0 ? (
+                                <p className="text-sm text-gray-500 py-2 px-2">No year groups in this section. Add year groups above, then drag them here.</p>
+                              ) : (
+                                yearGroupsInSection.map((yearGroup) => {
+                                  const index = tempYearGroups.findIndex(g => g.id === yearGroup.id);
+                                  return (
+                                    <div
+                                      key={yearGroup.id}
+                                      draggable
+                                      onDragStart={() => handleYearGroupDragStart(yearGroup.id)}
+                                      onDragOver={(e) => e.preventDefault()}
+                                      onDrop={(e) => {
+                                        e.preventDefault();
+                                        if (draggedYearGroup) handleYearGroupDropInSection(draggedYearGroup, yearGroup.id, section.id);
+                                        handleYearGroupDragEnd();
+                                      }}
+                                      onDragEnd={handleYearGroupDragEnd}
+                                      className={`p-3 rounded-lg transition-colors duration-200 cursor-move ${
+                                        draggedYearGroup === yearGroup.id ? 'bg-teal-50 border-2 border-teal-300 opacity-50' : 'bg-gray-50 hover:bg-gray-100'
+                                      }`}
+                                    >
+                                      {editingYearGroup === yearGroup.id ? (
+                                        <div className="flex items-center space-x-3">
+                                          <div className="flex-shrink-0 cursor-move"><GripVertical className="h-5 w-5 text-gray-400" /></div>
+                                          <div className="flex-1 grid grid-cols-3 gap-3">
+                                            <input type="text" value={editingYearGroupDraft?.id ?? yearGroup.id} onChange={(e) => setEditingYearGroupDraft(prev => prev ? { ...prev, id: e.target.value } : null)} className="w-full px-2 py-1 border border-gray-300 rounded text-sm" dir="ltr" />
+                                            <input type="text" value={editingYearGroupDraft?.name ?? yearGroup.name} onChange={(e) => setEditingYearGroupDraft(prev => prev ? { ...prev, name: e.target.value } : null)} className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />
+                                            <input type="color" value={editingYearGroupDraft?.color ?? yearGroup.color} onChange={(e) => setEditingYearGroupDraft(prev => prev ? { ...prev, color: e.target.value } : null)} className="w-10 h-8 rounded border border-gray-300 cursor-pointer" />
+                                          </div>
+                                          <button type="button" onClick={() => { if (editingYearGroupDraft) { handleUpdateYearGroup(index, editingYearGroupDraft.id, editingYearGroupDraft.name, editingYearGroupDraft.color); setEditingYearGroupDraft(null); } setEditingYearGroup(null); }} className="p-1.5 text-teal-600 hover:bg-teal-50 rounded"><Save className="h-5 w-5" /></button>
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center space-x-3">
+                                          <div className="flex-shrink-0 cursor-move"><GripVertical className="h-5 w-5 text-gray-400" /></div>
+                                          <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: yearGroup.color }} />
+                                          <div className="flex-1 font-medium text-gray-900">{yearGroup.name}</div>
+                                          <div className="flex items-center gap-1">
+                                            <button type="button" onClick={() => { setEditingYearGroup(yearGroup.id); setEditingYearGroupDraft({ id: yearGroup.id, name: yearGroup.name, color: yearGroup.color || '#14B8A6' }); }} className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"><Edit3 className="h-4 w-4" /></button>
+                                            <button type="button" onClick={() => handleDeleteYearGroup(index)} className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4" /></button>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })
+                              )}
                             </div>
-                            <button
-                              onClick={() => {
-                                if (editingYearGroupDraft) {
-                                  handleUpdateYearGroup(index, editingYearGroupDraft.id, editingYearGroupDraft.name, editingYearGroupDraft.color);
-                                  setEditingYearGroupDraft(null);
-                                }
-                                setEditingYearGroup(null);
-                              }}
-                              className="p-1.5 text-teal-600 hover:text-teal-800 hover:bg-teal-50 rounded-lg transition-colors duration-200"
-                            >
-                              <Save className="h-5 w-5" />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center space-x-3">
-                            <div className="flex-shrink-0 cursor-move">
-                              <GripVertical className="h-5 w-5 text-gray-400" />
-                            </div>
-                            <div 
-                              className="w-4 h-4 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: yearGroup.color }}
-                            ></div>
-                            <div className="flex-1">
-                              <div className="font-medium text-gray-900">{yearGroup.name}</div>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <button
-                                onClick={() => {
-                                  setEditingYearGroup(yearGroup.id);
-                                  setEditingYearGroupDraft({ id: yearGroup.id, name: yearGroup.name, color: yearGroup.color || '#14B8A6' });
-                                }}
-                                className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-                              >
-                                <Edit3 className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteYearGroup(index)}
-                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors duration-200"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 

@@ -1,5 +1,9 @@
 lessonviewergit
 
+## Deployment
+
+Deploy via **GitHub** only: push to your GitHub repo. The app is configured for **Vercel** (`vercel.json`). Connect the repo in [Vercel](https://vercel.com) and deployments run on push. Netlify is not used.
+
 ## Clerk Authentication
 
 This app uses [Clerk](https://clerk.com) for authentication with email/password, email verification, and password reset.

@@ -6,7 +6,7 @@ import { LoadingSpinner } from './LoadingSpinner';
 import { LogoSVG } from './Logo';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { useSettings } from '../contexts/SettingsContextNew';
-import { supabase, isSupabaseAuthEnabled, isSupabaseConfigured, checkSupabaseAuthHealth } from '../config/supabase';
+import { supabase, isSupabaseAuthEnabled, isSupabaseConfigured, checkSupabaseAuthHealth, setSessionOnlyCookie } from '../config/supabase';
 
 export function LoginForm() {
   const { login } = useAuth();
@@ -15,6 +15,7 @@ export function LoginForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [staySignedIn, setStaySignedIn] = useState(true);
   const [error, setError] = useState('');
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -43,6 +44,9 @@ export function LoginForm() {
     setError('');
     setIsSubmitting(true);
     try {
+      if (isSupabaseAuthEnabled() && !staySignedIn) {
+        setSessionOnlyCookie();
+      }
       const LOGIN_TIMEOUT_MS = 60000; // 60s – Supabase free tier can take 30–60s to wake from sleep
       await Promise.race([
         login(username, password),
@@ -245,6 +249,20 @@ export function LoginForm() {
                 </button>
               </div>
             </div>
+            {isSupabaseAuthEnabled() && (
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={staySignedIn}
+                    onChange={(e) => setStaySignedIn(e.target.checked)}
+                    className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                  />
+                  <span className="text-sm text-gray-700">Stay signed in on this device</span>
+                </label>
+                <p className="text-xs text-gray-500 mt-1 ml-6">Uncheck on a shared computer to require your password each time.</p>
+              </div>
+            )}
             {/* Forgot password – only when Supabase Auth is enabled (same as login method) */}
             {isSupabaseAuthEnabled() && (
               <div className="flex flex-col items-center gap-1">

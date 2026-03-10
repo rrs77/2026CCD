@@ -291,7 +291,10 @@ export function UserManagement() {
       if (!res.ok) {
         let msg = data?.error || `Request failed (${res.status})`;
         if (res.status === 404) {
-          msg = 'API not found (404). If running locally, add VITE_VERCEL_URL=https://your-app.vercel.app to .env (use your actual Vercel URL) and restart. If deployed on Cloudflare or another host, set VITE_API_BASE_URL to your Vercel deployment URL.';
+          const isDev = import.meta.env.DEV;
+          msg = isDev
+            ? 'Create-user API not available locally. Add VITE_VERCEL_URL=https://your-app.vercel.app to .env (your real Vercel URL), restart the dev server, then try again. Or add users on the deployed site.'
+            : 'Create-user API not found. If this site is not hosted on Vercel, set VITE_API_BASE_URL to your Vercel app URL in the build environment and redeploy. On Vercel, ensure api/create-user.js is deployed and SUPABASE_SERVICE_ROLE_KEY is set.';
         }
         setCreateError(msg);
         return;
@@ -504,34 +507,42 @@ export function UserManagement() {
 
       {showCreateUserModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
-            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-3 flex-shrink-0">
               <h2 className="text-xl font-semibold text-gray-900">Create User</h2>
               <button type="button" onClick={() => !createSending && setShowCreateUserModal(false)} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg disabled:opacity-50" aria-label="Close">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <form onSubmit={handleCreateUser} className="p-6 space-y-4">
+            <form onSubmit={handleCreateUser} className="flex flex-col flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+              {import.meta.env.DEV && !import.meta.env.VITE_VERCEL_URL && (
+                <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg">
+                  Local dev: Create User uses the Vercel API. Add <code className="text-xs bg-amber-100 px-1 rounded">VITE_VERCEL_URL</code> to .env and restart, or add users on the deployed site.
+                </p>
+              )}
               {createError && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{createError}</p>}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                <input type="text" value={createName} onChange={e => setCreateName(e.target.value)} placeholder="e.g. Jane Smith" className="w-full border border-gray-300 rounded-lg px-3 py-2" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email <span className="text-red-500">*</span></label>
-                <input type="email" value={createEmail} onChange={e => setCreateEmail(e.target.value)} placeholder="user@example.com" className="w-full border border-gray-300 rounded-lg px-3 py-2" required />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                <select value={createRole} onChange={e => setCreateRole(e.target.value as ProfileRole)} className="w-full border border-gray-300 rounded-lg px-3 py-2">
-                  {createUserRoles.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <select value={createStatus} onChange={e => setCreateStatus(e.target.value as ProfileStatus)} className="w-full border border-gray-300 rounded-lg px-3 py-2">
-                  {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <input type="text" value={createName} onChange={e => setCreateName(e.target.value)} placeholder="e.g. Jane Smith" className="w-full border border-gray-300 rounded-lg px-3 py-2" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email <span className="text-red-500">*</span></label>
+                  <input type="email" value={createEmail} onChange={e => setCreateEmail(e.target.value)} placeholder="user@example.com" className="w-full border border-gray-300 rounded-lg px-3 py-2" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                  <select value={createRole} onChange={e => setCreateRole(e.target.value as ProfileRole)} className="w-full border border-gray-300 rounded-lg px-3 py-2">
+                    {createUserRoles.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select value={createStatus} onChange={e => setCreateStatus(e.target.value as ProfileStatus)} className="w-full border border-gray-300 rounded-lg px-3 py-2">
+                    {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </select>
+                </div>
               </div>
               {!createSendInvite && (
                 <div>
@@ -545,8 +556,8 @@ export function UserManagement() {
               </label>
               {yearGroupNames.length > 0 && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Allowed year groups (optional)</label>
-                  <div className="flex flex-wrap gap-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Allowed year groups (optional)</label>
+                  <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
                     {yearGroupNames.map(name => (
                       <label key={name} className="inline-flex items-center gap-1.5 px-2 py-1 rounded border border-gray-200 bg-gray-50">
                         <input
@@ -562,9 +573,9 @@ export function UserManagement() {
               )}
               {categoryNames.length > 0 && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Preset categories (optional)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Preset categories (optional)</label>
                   <p className="text-xs text-gray-500 mb-1">User will have these categories and cannot remove them.</p>
-                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                  <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
                     {categoryNames.map(name => (
                       <label key={name} className="inline-flex items-center gap-1.5 px-2 py-1 rounded border border-gray-200 bg-gray-50">
                         <input
@@ -580,9 +591,9 @@ export function UserManagement() {
               )}
               {createPacks.length > 0 && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Assign purchased resources to this user (optional)</label>
-                  <p className="text-xs text-gray-500 mb-1">Grant access to activity packs (e.g. paid resources) on their login without them purchasing. They cannot remove these.</p>
-                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Assign purchased resources (optional)</label>
+                  <p className="text-xs text-gray-500 mb-1">Grant access to activity packs without purchasing.</p>
+                  <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto">
                     {createPacks.map(p => (
                       <label key={p.pack_id} className="inline-flex items-center gap-1.5 px-2 py-1 rounded border border-gray-200 bg-gray-50">
                         <input
@@ -596,7 +607,8 @@ export function UserManagement() {
                   </div>
                 </div>
               )}
-              <div className="flex justify-end gap-2 pt-2">
+              </div>
+              <div className="flex-shrink-0 border-t border-gray-200 px-6 py-3 bg-gray-50 flex justify-end gap-2 rounded-b-xl">
                 <button type="button" onClick={() => !createSending && setShowCreateUserModal(false)} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</button>
                 <button type="submit" disabled={createSending} className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 inline-flex items-center gap-2">
                   {createSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} {createSending ? 'Creating…' : 'Create User'}

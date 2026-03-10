@@ -15,6 +15,7 @@ import { HelpGuide } from './components/HelpGuide';
 import { initializeSupabaseKeepAlive } from './utils/supabaseKeepAlive';
 import './utils/setupKS1Maths'; // Make setupKS1MathsExample available in browser console
 import './utils/setupDanceObjectives'; // Make setupDanceObjectives available in browser console
+import './utils/setupSecondaryDramaObjectives'; // Make setupSecondaryDramaObjectives available in browser console
 import './utils/addForParentsToLKG'; // Make addForParentsToLKG available in browser console
 import './utils/addLKGActivitiesToAllYearGroups'; // Make addLKGActivitiesToAllYearGroups available in browser console
 

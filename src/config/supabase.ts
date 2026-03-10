@@ -11,7 +11,29 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // Use Supabase Auth (email/password, RLS): set VITE_USE_SUPABASE_AUTH=true
 const useSupabaseAuth = import.meta.env.VITE_USE_SUPABASE_AUTH === 'true';
 
-// Create Supabase client. When using Supabase Auth, session is persisted and sent with requests (RLS applies).
+/** Session cookie set when user chooses "Require password each time". When set, we use sessionStorage so session ends when browser closes. */
+const SESSION_ONLY_COOKIE = 'ccd_session_only';
+
+function useSessionStorageForAuth(): boolean {
+  if (typeof document === 'undefined' || !document.cookie) return false;
+  return document.cookie.includes(`${SESSION_ONLY_COOKIE}=`);
+}
+
+const customAuthStorage = {
+  getItem: (key: string): string | null =>
+    useSessionStorageForAuth() ? sessionStorage.getItem(key) : localStorage.getItem(key),
+  setItem: (key: string, value: string): void =>
+    (useSessionStorageForAuth() ? sessionStorage : localStorage).setItem(key, value),
+  removeItem: (key: string): void =>
+    (useSessionStorageForAuth() ? sessionStorage : localStorage).removeItem(key),
+};
+
+/** Call before sign-in when user chose "Require password each time". Session will be stored in sessionStorage and cleared when the browser/tab closes. */
+export function setSessionOnlyCookie() {
+  document.cookie = `${SESSION_ONLY_COOKIE}=1; path=/; SameSite=Lax`;
+}
+
+// Create Supabase client. When using Supabase Auth, session is persisted (localStorage or sessionStorage when "require password each time").
 export const supabase = createClient(
   supabaseUrl,
   supabaseAnonKey,
@@ -19,7 +41,8 @@ export const supabase = createClient(
     auth: {
       persistSession: useSupabaseAuth,
       autoRefreshToken: useSupabaseAuth,
-      detectSessionInUrl: useSupabaseAuth
+      detectSessionInUrl: useSupabaseAuth,
+      ...(useSupabaseAuth && { storage: customAuthStorage }),
     },
     global: {
       headers: {

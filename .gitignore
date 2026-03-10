@@ -50,3 +50,7 @@ tmp/
 # Reference clone (cursorchanges) - do not commit
 _cursorchanges_ref/
 .env
+
+# Netlify (deploy via GitHub → Vercel only)
+.netlify/
+netlify/
