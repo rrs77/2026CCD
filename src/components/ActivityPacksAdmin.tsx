@@ -17,6 +17,7 @@ export const ActivityPacksAdmin: React.FC<ActivityPacksAdminProps> = ({ userEmai
   const { categories } = useSettings();
   const [packs, setPacks] = useState<ActivityPack[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [editingPack, setEditingPack] = useState<Partial<ActivityPack> | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const canAddPack = isCreator || isAdmin;
@@ -41,6 +42,7 @@ export const ActivityPacksAdmin: React.FC<ActivityPacksAdminProps> = ({ userEmai
   const loadPacks = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const data = isAdmin
         ? await activityPacksApi.getAllPacksAdmin()
         : isCreator
@@ -49,7 +51,10 @@ export const ActivityPacksAdmin: React.FC<ActivityPacksAdminProps> = ({ userEmai
       setPacks(data);
     } catch (error) {
       console.error('Failed to load packs:', error);
-      toast.error('Failed to load packs');
+      const message = error instanceof Error ? error.message : 'Failed to load packs';
+      setLoadError(message);
+      setPacks([]);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -119,12 +124,31 @@ export const ActivityPacksAdmin: React.FC<ActivityPacksAdminProps> = ({ userEmai
     }
   };
 
-  if (loading) {
+  if (loading && packs.length === 0 && !loadError) {
     return <div className="p-6 text-center text-gray-600">Loading activity packs...</div>;
   }
 
   return (
     <div className="space-y-6">
+      {loadError && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 flex items-start justify-between gap-4">
+          <div>
+            <p className="font-medium text-amber-800">Failed to load packs</p>
+            <p className="text-sm text-amber-700 mt-1">{loadError}</p>
+            <p className="text-xs text-amber-600 mt-2">
+              Check that Supabase is configured and the activity_packs table exists. If you added the introduction column, run the migration activity_packs_add_introduction.sql.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => loadPacks()}
+            className="px-3 py-1.5 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 whitespace-nowrap"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="flex space-x-2 border-b border-gray-200">
         <button
@@ -168,7 +192,7 @@ export const ActivityPacksAdmin: React.FC<ActivityPacksAdminProps> = ({ userEmai
                 <span>Manage Activity Packs</span>
               </h3>
               <p className="text-sm text-gray-600 mt-1">
-                Share and sell your lesson plans: add software packs that others can purchase in the app. Link categories to control access.
+                Share and sell your lesson plans: add resource packs (with lesson stacks and an optional introduction) that others can purchase or you can assign. Link categories to control access.
               </p>
             </div>
             {canAddPack && (
@@ -177,7 +201,7 @@ export const ActivityPacksAdmin: React.FC<ActivityPacksAdminProps> = ({ userEmai
                 className="flex items-center space-x-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
               >
                 <Plus className="h-4 w-4" />
-                <span>Add software pack</span>
+                <span>Add resource pack</span>
               </button>
             )}
           </div>
@@ -450,7 +474,7 @@ export const ActivityPacksAdmin: React.FC<ActivityPacksAdminProps> = ({ userEmai
         </div>
       )}
 
-      {/* Add / Edit software pack modal */}
+      {/* Add / Edit resource pack modal */}
       <AddSoftwarePackModal
         isOpen={showCreateForm}
         onClose={() => {

@@ -271,8 +271,9 @@ export function UserManagement() {
     }
     setCreateError('');
     setCreateSending(true);
+    const apiUrl = getVercelApiUrl('/api/create-user');
     try {
-      const res = await fetch(getVercelApiUrl('/api/create-user'), {
+      const res = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -294,7 +295,9 @@ export function UserManagement() {
           const isDev = import.meta.env.DEV;
           msg = isDev
             ? 'Create-user API not available locally. Add VITE_VERCEL_URL=https://your-app.vercel.app to .env (your real Vercel URL), restart the dev server, then try again. Or add users on the deployed site.'
-            : 'Create-user API not found. If this site is not hosted on Vercel, set VITE_API_BASE_URL to your Vercel app URL in the build environment and redeploy. On Vercel, ensure api/create-user.js is deployed and SUPABASE_SERVICE_ROLE_KEY is set.';
+            : 'Create-user API not found. On Vercel: ensure the api/ folder is deployed and SUPABASE_SERVICE_ROLE_KEY is set in Project Settings → Environment Variables. If the frontend is hosted elsewhere, set VITE_API_BASE_URL to your Vercel app URL.';
+        } else if (res.status === 500 && msg.includes('SUPABASE_SERVICE_ROLE_KEY')) {
+          msg = 'Server misconfigured: SUPABASE_SERVICE_ROLE_KEY is not set. Add it in Vercel → Project Settings → Environment Variables.';
         }
         setCreateError(msg);
         return;
@@ -312,7 +315,13 @@ export function UserManagement() {
       setCreatePresetPackIds([]);
       fetchUsers().then(setUsers);
     } catch (e) {
-      setCreateError(e instanceof Error ? e.message : 'Failed to create user');
+      const err = e instanceof Error ? e : new Error('Failed to create user');
+      const isNetwork = err.message === 'Failed to fetch' || err.name === 'TypeError';
+      setCreateError(
+        isNetwork
+          ? 'Cannot reach the Create User API. In dev set VITE_VERCEL_URL in .env and restart. On production ensure the API is deployed (Vercel api/ folder) and SUPABASE_SERVICE_ROLE_KEY is set.'
+          : err.message
+      );
     } finally {
       setCreateSending(false);
     }

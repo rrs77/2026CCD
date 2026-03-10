@@ -125,7 +125,7 @@ interface UserSettingsProps {
 export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
   const { user, profile } = useAuth();
   const isViewOnly = useIsViewOnly();
-  const { settings, updateSettings, resetToDefaults, categories, updateCategories, resetCategoriesToDefaults, customYearGroups, updateYearGroups, updateYearGroupSections, getOrderedYearGroups, yearGroupSections, deleteYearGroup, resetYearGroupsToDefaults, forceSyncYearGroups, forceSyncToSupabase, forceRefreshFromSupabase, forceSyncCurrentYearGroups, forceSafariSync, startUserChange, endUserChange, resourceLinks, updateResourceLinks, resetResourceLinksToDefaults } = useSettings();
+  const { settings, updateSettings, resetToDefaults, categories, updateCategories, resetCategoriesToDefaults, customYearGroups, updateYearGroups, updateYearGroupSections, getOrderedYearGroups, yearGroupSections, deleteYearGroup, resetYearGroupsToDefaults, addMissingDefaultYearGroups, ensureYearGroupsInSections, forceSyncYearGroups, forceSyncToSupabase, forceRefreshFromSupabase, forceSyncCurrentYearGroups, forceSafariSync, startUserChange, endUserChange, resourceLinks, updateResourceLinks, resetResourceLinksToDefaults } = useSettings();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [tempSettings, setTempSettings] = useState(settings);
   const [tempCategories, setTempCategories] = useState(categories);
@@ -255,6 +255,13 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
       setNewlyAddedYearGroup(null);
     }
   }, [activeTab]);
+
+  // When opening Year Groups tab, ensure any orphaned year groups (e.g. after a rename) appear under Other
+  React.useEffect(() => {
+    if (activeTab === 'yeargroups') {
+      ensureYearGroupsInSections();
+    }
+  }, [activeTab, ensureYearGroupsInSections]);
 
   // When switching to Custom Objectives tab, scroll content into view so the panel is visible
   React.useEffect(() => {
@@ -649,10 +656,20 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
 
   const handleUpdateYearGroup = async (index: number, id: string, name: string, color: string) => {
     const updatedYearGroups = [...tempYearGroups];
-    updatedYearGroups[index] = { ...updatedYearGroups[index], id, name, color };
+    const oldYearGroup = updatedYearGroups[index];
+    const oldId = oldYearGroup?.id ?? '';
+    updatedYearGroups[index] = { ...oldYearGroup, id, name, color };
     setTempYearGroups(updatedYearGroups);
     setEditingYearGroup(null);
-    
+
+    // If the id changed, update sections so the year group still appears in the same section (it was disappearing because sections still referenced the old id)
+    if (oldId && oldId !== id) {
+      updateYearGroupSections(prev => prev.map(s => ({
+        ...s,
+        yearGroupIds: (s.yearGroupIds || []).map(mid => mid === oldId ? id : mid)
+      })));
+    }
+
     console.log('🔄 Updating year group and persisting immediately:', { id, name, color });
     updateYearGroups(updatedYearGroups);
     try {
@@ -663,28 +680,25 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
   };
 
   const handleDeleteYearGroup = async (index: number) => {
-    if (confirm('Are you sure you want to delete this year group? This may affect existing lessons.')) {
-      try {
-        setIsDeletingYearGroup(true);
-        const removed = tempYearGroups[index];
-        const exactName = (removed?.name || removed?.id || '').trim();
-        if (!exactName) {
-          setIsDeletingYearGroup(false);
-          return;
-        }
-        // Delete from Supabase first (exact name match); only update UI on success
-        await deleteYearGroup(exactName);
-        const updatedYearGroups = tempYearGroups.filter((_, i) => i !== index);
-        setTempYearGroups(updatedYearGroups);
-        await updateYearGroups(updatedYearGroups);
-        updateYearGroupSections(prev => prev.map(s => ({ ...s, yearGroupIds: (s.yearGroupIds || []).filter(id => id !== removed.id) })));
-        setTimeout(() => setIsDeletingYearGroup(false), 1000);
-      } catch (error) {
-        console.error('❌ Failed to delete year group:', error);
-        const message = error instanceof Error ? error.message : (error && typeof error === 'object' && 'message' in error ? String((error as { message?: string }).message) : 'Failed to delete year group. Please try again.');
-        alert(message || 'Failed to delete year group. Please try again.');
+    try {
+      setIsDeletingYearGroup(true);
+      const removed = tempYearGroups[index];
+      const exactName = (removed?.name || removed?.id || '').trim();
+      if (!exactName) {
         setIsDeletingYearGroup(false);
+        return;
       }
+      await deleteYearGroup(exactName);
+      const updatedYearGroups = tempYearGroups.filter((_, i) => i !== index);
+      setTempYearGroups(updatedYearGroups);
+      await updateYearGroups(updatedYearGroups);
+      updateYearGroupSections(prev => prev.map(s => ({ ...s, yearGroupIds: (s.yearGroupIds || []).filter(id => id !== removed.id) })));
+      setTimeout(() => setIsDeletingYearGroup(false), 1000);
+    } catch (error) {
+      console.error('❌ Failed to delete year group:', error);
+      const message = error instanceof Error ? error.message : (error && typeof error === 'object' && 'message' in error ? String((error as { message?: string }).message) : 'Failed to delete year group. Please try again.');
+      alert(message || 'Failed to delete year group. Please try again.');
+      setIsDeletingYearGroup(false);
     }
   };
 
@@ -1188,7 +1202,17 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                   <p className="text-sm text-gray-600 mb-4">
                     Group year groups into collapsible sections (e.g. EYFS, KS1, KS2). Drag to reorder within a section. Sections are customisable.
                   </p>
-                  <div className="mb-3 flex justify-end">
+                  <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await addMissingDefaultYearGroups();
+                      }}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                      title="Add any default year groups that are missing (e.g. Reception)"
+                    >
+                      Add back missing defaults
+                    </button>
                     <button
                       type="button"
                       onClick={() => {

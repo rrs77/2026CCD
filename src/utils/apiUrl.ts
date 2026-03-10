@@ -2,9 +2,8 @@
  * Returns the full URL for Vercel API routes.
  * Use for create-user, resend-invite, etc.
  *
- * - In dev: Uses VITE_VERCEL_URL if set (points to deployed Vercel app)
- * - In prod on Vercel: Returns path (same-origin)
- * - When VITE_API_BASE_URL is set: Uses it (for frontend on Cloudflare, etc.)
+ * - When VITE_API_BASE_URL or VITE_VERCEL_URL is set: uses that base (for dev proxy or external host).
+ * - Otherwise: same-origin (window.location.origin + path) so /api/create-user always hits this app's API.
  */
 export function getVercelApiUrl(path: string): string {
   const baseFromEnv = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_VERCEL_URL;
@@ -12,7 +11,11 @@ export function getVercelApiUrl(path: string): string {
     const base = String(baseFromEnv).replace(/\/$/, '');
     return `${base}${path.startsWith('/') ? path : `/${path}`}`;
   }
-  return path.startsWith('/') ? path : `/${path}`;
+  const pathStr = path.startsWith('/') ? path : `/${path}`;
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}${pathStr}`;
+  }
+  return pathStr;
 }
 
 /**

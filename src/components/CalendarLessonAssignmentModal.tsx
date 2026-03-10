@@ -73,59 +73,47 @@ export function CalendarLessonAssignmentModal({
     );
   }, [stacks, searchQuery]);
 
-  // Calculate dates based on timetable and spread days
+  // Calculate dates: first date is always the clicked date; then spread over timetable days if multiple.
   const calculateDates = (startDate: Date, daysToSpread: number): Date[] => {
     const dates: Date[] = [];
-    let currentDate = new Date(startDate);
-    let daysAdded = 0;
     const maxDays = 30; // Prevent infinite loops
 
-    // Get timetable days for this class
+    // First date is always the day the user clicked
+    dates.push(new Date(startDate));
+    if (daysToSpread <= 1) return dates;
+
+    // Get timetable days for this class (for spreading stacks)
     const classTimetableDays = timetableClasses
       .filter(t => t.className === className)
       .map(t => t.day)
       .sort();
 
+    let currentDate = new Date(startDate);
+    let daysAdded = 1;
+
     if (classTimetableDays.length === 0) {
-      // If no timetable, just add consecutive days
-      for (let i = 0; i < daysToSpread; i++) {
-        dates.push(new Date(addDays(startDate, i)));
+      // No timetable: use consecutive days after the clicked date
+      while (daysAdded < daysToSpread && daysAdded < maxDays) {
+        currentDate = addDays(currentDate, 1);
+        dates.push(new Date(currentDate));
+        daysAdded++;
       }
       return dates;
     }
 
-    // Find the next timetable day from start date
-    const startDay = getDay(startDate);
-    let nextTimetableIndex = classTimetableDays.findIndex(day => day >= startDay);
-    
-    if (nextTimetableIndex === -1) {
-      // If no timetable day found this week, start from first day next week
-      nextTimetableIndex = 0;
-      const daysUntilNext = (7 - startDay) + classTimetableDays[0];
-      currentDate = addDays(startDate, daysUntilNext);
-    } else {
-      const daysUntilNext = classTimetableDays[nextTimetableIndex] - startDay;
-      if (daysUntilNext > 0) {
-        currentDate = addDays(startDate, daysUntilNext);
-      }
-    }
+    // Move to next timetable day for each additional date
+    let currentDay = getDay(currentDate);
+    let nextTimetableIndex = classTimetableDays.findIndex(day => day > currentDay);
+    if (nextTimetableIndex === -1) nextTimetableIndex = 0;
 
-    // Add dates based on timetable
     while (daysAdded < daysToSpread && daysAdded < maxDays) {
+      const nextTimetableDay = classTimetableDays[nextTimetableIndex];
+      let daysToAdd = nextTimetableDay - getDay(currentDate);
+      if (daysToAdd <= 0) daysToAdd += 7;
+      currentDate = addDays(currentDate, daysToAdd);
       dates.push(new Date(currentDate));
       daysAdded++;
-
-      // Move to next timetable day
       nextTimetableIndex = (nextTimetableIndex + 1) % classTimetableDays.length;
-      const currentDay = getDay(currentDate);
-      const nextTimetableDay = classTimetableDays[nextTimetableIndex];
-      
-      let daysToAdd = nextTimetableDay - currentDay;
-      if (daysToAdd <= 0) {
-        daysToAdd += 7; // Move to next week
-      }
-      
-      currentDate = addDays(currentDate, daysToAdd);
     }
 
     return dates;

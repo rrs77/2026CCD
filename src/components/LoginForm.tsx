@@ -15,7 +15,7 @@ export function LoginForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [staySignedIn, setStaySignedIn] = useState(true);
+  const [staySignedIn, setStaySignedIn] = useState(false);
   const [error, setError] = useState('');
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);

@@ -430,23 +430,29 @@ export function TimetableBuilder({
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[70]">
-        <div className="bg-white rounded-lg shadow-xl max-w-[95vw] w-full max-h-[95vh] flex flex-col">
+        <div className="bg-white rounded-2xl shadow-xl max-w-[95vw] w-full max-h-[95vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-teal-500 to-teal-600 text-white">
           <div>
             <h2 className="text-2xl font-bold">Timetable Builder</h2>
             <p className="text-teal-100 mt-1">{className}</p>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setViewMode(viewMode === 'days' ? 'week' : 'days')}
               className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white font-medium rounded-lg transition-colors text-sm"
             >
               {viewMode === 'days' ? 'Show All Days' : 'School Days Only'}
             </button>
-            {isSaving && (
-              <span className="text-sm">Saving...</span>
-            )}
+            <button
+              type="button"
+              onClick={() => saveTimetable(timetableClasses)}
+              disabled={isSaving}
+              className="flex items-center gap-2 px-4 py-2 bg-white text-teal-600 hover:bg-teal-50 font-medium rounded-lg transition-colors text-sm shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <Save className="h-4 w-4" />
+              {isSaving ? 'Saving...' : 'Save'}
+            </button>
             <button
               onClick={onClose}
               className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
@@ -456,10 +462,10 @@ export function TimetableBuilder({
           </div>
         </div>
 
-        {/* Content */}
+        {/* Content - min-h-0 so flex children can shrink and scroll */}
         <div className="flex-1 min-h-0 overflow-hidden flex">
-          {/* Left Sidebar - Class List */}
-          <div className="w-80 flex-shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col">
+          {/* Left Sidebar - Class List; min-h-0 so inner overflow-y-auto can scroll */}
+          <div className="w-80 flex-shrink-0 min-h-0 border-r border-gray-200 bg-gray-50 flex flex-col overflow-hidden">
             {/* Semester/Term Selection */}
             <div className="p-4 border-b border-gray-200 bg-white">
               <h3 className="text-xs font-semibold text-gray-500 uppercase mb-2">Semester</h3>
@@ -564,8 +570,8 @@ export function TimetableBuilder({
               </p>
             </div>
 
-            {/* Class List */}
-            <div className="flex-1 overflow-y-auto p-4">
+            {/* Class List - scrollable so you can reach bottom */}
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-gray-900">Class List</h3>
                 <button

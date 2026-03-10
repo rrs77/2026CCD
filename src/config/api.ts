@@ -1796,6 +1796,8 @@ export interface ActivityPack {
   pack_id: string;
   name: string;
   description: string;
+  /** Optional rich-text introduction to the pack (shown with pack content). */
+  introduction?: string | null;
   price: number;
   icon: string;
   category_ids: string[];
@@ -1872,6 +1874,9 @@ export const activityPacksApi = {
     };
     if (pack.year_group_sections !== undefined) {
       payload.year_group_sections = pack.year_group_sections;
+    }
+    if (pack.introduction !== undefined) {
+      payload.introduction = pack.introduction || null;
     }
     const { data, error } = await supabase
       .from('activity_packs')

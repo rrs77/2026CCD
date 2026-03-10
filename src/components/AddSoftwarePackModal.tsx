@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, ChevronDown, ChevronRight, Layers } from 'lucide-react';
+import { X, Save, ChevronDown, ChevronRight, Layers, FileText } from 'lucide-react';
 import { activityPacksApi } from '../config/api';
 import { lessonStacksApi } from '../config/lessonStacksApi';
 import type { ActivityPack } from '../config/api';
 import type { Category } from '../contexts/SettingsContextNew';
 import type { StackedLesson } from '../hooks/useLessonStacks';
+import { PackIntroductionModal } from './PackIntroductionModal';
 import toast from 'react-hot-toast';
 
 const COMMON_ICONS = ['🎭', '📚', '🎵', '🎨', '📖', '✨', '🎪', '📦', '🎯', '🌟'];
@@ -32,6 +33,7 @@ export function AddSoftwarePackModal({
   const [packId, setPackId] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [introduction, setIntroduction] = useState('');
   const [price, setPrice] = useState(19.99);
   const [icon, setIcon] = useState('📦');
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
@@ -41,6 +43,7 @@ export function AddSoftwarePackModal({
   const [stacks, setStacks] = useState<StackedLesson[]>([]);
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showIntroductionModal, setShowIntroductionModal] = useState(false);
 
   /** Section ids for "Show in Lesson Library for" (EYFS, KS1–KS5, Other). Empty = all year groups. */
   const PACK_YEAR_GROUP_SECTIONS = [
@@ -59,6 +62,7 @@ export function AddSoftwarePackModal({
       setPackId(editingPack.pack_id ?? '');
       setName(editingPack.name ?? '');
       setDescription(editingPack.description ?? '');
+      setIntroduction(editingPack.introduction ?? '');
       setPrice(editingPack.price ?? 19.99);
       setIcon(editingPack.icon ?? '📦');
       setCategoryIds(editingPack.category_ids ?? []);
@@ -69,6 +73,7 @@ export function AddSoftwarePackModal({
       setPackId('');
       setName('');
       setDescription('');
+      setIntroduction('');
       setPrice(19.99);
       setIcon('📦');
       setCategoryIds([]);
@@ -127,6 +132,7 @@ export function AddSoftwarePackModal({
         pack_id: trimmedId,
         name: trimmedName,
         description: description.trim() || undefined,
+        introduction: introduction.trim() || undefined,
         price: Number(price) || 0,
         icon: icon || '📦',
         category_ids: categoryIds,
@@ -135,7 +141,7 @@ export function AddSoftwarePackModal({
         is_active: isActive,
         ...(!isEditing && creatorEmail && { creator_email: creatorEmail })
       });
-      toast.success(isEditing ? 'Pack updated.' : 'Software pack added. It can now be purchased in the app.');
+      toast.success(isEditing ? 'Pack updated.' : 'Resource pack added. It can now be purchased in the app.');
       onSave?.();
       onClose();
     } catch (err) {
@@ -160,10 +166,10 @@ export function AddSoftwarePackModal({
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-teal-50">
           <div>
             <h2 id="add-pack-title" className="text-xl font-bold text-gray-900">
-              {isEditing ? 'Edit software pack' : 'Add software pack'}
+              {isEditing ? 'Edit resource pack' : 'Add resource pack'}
             </h2>
             <p className="text-sm text-gray-600 mt-0.5">
-              Share and sell your lesson plans. Packs you add can be purchased by others in the app.
+              Add content (lesson stacks from the database) and an optional introduction. Packs can be purchased or assigned to users.
             </p>
           </div>
           <button
@@ -302,40 +308,77 @@ export function AddSoftwarePackModal({
               </div>
             </div>
 
-            {/* Link lesson stacks / units — whole unit in one click for sale */}
-            {stacks.length > 0 && (
-              <div className="border-t border-gray-200 pt-4">
-                <h4 className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-2">
-                  <Layers className="h-4 w-4 text-teal-600" />
-                  Link lesson stacks / units (optional)
-                </h4>
-                <p className="text-xs text-gray-600 mb-3">
-                  Add whole units to this pack. Buyers can add these to their calendar in one click.
-                </p>
-                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                  {stacks.map((stack) => {
-                    const isSelected = stackIds.includes(stack.id);
-                    return (
-                      <button
-                        key={stack.id}
-                        type="button"
-                        onClick={() => toggleStack(stack.id)}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
-                          isSelected
-                            ? 'bg-teal-600 text-white'
-                            : 'bg-gray-100 border border-gray-300 text-gray-700 hover:border-teal-400'
-                        }`}
-                      >
-                        <span className="truncate max-w-[180px]" title={stack.name}>{stack.name}</span>
-                        {stack.lessons?.length != null && (
-                          <span className="text-xs opacity-80">({stack.lessons.length})</span>
-                        )}
-                      </button>
-                    );
-                  })}
+            {/* Add content: introduction + lesson stacks from database */}
+            <div className="border-t border-gray-200 pt-4">
+              <h4 className="text-sm font-semibold text-gray-900 mb-2">Add content to this pack</h4>
+
+              {/* Introduction (rich text) — modal */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-teal-600" />
+                    Introduction (optional)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowIntroductionModal(true)}
+                    className="px-3 py-1.5 text-sm font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100"
+                  >
+                    {introduction ? 'Edit introduction' : 'Add introduction'}
+                  </button>
                 </div>
+                <p className="text-xs text-gray-500">
+                  A short overview or how-to shown when users view this pack. Opens in a rich-text editor.
+                </p>
+                {introduction && (() => {
+                  const plain = introduction.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+                  return (
+                    <p className="mt-1 text-xs text-gray-600 line-clamp-2 overflow-hidden border-l-2 border-teal-200 pl-2">
+                      {plain.slice(0, 120)}{plain.length > 120 ? '…' : ''}
+                    </p>
+                  );
+                })()}
               </div>
-            )}
+
+              {/* Lesson stacks from database */}
+              {stacks.length > 0 ? (
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-teal-600" />
+                    Lessons from the database (lesson stacks)
+                  </p>
+                  <p className="text-xs text-gray-600 mb-2">
+                    Add lesson stacks so buyers can add these units to their calendar in one click.
+                  </p>
+                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                    {stacks.map((stack) => {
+                      const isSelected = stackIds.includes(stack.id);
+                      return (
+                        <button
+                          key={stack.id}
+                          type="button"
+                          onClick={() => toggleStack(stack.id)}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                            isSelected
+                              ? 'bg-teal-600 text-white'
+                              : 'bg-gray-100 border border-gray-300 text-gray-700 hover:border-teal-400'
+                          }`}
+                        >
+                          <span className="truncate max-w-[180px]" title={stack.name}>{stack.name}</span>
+                          {stack.lessons?.length != null && (
+                            <span className="text-xs opacity-80">({stack.lessons.length})</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  No lesson stacks in the database yet. Create stacks in Lesson Library (Lesson Stacks / Units) first, then they will appear here to add to this pack.
+                </p>
+              )}
+            </div>
 
             {/* Link categories — minimised (collapsible) */}
             {Object.keys(groupedCategories).length > 0 && (
@@ -398,10 +441,19 @@ export function AddSoftwarePackModal({
               className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-60 flex items-center gap-2"
             >
               <Save className="h-4 w-4" />
-              {saving ? 'Saving…' : isEditing ? 'Update pack' : 'Add software pack'}
+              {saving ? 'Saving…' : isEditing ? 'Update pack' : 'Add resource pack'}
             </button>
           </div>
         </form>
+
+        <PackIntroductionModal
+          isOpen={showIntroductionModal}
+          onClose={() => setShowIntroductionModal(false)}
+          value={introduction}
+          onChange={setIntroduction}
+          onSave={() => {}}
+          packName={name || undefined}
+        />
       </div>
     </div>
   );
