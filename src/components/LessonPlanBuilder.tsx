@@ -33,6 +33,10 @@ import { useData } from '../contexts/DataContext';
 import { useSettings } from '../contexts/SettingsContextNew';
 import { useIsViewOnly } from '../hooks/useIsViewOnly';
 import type { Activity, LessonPlan, ActivityStack } from '../contexts/DataContext';
+import {
+  activityCategoryAllowedForYearGroup,
+  activityMatchesSelectedLibraryCategory,
+} from '../utils/activityLibraryCategories';
 
 // Define half-term periods
 const HALF_TERMS = [
@@ -825,10 +829,16 @@ export function LessonPlanBuilder({
         activity.description.toLowerCase().includes(searchQuery.toLowerCase());
       
       // Filter by selected category if one is chosen (but still show all if 'all' is selected)
-      const matchesCategory = selectedCategory === 'all' || activity.category === selectedCategory;
-      
+      const matchesCategory = activityMatchesSelectedLibraryCategory(
+        activity.category,
+        selectedCategory
+      );
+
       // Category must be assigned to year group. Once assigned, show ALL activities in that category.
-      const categoryIsAssignedToYearGroup = availableCategoriesForYearGroup.includes(activity.category);
+      const categoryIsAssignedToYearGroup = activityCategoryAllowedForYearGroup(
+        activity.category,
+        availableCategoriesForYearGroup
+      );
 
       // When a category is applied to a year group, that year group sees all activities in the category (no activity-level year filter).
       const activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup;

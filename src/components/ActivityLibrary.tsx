@@ -34,6 +34,10 @@ import { useIsViewOnly } from '../hooks/useIsViewOnly';
 import { activityPacksApi } from '../config/api';
 import { supabase, isSupabaseConfigured } from '../config/supabase';
 import type { Activity } from '../contexts/DataContext';
+import {
+  activityCategoryAllowedForYearGroup,
+  activityMatchesSelectedLibraryCategory,
+} from '../utils/activityLibraryCategories';
 
 /** Stable key for starring (prefer DB id). */
 function getActivityStarKey(activity: Activity): string {
@@ -74,7 +78,7 @@ export function ActivityLibrary({
     unstackActivities,
     currentSheetInfo
   } = useData();
-  const { getCategoryColor, categories, customYearGroups, mapActivityLevelToYearGroup } = useSettings();
+  const { getCategoryColor, categories, updateCategories, customYearGroups, mapActivityLevelToYearGroup } = useSettings();
   
   // Get categories assigned to current year group (same logic as LessonPlanBuilder)
   // IMPORTANT: This must match the EXACT keys used when saving categories in UserSettings (line 1460)
@@ -373,8 +377,8 @@ export function ActivityLibrary({
     }
     
     // Filter activities to only those assigned to current year group, then get unique categories
-    const filteredActivities = allActivities.filter(activity => 
-      availableCategoriesForYearGroup.includes(activity.category)
+    const filteredActivities = allActivities.filter((activity) =>
+      activityCategoryAllowedForYearGroup(activity.category, availableCategoriesForYearGroup)
     );
     const cats = new Set(filteredActivities.map(a => a.category));
     return Array.from(cats).sort();
@@ -411,15 +415,20 @@ export function ActivityLibrary({
                            activity.description.toLowerCase().includes(query.toLowerCase());
       
       // Filter by category if one is selected
-      const matchesCategory = localSelectedCategory === 'all' || activity.category === localSelectedCategory;
+      const matchesCategory = activityMatchesSelectedLibraryCategory(
+        activity.category,
+        localSelectedCategory
+      );
       
       // Level filtering removed - show all levels
       const matchesLevel = true;
       
       // Category must be assigned to year group (if we have a list); then show all activities in that category.
       // Once a category is applied to a year group, that year group sees ALL activities in the category.
-      const categoryIsAssignedToYearGroup = availableCategoriesForYearGroup === null ||
-                                             availableCategoriesForYearGroup.includes(activity.category);
+      const categoryIsAssignedToYearGroup = activityCategoryAllowedForYearGroup(
+        activity.category,
+        availableCategoriesForYearGroup
+      );
 
       // When a category is assigned to a year group, show all activities in that category (no activity-level year filter).
       const activityIsAssignedToYearGroup = categoryIsAssignedToYearGroup;
@@ -488,8 +497,10 @@ export function ActivityLibrary({
   // When a category is assigned to a year group, all activities in that category count.
   const totalActivitiesForYearGroup = useMemo(() => {
     return allActivities.filter(activity => {
-      const categoryIsAssignedToYearGroup = availableCategoriesForYearGroup === null ||
-                                             availableCategoriesForYearGroup.includes(activity.category);
+      const categoryIsAssignedToYearGroup = activityCategoryAllowedForYearGroup(
+        activity.category,
+        availableCategoriesForYearGroup
+      );
       const hasPackAccess = !activity.requiredPack || userOwnedPacks.includes(activity.requiredPack);
       return categoryIsAssignedToYearGroup && hasPackAccess;
     }).length;
@@ -641,6 +652,26 @@ export function ActivityLibrary({
           yearGroups: activity.yearGroups || (activity.level ? [activity.level] : [])
         };
       });
+
+      // Ensure imported categories exist in settings so they can be assigned in Manage Categories.
+      const existingCategoryNames = new Set(categories.map((c) => c.name.toLowerCase().trim()));
+      const missingCategoryNames = [...new Set(
+        normalizedActivities
+          .map((a) => (a.category || '').trim())
+          .filter(Boolean)
+          .filter((name) => !existingCategoryNames.has(name.toLowerCase()))
+      )];
+
+      if (missingCategoryNames.length > 0) {
+        const palette = ['#14B8A6', '#0EA5E9', '#F59E0B', '#A855F7', '#EF4444', '#10B981', '#6366F1', '#EC4899'];
+        const addedCategories = missingCategoryNames.map((name, idx) => ({
+          name,
+          color: palette[(categories.length + idx) % palette.length],
+          position: categories.length + idx,
+          yearGroups: {} as Record<string, boolean>
+        }));
+        updateCategories([...categories, ...addedCategories]);
+      }
       
       // Add each activity using the centralized function
       for (const activity of normalizedActivities) {

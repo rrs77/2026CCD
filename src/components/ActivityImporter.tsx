@@ -3,6 +3,10 @@ import { Upload, FileText, CheckCircle, AlertCircle, X, Download, RefreshCw } fr
 import * as XLSX from 'xlsx';
 import { activitiesApi } from '../config/api';
 import type { Activity } from '../contexts/DataContext';
+import {
+  isVocalWarmupSubcategory,
+  VOCAL_WARMUP_CANONICAL_CATEGORY,
+} from '../utils/activityLibraryCategories';
 
 interface ActivityImporterProps {
   onImport: (activities: Activity[]) => void;
@@ -115,14 +119,23 @@ export function ActivityImporter({ onImport, onClose }: ActivityImporterProps) {
       throw new Error(`Missing required headers: ${missingHeaders.join(', ')}`);
     }
 
-    // Find column indices
+    // Find column indices (exact header match first so "Category" does not match "Library Category")
     const getColumnIndex = (name: string) => {
-      const index = headers.findIndex(h => 
-        String(h).toLowerCase() === name.toLowerCase() || 
-        String(h).toLowerCase().includes(name.toLowerCase())
-      );
-      return index;
+      const lower = name.toLowerCase();
+      const exact = headers.findIndex((h) => String(h).toLowerCase() === lower);
+      if (exact >= 0) return exact;
+      return headers.findIndex((h) => String(h).toLowerCase().includes(lower));
     };
+
+    const libraryCategoryIdx = headers.findIndex((h) => {
+      const x = String(h).toLowerCase().trim();
+      return (
+        x === 'library category' ||
+        x === 'app category' ||
+        x === 'parent category' ||
+        x === 'ccd category'
+      );
+    });
 
     const lessonNumberIdx = getColumnIndex('Lesson Number');
     const categoryIdx = getColumnIndex('Category');
@@ -138,6 +151,7 @@ export function ActivityImporter({ onImport, onClose }: ActivityImporterProps) {
 
     console.log("Column indices:", {
       lessonNumber: lessonNumberIdx,
+      libraryCategory: libraryCategoryIdx,
       category: categoryIdx,
       activityName: activityNameIdx,
       description: descriptionIdx,
@@ -184,6 +198,24 @@ export function ActivityImporter({ onImport, onClose }: ActivityImporterProps) {
         description = description.replace(/\n/g, '<br>');
       }
 
+      const rawCategory = String(row[categoryIdx] || '').trim();
+      let resolvedCategory = rawCategory;
+      if (libraryCategoryIdx >= 0 && String(row[libraryCategoryIdx] || '').trim()) {
+        resolvedCategory = String(row[libraryCategoryIdx]).trim();
+      } else if (isVocalWarmupSubcategory(rawCategory)) {
+        // Excel "Physical Starters" etc. → library category Vocal Warmups (matches Manage Categories)
+        resolvedCategory = VOCAL_WARMUP_CANONICAL_CATEGORY;
+      }
+
+      let unitName = String(row[unitNameIdx] || '').trim();
+      if (
+        !unitName &&
+        isVocalWarmupSubcategory(rawCategory) &&
+        resolvedCategory === VOCAL_WARMUP_CANONICAL_CATEGORY
+      ) {
+        unitName = rawCategory;
+      }
+
       const activity: Activity = {
         id: `imported-${Date.now()}-${i}`,
         activity: String(row[activityNameIdx] || '').trim(),
@@ -196,10 +228,10 @@ export function ActivityImporter({ onImport, onClose }: ActivityImporterProps) {
         link: '',
         vocalsLink: '',
         imageLink: '',
-        teachingUnit: String(row[categoryIdx] || '').trim(),
-        category: String(row[categoryIdx] || '').trim(),
+        teachingUnit: resolvedCategory,
+        category: resolvedCategory,
         level: String(row[levelIdx] || '').trim(),
-        unitName: String(row[unitNameIdx] || '').trim(),
+        unitName,
         lessonNumber: currentLessonNumber || '1'
       };
 
@@ -220,16 +252,60 @@ export function ActivityImporter({ onImport, onClose }: ActivityImporterProps) {
     
     // Define the headers
     const headers = [
-      'Category', 'Activity Name', 'Description', 
-      'Level', 'Time (Mins)', 'Video', 'Music', 'Backing', 'Resource', 'Unit Name'
+      'Library Category',
+      'Category',
+      'Activity Name',
+      'Description',
+      'Level',
+      'Time (Mins)',
+      'Video',
+      'Music',
+      'Backing',
+      'Resource',
+      'Unit Name',
     ];
     
     // Add some sample data
     const data = [
       headers,
-      ['Welcome', 'Hello Song', 'A welcoming song to start the lesson\nWith multiple lines\nAnd more details', 'All', '3', 'https://example.com/video', 'https://example.com/music', '', '', ''],
-      ['Rhythm', 'Clapping Game', 'Students clap along to the beat\n• First clap slowly\n• Then speed up\n• Finally, add a pattern', 'EYFS', '5', '', 'https://example.com/music2', '', '', 'Rhythm Unit'],
-      ['Singing', 'Echo Song', 'Teacher sings a line, students repeat\n1. Start with simple phrases\n2. Increase complexity\n3. Add movements', 'All', '4', '', '', '', '', '']
+      [
+        '',
+        'Welcome',
+        'Hello Song',
+        'A welcoming song to start the lesson\nWith multiple lines\nAnd more details',
+        'All',
+        '3',
+        'https://example.com/video',
+        'https://example.com/music',
+        '',
+        '',
+        '',
+      ],
+      [
+        '',
+        'Rhythm',
+        'Clapping Game',
+        'Students clap along to the beat\n• First clap slowly\n• Then speed up\n• Finally, add a pattern',
+        'EYFS',
+        '5',
+        '',
+        'https://example.com/music2',
+        '',
+        '',
+        'Rhythm Unit',
+      ],
+      [
+        'Vocal Warmups',
+        'Physical Starters',
+        'Rub hands together, shake',
+        'All',
+        '3',
+        '',
+        '',
+        '',
+        '',
+        '',
+      ],
     ];
     
     // Create a worksheet
@@ -357,7 +433,13 @@ export function ActivityImporter({ onImport, onClose }: ActivityImporterProps) {
               </li>
               <li className="flex items-start space-x-2">
                 <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
-                <span>Ensure your file has the required columns: <span className="font-medium">Category</span> and <span className="font-medium">Activity Name</span></span>
+                <span>
+                  Required columns: <span className="font-medium">Category</span> and{' '}
+                  <span className="font-medium">Activity Name</span>. Optional{' '}
+                  <span className="font-medium">Library Category</span> sets the app category (e.g.{' '}
+                  <span className="font-medium">Vocal Warmups</span>) when Category is a sub-type like Physical
+                  Starters — otherwise those sub-types are mapped automatically for vocal warm-ups packs.
+                </span>
               </li>
               <li className="flex items-start space-x-2">
                 <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
