@@ -19,7 +19,8 @@ import {
   Edit3,
   BookOpen,
   FolderOpen,
-  Check
+  Check,
+  Star
 } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContextNew';
 import { useDrag } from 'react-dnd';
@@ -43,6 +44,9 @@ interface ActivityCardProps {
   onSelectionChange?: (activityId: string, selected: boolean) => void;
   onViewUnit?: (unitName: string) => void;
   onViewLesson?: (lessonNumber: string) => void;
+  /** Library: show star toggle (empty → gold when starred) */
+  isStarred?: boolean;
+  onStarToggle?: (activity: Activity) => void;
 }
 
 // Character limit for truncated description
@@ -64,7 +68,9 @@ export function ActivityCard({
   isSelected = false,
   onSelectionChange,
   onViewUnit,
-  onViewLesson
+  onViewLesson,
+  isStarred = false,
+  onStarToggle
 }: ActivityCardProps) {
   const { getCategoryColor, categories } = useSettings();
   const [editedActivity, setEditedActivity] = useState<Activity>(activity);
@@ -459,8 +465,24 @@ className={`bg-white rounded-md shadow-soft border-l-4 p-3 transition-all durati
                 </div>
               )}
               
-              {/* Edit/Delete buttons */}
+              {/* Star + Edit/Delete */}
               <div className="flex items-center space-x-1">
+                {onStarToggle && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onStarToggle(activity);
+                    }}
+                    className="p-1 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-full transition-colors"
+                    title={isStarred ? 'Remove from starred' : 'Star this activity'}
+                  >
+                    <Star
+                      className={`h-3.5 w-3.5 ${isStarred ? 'fill-amber-400 text-amber-500' : ''}`}
+                      strokeWidth={isStarred ? 0 : 1.75}
+                    />
+                  </button>
+                )}
                 {onEditToggle && (
                   <button
                     onClick={(e) => {
@@ -818,6 +840,22 @@ return (
         {/* Action buttons for non-editing mode */}
         {!isEditing && (
           <div className="flex items-center justify-end space-x-2 mt-4 pt-4 border-t border-gray-200">
+            {onStarToggle && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStarToggle(activity);
+                }}
+                className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-full transition-colors"
+                title={isStarred ? 'Remove from starred' : 'Star this activity'}
+              >
+                <Star
+                  className={`h-4 w-4 ${isStarred ? 'fill-amber-400 text-amber-500' : ''}`}
+                  strokeWidth={isStarred ? 0 : 1.75}
+                />
+              </button>
+            )}
             {onEditToggle && (
               <button
                 onClick={(e) => {

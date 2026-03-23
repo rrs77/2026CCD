@@ -21,6 +21,12 @@ export interface Profile {
   admin_preset_categories?: string[] | null;
   /** Activity pack IDs granted by admin (e.g. paid content). */
   admin_preset_activity_pack_ids?: string[] | null;
+  /** User-starred activity IDs/keys for Activity Library ordering. */
+  starred_activity_ids?: string[] | null;
+  /** Category names where "starred first" is enabled. */
+  starred_first_activity_categories?: string[] | null;
+  /** Global toggle for "starred first" in all categories. */
+  starred_first_activity_global?: boolean | null;
   created_at: string;
   updated_at: string;
 }

@@ -19,6 +19,7 @@ import {
   Edit3,
   Copy,
   Type,
+  Star,
 } from 'lucide-react';
 import { ActivityCard } from './ActivityCard';
 import { ActivityDetails } from './ActivityDetails';
@@ -31,7 +32,15 @@ import { useSettings } from '../contexts/SettingsContextNew';
 import { useAuth } from '../hooks/useAuth';
 import { useIsViewOnly } from '../hooks/useIsViewOnly';
 import { activityPacksApi } from '../config/api';
-import type { Activity, ActivityStack } from '../contexts/DataContext';
+import { supabase, isSupabaseConfigured } from '../config/supabase';
+import type { Activity } from '../contexts/DataContext';
+
+/** Stable key for starring (prefer DB id). */
+function getActivityStarKey(activity: Activity): string {
+  if (activity._id) return String(activity._id);
+  if (activity.id) return String(activity.id);
+  return `h:${activity.activity}::${activity.category || ''}`;
+}
 
 interface ActivityLibraryProps {
   onActivitySelect: (activity: Activity) => void;
@@ -232,7 +241,94 @@ export function ActivityLibrary({
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [userOwnedPacks, setUserOwnedPacks] = useState<string[]>([]);
-  
+
+  const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
+  const [globalStarredFirst, setGlobalStarredFirst] = useState(false);
+  const [starredFirstCategories, setStarredFirstCategories] = useState<Set<string>>(new Set());
+  const [hasLoadedStarPrefs, setHasLoadedStarPrefs] = useState(false);
+
+  useEffect(() => {
+    const loadStarPrefsFromSupabase = async () => {
+      if (!user?.id || !isSupabaseConfigured()) {
+        setHasLoadedStarPrefs(true);
+        return;
+      }
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('starred_activity_ids, starred_first_activity_categories, starred_first_activity_global')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (error) {
+          if (import.meta.env.DEV) console.warn('Failed to load star prefs from Supabase:', error);
+          setHasLoadedStarPrefs(true);
+          return;
+        }
+
+        const remoteStarredIds = Array.isArray(data?.starred_activity_ids)
+          ? new Set((data?.starred_activity_ids || []).map(String))
+          : null;
+        const remoteStarredCategories = Array.isArray(data?.starred_first_activity_categories)
+          ? new Set((data?.starred_first_activity_categories || []).map(String))
+          : null;
+        const remoteGlobal = typeof data?.starred_first_activity_global === 'boolean'
+          ? data.starred_first_activity_global
+          : null;
+
+        if (remoteStarredIds) setStarredIds(remoteStarredIds);
+        if (remoteStarredCategories) setStarredFirstCategories(remoteStarredCategories);
+        if (remoteGlobal !== null) setGlobalStarredFirst(remoteGlobal);
+      } catch (e) {
+        if (import.meta.env.DEV) console.warn('Error loading star prefs from Supabase:', e);
+      } finally {
+        setHasLoadedStarPrefs(true);
+      }
+    };
+
+    loadStarPrefsFromSupabase();
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!hasLoadedStarPrefs || !user?.id || !isSupabaseConfigured()) return;
+    const timeout = setTimeout(async () => {
+      try {
+        const { error } = await supabase
+          .from('profiles')
+          .update({
+            starred_activity_ids: [...starredIds],
+            starred_first_activity_categories: [...starredFirstCategories],
+            starred_first_activity_global: globalStarredFirst,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', user.id);
+        if (error && import.meta.env.DEV) {
+          console.warn('Failed to save star prefs to Supabase:', error);
+        }
+      } catch (e) {
+        if (import.meta.env.DEV) console.warn('Error saving star prefs to Supabase:', e);
+      }
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [hasLoadedStarPrefs, user?.id, starredIds, starredFirstCategories, globalStarredFirst]);
+
+  const toggleActivityStarred = React.useCallback((activity: Activity) => {
+    const key = getActivityStarKey(activity);
+    setStarredIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const toggleStarredFirstForCategory = React.useCallback((categoryName: string) => {
+    setStarredFirstCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(categoryName)) next.delete(categoryName);
+      else next.add(categoryName);
+      return next;
+    });
+  }, []);
 
   // Sync local category with prop
   React.useEffect(() => {
@@ -306,11 +402,10 @@ export function ActivityLibrary({
     return activity._id || activity.id || `${activity.activity}-${activity.category}-${activity.description || ''}`;
   };
 
-  // Filter and sort activities and stacks
-  const { filteredAndSortedActivities, filteredAndSortedStacks } = useMemo(() => {
-    // Filter activities by category assignment: when a category is assigned to the year group, show all activities in that category
+  // Filter activities, group by category, sort within groups
+  const { displayGroups, filteredActivityCount } = useMemo(() => {
     const query = debouncedSearchQuery;
-    let filteredActivities = allActivities.filter(activity => {
+    const filteredActivities = allActivities.filter(activity => {
       const matchesSearch = query === '' ||
                            activity.activity.toLowerCase().includes(query.toLowerCase()) ||
                            activity.description.toLowerCase().includes(query.toLowerCase());
@@ -335,83 +430,59 @@ export function ActivityLibrary({
       return matchesSearch && matchesCategory && matchesLevel && categoryIsAssignedToYearGroup && activityIsAssignedToYearGroup && hasPackAccess;
     });
 
-    // Filter stacks - only show stacks with activities for the current year group
-    const stackQuery = query.toLowerCase();
-    let filteredStacks = activityStacks.filter(stack => {
-      const matchesSearch = stackQuery === '' || 
-                           stack.name.toLowerCase().includes(stackQuery) ||
-                           stack.description?.toLowerCase().includes(stackQuery) ||
-                           stack.activities.some(activity => 
-                             activity.activity.toLowerCase().includes(stackQuery) ||
-                             activity.description.toLowerCase().includes(stackQuery) ||
-                             activity.category.toLowerCase().includes(stackQuery)
-                           );
-      
-      // Show ALL stacks regardless of year group
-      // Remove year group filtering to show all stacks
-      const matchesYearGroup = true;
-      
-      return matchesSearch && matchesYearGroup;
-    });
+    const compareActivitiesInCategory = (a: Activity, b: Activity, categoryName: string) => {
+      const starredFirst = globalStarredFirst || starredFirstCategories.has(categoryName);
+      if (starredFirst) {
+        const sa = starredIds.has(getActivityStarKey(a)) ? 0 : 1;
+        const sb = starredIds.has(getActivityStarKey(b)) ? 0 : 1;
+        if (sa !== sb) return sa - sb;
+      }
 
-    // Sort activities
-    filteredActivities.sort((a, b) => {
       let comparison = 0;
-      
       switch (sortBy) {
         case 'name':
           comparison = a.activity.localeCompare(b.activity);
           break;
-        case 'category':
-          // Get the position of each category from the settings
+        case 'category': {
           const catA = categories.find(c => c.name === a.category);
           const catB = categories.find(c => c.name === b.category);
-          const posA = catA ? catA.position : 999;
-          const posB = catB ? catB.position : 999;
-          comparison = posA - posB;
+          comparison = (catA ? catA.position : 999) - (catB ? catB.position : 999);
           break;
+        }
         case 'time':
           comparison = a.time - b.time;
           break;
         case 'level':
-          comparison = a.level.localeCompare(b.level);
+          comparison = (a.level || '').localeCompare(b.level || '');
           break;
       }
-      
       return sortOrder === 'asc' ? comparison : -comparison;
+    };
+
+    const byCat = new Map<string, Activity[]>();
+    for (const activity of filteredActivities) {
+      const cat = activity.category || 'Uncategorized';
+      if (!byCat.has(cat)) byCat.set(cat, []);
+      byCat.get(cat)!.push(activity);
+    }
+
+    const categoryNames = [...byCat.keys()];
+    categoryNames.sort((a, b) => {
+      const ca = categories.find(c => c.name === a);
+      const cb = categories.find(c => c.name === b);
+      return (ca?.position ?? 999) - (cb?.position ?? 999) || a.localeCompare(b);
     });
 
-    // Sort stacks
-    filteredStacks.sort((a, b) => {
-      let comparison = 0;
-      
-      switch (sortBy) {
-        case 'name':
-          comparison = a.name.localeCompare(b.name);
-          break;
-        case 'category':
-          const catA = categories.find(c => c.name === a.category);
-          const catB = categories.find(c => c.name === b.category);
-          const posA = catA ? catA.position : 999;
-          const posB = catB ? catB.position : 999;
-          comparison = posA - posB;
-          break;
-        case 'time':
-          comparison = a.totalTime - b.totalTime;
-          break;
-        case 'level':
-          // For stacks, compare by first activity's level
-          const levelA = a.activities[0]?.level || '';
-          const levelB = b.activities[0]?.level || '';
-          comparison = levelA.localeCompare(levelB);
-          break;
-      }
-      
-      return sortOrder === 'asc' ? comparison : -comparison;
-    });
+    const groups = categoryNames.map((name) => ({
+      name,
+      activities: [...byCat.get(name)!].sort((x, y) => compareActivitiesInCategory(x, y, name))
+    }));
 
-    return { filteredAndSortedActivities: filteredActivities, filteredAndSortedStacks: filteredStacks };
-  }, [allActivities, activityStacks, debouncedSearchQuery, localSelectedCategory, sortBy, sortOrder, categories, mapActivityLevelToYearGroup, userOwnedPacks, availableCategoriesForYearGroup]);
+    return {
+      displayGroups: groups,
+      filteredActivityCount: filteredActivities.length
+    };
+  }, [allActivities, debouncedSearchQuery, localSelectedCategory, sortBy, sortOrder, categories, userOwnedPacks, availableCategoriesForYearGroup, globalStarredFirst, starredFirstCategories, starredIds]);
 
   // Calculate total activities available for the current year group (without search/category filters)
   // When a category is assigned to a year group, all activities in that category count.
@@ -661,8 +732,8 @@ export function ActivityLibrary({
               </h2>
               <p className="text-white text-xs sm:text-sm">
                 {getCurrentYearGroupKeys().length > 0
-                  ? `${filteredAndSortedActivities.length} of ${totalActivitiesForYearGroup} activities`
-                  : `${filteredAndSortedActivities.length} activities`}
+                  ? `${filteredActivityCount} of ${totalActivitiesForYearGroup} activities`
+                  : `${filteredActivityCount} activities`}
               </p>
             </div>
           </div>
@@ -789,6 +860,23 @@ export function ActivityLibrary({
             >
               <List className="h-4 w-4" />
             </button>
+            <button
+              type="button"
+              onClick={() => setGlobalStarredFirst((v) => !v)}
+              className={`p-2 rounded-lg transition-colors duration-200 ${
+                globalStarredFirst ? 'bg-white bg-opacity-20' : 'hover:bg-white hover:bg-opacity-10'
+              }`}
+              title={
+                globalStarredFirst
+                  ? 'Turn off: show starred first in every category'
+                  : 'Show starred activities first in every category'
+              }
+            >
+              <Star
+                className={`h-4 w-4 ${globalStarredFirst ? 'fill-amber-300 text-amber-200' : 'text-white'}`}
+                strokeWidth={globalStarredFirst ? 0 : 2}
+              />
+            </button>
           </div>
         </div>
       </div>
@@ -803,7 +891,7 @@ export function ActivityLibrary({
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
             <p className="text-gray-600">Loading activities...</p>
           </div>
-        ) : filteredAndSortedActivities.length === 0 ? (
+        ) : filteredActivityCount === 0 ? (
           <div className="text-center py-12">
             <BookOpen className="h-16 w-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No activities found</h3>
@@ -843,117 +931,193 @@ export function ActivityLibrary({
           </div>
         ) : (
           viewMode === 'list' ? (
-          // List View - Compact cards in grid layout with full functionality
+          // List View — grouped by category with starred-first control per heading
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {filteredAndSortedActivities.map((activity, index) => {
-              const firstLetter = activity.activity.charAt(0).toUpperCase();
-              const isNewLetter = index === 0 || 
-                filteredAndSortedActivities[index - 1].activity.charAt(0).toUpperCase() !== firstLetter;
-              
-              return (
-                <React.Fragment key={generateActivityKey(activity, index)}>
-                  {isNewLetter && sortBy === 'name' && /[A-Z]/.test(firstLetter) && (
-                    <div 
-                      data-letter-index={firstLetter}
-                      className="col-span-full py-2 sticky top-0 bg-white z-10 border-b-2 border-teal-200"
-                    >
-                      <h3 className="text-lg font-bold text-teal-600">{firstLetter}</h3>
-                    </div>
-                  )}
-                  <div 
-                    className="bg-white shadow-soft hover:shadow-hover transition-shadow duration-200 p-3 relative group"
-                    style={{
-                      borderLeft: `4px solid ${getCategoryColor(activity.category)}`,
-                      borderRadius: '6px',
-                      minHeight: '80px'
-                    }}
+            {displayGroups.map((group) => (
+              <React.Fragment key={`cat-${group.name}`}>
+                <div className="col-span-full flex flex-wrap items-center gap-2 py-2 px-1 border-b-2 border-teal-200 bg-white/95 backdrop-blur sticky top-0 z-10">
+                  <h3 className="text-lg font-bold text-teal-700">{group.name}</h3>
+                  <button
+                    type="button"
+                    onClick={() => toggleStarredFirstForCategory(group.name)}
+                    className={`p-1.5 rounded-lg transition-colors ${
+                      starredFirstCategories.has(group.name)
+                        ? 'bg-amber-100 ring-1 ring-amber-300'
+                        : 'hover:bg-gray-100 text-gray-500'
+                    }`}
+                    title={
+                      starredFirstCategories.has(group.name)
+                        ? 'Turn off starred-first for this category'
+                        : 'Put starred activities at the top in this category'
+                    }
                   >
-
-                {/* Activity content */}
-                <div 
-                  className="h-full flex flex-col justify-between cursor-pointer"
-                  onClick={() => handleActivityClick(activity)}
-                >
-                  <h3 className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2 break-words mb-2" title={activity.activity}>
-                    {activity.activity}
-                  </h3>
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center text-xs text-gray-500">
-                      <span className="flex items-center whitespace-nowrap">
-                        <Clock className="h-3 w-3 mr-1" />
-                        {activity.time || 0}m
-                      </span>
-                    </div>
-                    {/* Action buttons */}
-                    {!isViewOnly && (
-                      <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditActivity(activity);
-                          }}
-                          className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                          title="Edit activity"
-                        >
-                          <Edit3 className="h-3 w-3" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleActivityDelete(activity._id || activity.id);
-                          }}
-                          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                          title="Delete activity"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                    <Star
+                      className={`h-5 w-5 ${
+                        starredFirstCategories.has(group.name) ? 'fill-amber-400 text-amber-500' : 'text-gray-400'
+                      }`}
+                      strokeWidth={starredFirstCategories.has(group.name) ? 0 : 1.75}
+                    />
+                  </button>
+                  <span className="text-sm text-gray-500">{group.activities.length} activities</span>
                 </div>
-              </div>
+                {group.activities.map((activity, index) => {
+                  const firstLetter = activity.activity.charAt(0).toUpperCase();
+                  const isNewLetter =
+                    index === 0 ||
+                    group.activities[index - 1].activity.charAt(0).toUpperCase() !== firstLetter;
+                  const isStarred = starredIds.has(getActivityStarKey(activity));
+
+                  return (
+                    <React.Fragment key={generateActivityKey(activity, index)}>
+                      {isNewLetter && sortBy === 'name' && /[A-Z]/.test(firstLetter) && (
+                        <div
+                          data-letter-index={firstLetter}
+                          className="col-span-full py-2 sticky top-0 bg-white z-[9] border-b border-teal-100"
+                        >
+                          <h4 className="text-base font-semibold text-teal-500">{firstLetter}</h4>
+                        </div>
+                      )}
+                      <div
+                        className="bg-white shadow-soft hover:shadow-hover transition-shadow duration-200 p-3 relative group"
+                        style={{
+                          borderLeft: `4px solid ${getCategoryColor(activity.category)}`,
+                          borderRadius: '6px',
+                          minHeight: '80px'
+                        }}
+                      >
+                        <div
+                          className="h-full flex flex-col justify-between cursor-pointer"
+                          onClick={() => handleActivityClick(activity)}
+                        >
+                          <h3 className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2 break-words mb-2" title={activity.activity}>
+                            {activity.activity}
+                          </h3>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center text-xs text-gray-500">
+                              <span className="flex items-center whitespace-nowrap">
+                                <Clock className="h-3 w-3 mr-1" />
+                                {activity.time || 0}m
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-0.5">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleActivityStarred(activity);
+                                }}
+                                className="p-1 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors"
+                                title={isStarred ? 'Remove from starred' : 'Star this activity'}
+                              >
+                                <Star
+                                  className={`h-3.5 w-3.5 ${isStarred ? 'fill-amber-400 text-amber-500' : ''}`}
+                                  strokeWidth={isStarred ? 0 : 1.75}
+                                />
+                              </button>
+                              {!isViewOnly && (
+                                <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEditActivity(activity);
+                                    }}
+                                    className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                    title="Edit activity"
+                                  >
+                                    <Edit3 className="h-3 w-3" />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleActivityDelete(activity._id || activity.id);
+                                    }}
+                                    className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                    title="Delete activity"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </React.Fragment>
+                  );
+                })}
               </React.Fragment>
-            );
-            })}
+            ))}
           </div>
         ) : (
           // Grid View
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredAndSortedActivities.map((activity, index) => {
-              const firstLetter = activity.activity.charAt(0).toUpperCase();
-              const isNewLetter = index === 0 || 
-                filteredAndSortedActivities[index - 1].activity.charAt(0).toUpperCase() !== firstLetter;
-              
-              return (
-                <React.Fragment key={generateActivityKey(activity, index)}>
-                  {isNewLetter && sortBy === 'name' && /[A-Z]/.test(firstLetter) && (
-                    <div 
-                      data-letter-index={firstLetter}
-                      className="col-span-full py-2 sticky top-0 bg-white z-10 border-b-2 border-teal-200"
-                    >
-                      <h3 className="text-lg font-bold text-teal-600">{firstLetter}</h3>
-                    </div>
-                  )}
-                  <div className="h-full">
-                <ActivityCard
-                  activity={activity}
-                  onUpdate={handleActivityUpdate}
-                  onDelete={handleActivityDelete}
-                  isEditing={isActivityBeingEdited(activity)}
-                  onEditToggle={() => handleEditActivity(activity)}
-                  categoryColor={getCategoryColor(activity.category)}
-                  viewMode="grid"
-                  onActivityClick={handleActivityClick}
-                  onResourceClick={handleResourceClick}
-                  draggable={true}
-                  selectable={false}
-                  isSelected={false}
-                  onSelectionChange={() => {}}
-                />
-                  </div>
-                </React.Fragment>
-              );
-            })}
+            {displayGroups.map((group) => (
+              <React.Fragment key={`grid-cat-${group.name}`}>
+                <div className="col-span-full flex flex-wrap items-center gap-2 py-2 px-1 border-b-2 border-teal-200 bg-white/95 backdrop-blur sticky top-0 z-10">
+                  <h3 className="text-lg font-bold text-teal-700">{group.name}</h3>
+                  <button
+                    type="button"
+                    onClick={() => toggleStarredFirstForCategory(group.name)}
+                    className={`p-1.5 rounded-lg transition-colors ${
+                      starredFirstCategories.has(group.name)
+                        ? 'bg-amber-100 ring-1 ring-amber-300'
+                        : 'hover:bg-gray-100 text-gray-500'
+                    }`}
+                    title={
+                      starredFirstCategories.has(group.name)
+                        ? 'Turn off starred-first for this category'
+                        : 'Put starred activities at the top in this category'
+                    }
+                  >
+                    <Star
+                      className={`h-5 w-5 ${
+                        starredFirstCategories.has(group.name) ? 'fill-amber-400 text-amber-500' : 'text-gray-400'
+                      }`}
+                      strokeWidth={starredFirstCategories.has(group.name) ? 0 : 1.75}
+                    />
+                  </button>
+                  <span className="text-sm text-gray-500">{group.activities.length} activities</span>
+                </div>
+                {group.activities.map((activity, index) => {
+                  const firstLetter = activity.activity.charAt(0).toUpperCase();
+                  const isNewLetter =
+                    index === 0 ||
+                    group.activities[index - 1].activity.charAt(0).toUpperCase() !== firstLetter;
+
+                  return (
+                    <React.Fragment key={generateActivityKey(activity, index)}>
+                      {isNewLetter && sortBy === 'name' && /[A-Z]/.test(firstLetter) && (
+                        <div
+                          data-letter-index={firstLetter}
+                          className="col-span-full py-2 sticky top-0 bg-white z-[9] border-b border-teal-100"
+                        >
+                          <h4 className="text-base font-semibold text-teal-500">{firstLetter}</h4>
+                        </div>
+                      )}
+                      <div className="h-full">
+                        <ActivityCard
+                          activity={activity}
+                          onUpdate={handleActivityUpdate}
+                          onDelete={handleActivityDelete}
+                          isEditing={isActivityBeingEdited(activity)}
+                          onEditToggle={() => handleEditActivity(activity)}
+                          categoryColor={getCategoryColor(activity.category)}
+                          viewMode="grid"
+                          onActivityClick={handleActivityClick}
+                          onResourceClick={handleResourceClick}
+                          draggable={true}
+                          selectable={false}
+                          isSelected={false}
+                          onSelectionChange={() => {}}
+                          isStarred={starredIds.has(getActivityStarKey(activity))}
+                          onStarToggle={toggleActivityStarred}
+                        />
+                      </div>
+                    </React.Fragment>
+                  );
+                })}
+              </React.Fragment>
+            ))}
           </div>
           )
         )}
