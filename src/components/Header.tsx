@@ -57,6 +57,72 @@ export function Header() {
       }));
   }, [yearGroupSections, yearGroupsForSelector]);
 
+  // Quick auto-grouping for faster setup (keeps normal custom sections available in Settings).
+  const quickSections = React.useMemo(() => {
+    const SECTION_LABELS: Record<string, string> = {
+      eyfs: 'EYFS',
+      ks1: 'KS1',
+      ks2: 'KS2',
+      ks3: 'KS3',
+      ks4: 'KS4',
+      ks5: 'KS5',
+      other: 'Other',
+    };
+    const order = ['eyfs', 'ks1', 'ks2', 'ks3', 'ks4', 'ks5', 'other'];
+
+    const getSectionId = (group: { id: string; name: string }) => {
+      const text = `${group.name} ${group.id}`.toLowerCase();
+      const isDrama = text.includes('drama');
+      if (
+        text.includes('lower kindergarten') ||
+        text.includes('upper kindergarten') ||
+        /\blkg\b/.test(text) ||
+        /\bukg\b/.test(text)
+      ) {
+        return 'eyfs';
+      }
+      // EYFS Drama should sit with Reception/EYFS
+      if (isDrama && text.includes('reception')) return 'eyfs';
+      const yearMatch = text.match(/year\s*([0-9]{1,2})/i);
+      const rawNum = yearMatch?.[1] ?? (text.match(/(?:^|[^0-9])([0-9]{1,2})(?:[^0-9]|$)/)?.[1] ?? '');
+      const yearNum = Number(rawNum);
+      if (Number.isFinite(yearNum) && yearNum > 0) {
+        if (yearNum <= 2) return 'ks1';
+        if (yearNum <= 6) return 'ks2';
+        if (yearNum <= 9) return 'ks3';
+        if (yearNum <= 11) return 'ks4';
+        if (yearNum <= 14) return 'ks5';
+      }
+      return 'other';
+    };
+
+    const buckets = new Map<string, { id: string; name: string; color?: string }[]>();
+    yearGroupsForSelector.forEach((g) => {
+      const sid = getSectionId(g);
+      if (!buckets.has(sid)) buckets.set(sid, []);
+      buckets.get(sid)!.push(g);
+    });
+
+    return order
+      .map((id) => ({
+        id,
+        label: SECTION_LABELS[id],
+        groups: buckets.get(id) || [],
+      }))
+      .filter((s) => s.groups.length > 0);
+  }, [yearGroupsForSelector]);
+
+  const displaySections = React.useMemo(() => {
+    const customHasKsSplit = visibleSections.some(
+      (s) => ['ks1', 'ks2', 'ks3', 'ks4', 'ks5'].includes((s.id || '').toLowerCase())
+    );
+    const otherSection = visibleSections.find((s) => (s.id || '').toLowerCase() === 'other');
+    const otherCount = otherSection?.groups.length || 0;
+    // Use quick grouping when classes are mostly in Other and no KS split exists yet.
+    const shouldUseQuick = !customHasKsSplit && otherCount >= Math.max(4, Math.floor(yearGroupsForSelector.length / 2));
+    return shouldUseQuick ? quickSections : visibleSections;
+  }, [visibleSections, quickSections, yearGroupsForSelector.length]);
+
   const toggleSectionExpanded = (sectionId: string) => {
     setYearGroupSectionsExpanded(prev => {
       const next = new Set(prev);
@@ -129,9 +195,9 @@ export function Header() {
                   <span className="truncate">{currentSheetInfo.display || currentSheetInfo.sheet}</span>
                   <ChevronDown className={`h-4 w-4 flex-shrink-0 text-gray-500 transition-transform ${yearGroupDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
-                {yearGroupDropdownOpen && visibleSections.length > 0 && (
+                {yearGroupDropdownOpen && displaySections.length > 0 && (
                   <div className="absolute top-full left-0 mt-1 w-64 max-h-[70vh] overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
-                    {visibleSections.map((section) => {
+                    {displaySections.map((section) => {
                       const isExpanded = yearGroupSectionsExpanded.has(section.id);
                       return (
                         <div key={section.id} className="border-b border-gray-100 last:border-b-0">
@@ -164,7 +230,7 @@ export function Header() {
                     })}
                   </div>
                 )}
-                {yearGroupDropdownOpen && visibleSections.length === 0 && (
+                {yearGroupDropdownOpen && displaySections.length === 0 && (
                   <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-3 text-sm text-gray-500">
                     No year groups. Add and assign key stages in Settings → Year Groups.
                   </div>
@@ -262,7 +328,7 @@ export function Header() {
                     Select Year Group
                   </label>
                   <div className="space-y-1 border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
-                    {visibleSections.map((section) => {
+                    {displaySections.map((section) => {
                       const isExpanded = yearGroupSectionsExpanded.has(section.id);
                       return (
                         <div key={section.id}>
@@ -293,7 +359,7 @@ export function Header() {
                         </div>
                       );
                     })}
-                    {visibleSections.length === 0 && (
+                    {displaySections.length === 0 && (
                       <p className="px-3 py-2 text-sm text-gray-500">No year groups. Add key stages in Settings.</p>
                     )}
                   </div>
