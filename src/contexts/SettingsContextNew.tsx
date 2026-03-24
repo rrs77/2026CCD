@@ -359,6 +359,7 @@ const DEFAULT_YEAR_GROUPS: YearGroup[] = [
 const DEFAULT_YEAR_GROUP_BANDS: YearGroupBand[] = flatToBands(DEFAULT_YEAR_GROUPS);
 
 const YEAR_GROUP_SECTIONS_STORAGE_KEY = 'year-group-sections';
+const YEAR_GROUP_SECTIONS_AUTO_MIGRATION_KEY = 'year-group-sections-auto-migrated-v2';
 
 /** Default section labels (user can customise). */
 const DEFAULT_SECTION_LABELS = [
@@ -367,10 +368,11 @@ const DEFAULT_SECTION_LABELS = [
   { id: 'ks2', label: 'KS2', sortOrder: 2 },
   { id: 'ks3', label: 'KS3', sortOrder: 3 },
   { id: 'ks4', label: 'KS4', sortOrder: 4 },
-  { id: 'other', label: 'Other', sortOrder: 5 },
+  { id: 'ks5', label: 'KS5', sortOrder: 5 },
+  { id: 'other', label: 'Other', sortOrder: 6 },
 ];
 
-/** Assign a year group id to a section key by name/id pattern. EYFS=LKG/UKG/Reception, KS1=1-2, KS2=3-6, KS3=7-9, KS4=10-11. Drama/Music follow the same key stage as the year. */
+/** Assign a year group id to a section key by name/id pattern. EYFS=LKG/UKG/Reception, KS1=1-2, KS2=3-6, KS3=7-9, KS4=10-11, KS5=12-14. */
 function getDefaultSectionIdForYearGroup(id: string, name: string): string {
   const n = name || id || '';
   const lower = n.toLowerCase();
@@ -380,6 +382,7 @@ function getDefaultSectionIdForYearGroup(id: string, name: string): string {
   if (['year 3', 'year 4', 'year 5', 'year 6'].some(y => lower.includes(y.replace(' ', '')) || lower.includes(y))) return 'ks2';
   if (['year 7', 'year 8', 'year 9'].some(y => lower.includes(y.replace(' ', '')) || lower.includes(y))) return 'ks3';
   if (['year 10', 'year 11'].some(y => lower.includes(y.replace(' ', '')) || lower.includes(y))) return 'ks4';
+  if (['year 12', 'year 13', 'year 14'].some(y => lower.includes(y.replace(' ', '')) || lower.includes(y))) return 'ks5';
   return 'other';
 }
 
@@ -560,6 +563,23 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
     const sec = sectionsOverride ?? yearGroupSections;
     return getOrderedYearGroupsFromSections(sec, customYearGroups);
   }, [yearGroupSections, customYearGroups]);
+
+  // One-time quick reassignment of existing classes into EYFS/KS1-KS5 sections.
+  // Users can still customize sections normally afterwards.
+  useEffect(() => {
+    if (!customYearGroups?.length) return;
+    try {
+      const alreadyMigrated = localStorage.getItem(YEAR_GROUP_SECTIONS_AUTO_MIGRATION_KEY) === 'true';
+      if (alreadyMigrated) return;
+
+      const next = buildDefaultYearGroupSections(customYearGroups);
+      setYearGroupSectionsState(next);
+      localStorage.setItem(YEAR_GROUP_SECTIONS_STORAGE_KEY, JSON.stringify(next));
+      localStorage.setItem(YEAR_GROUP_SECTIONS_AUTO_MIGRATION_KEY, 'true');
+    } catch (_) {
+      // no-op
+    }
+  }, [customYearGroups]);
 
   const [resourceLinks, setResourceLinks] = useState<ResourceLinkConfig[]>(DEFAULT_RESOURCE_LINKS);
   const [isRefreshing, setIsRefreshing] = useState(false);
