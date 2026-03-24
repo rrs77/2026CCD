@@ -43,6 +43,7 @@ interface ActivityCreatorProps {
 export function ActivityCreator({ onClose, onSave, categories, levels }: ActivityCreatorProps) {
   const { categories: allCategories, customYearGroups, resourceLinks } = useSettings();
   const { user } = useAuth();
+  const [topicInput, setTopicInput] = useState('');
   const [activity, setActivity] = useState({
     activity: '',
     description: '',
@@ -76,6 +77,45 @@ export function ActivityCreator({ onClose, onSave, categories, levels }: Activit
   const [showObjectivesBrowser, setShowObjectivesBrowser] = useState(false);
   const [availablePacks, setAvailablePacks] = useState<ActivityPack[]>([]);
   const isAdmin = user?.email === 'rob.reichstorer@gmail.com';
+
+  const sanitizeText = (value: string): string =>
+    (value || '')
+      // Normalize smart punctuation and long dashes from copied docs
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/[\u201C\u201D]/g, '"')
+      .replace(/[\u2013\u2014]/g, '-')
+      // Remove zero-width/non-printing chars that can break DB parsing
+      .replace(/[\u200B-\u200D\uFEFF]/g, '')
+      .replace(/\u00A0/g, ' ')
+      .replace(/\r\n/g, '\n');
+
+  const parseTopics = (value: string): string[] =>
+    value
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+  const addTopic = () => {
+    const topic = topicInput.trim();
+    if (!topic) return;
+    setActivity((prev) => {
+      const existing = parseTopics(prev.unitName);
+      if (existing.some((t) => t.toLowerCase() === topic.toLowerCase())) {
+        return prev;
+      }
+      return { ...prev, unitName: [...existing, topic].join(', ') };
+    });
+    setTopicInput('');
+  };
+
+  const removeTopic = (topicToRemove: string) => {
+    setActivity((prev) => {
+      const next = parseTopics(prev.unitName).filter(
+        (t) => t.toLowerCase() !== topicToRemove.toLowerCase()
+      );
+      return { ...prev, unitName: next.join(', ') };
+    });
+  };
 
   // Load available packs for admin
   useEffect(() => {
@@ -208,7 +248,13 @@ export function ActivityCreator({ onClose, onSave, categories, levels }: Activit
       // Set level to first year group for backward compatibility
       const newActivity = {
         ...activity,
-        teachingUnit: activity.teachingUnit || activity.category,
+        activity: sanitizeText(activity.activity).trim(),
+        description: sanitizeText(activity.description),
+        activityText: sanitizeText(activity.activityText),
+        category: sanitizeText(activity.category).trim(),
+        unitName: sanitizeText(activity.unitName).trim(),
+        lessonNumber: sanitizeText(activity.lessonNumber).trim(),
+        teachingUnit: sanitizeText(activity.teachingUnit || activity.category).trim(),
         level: activity.yearGroups[0] || 'All' // Use first year group for backward compatibility
       };
       
@@ -409,23 +455,60 @@ export function ActivityCreator({ onClose, onSave, categories, levels }: Activit
                 />
               </div>
 
-              {/* Unit Name */}
+              {/* Topics (stored in unitName as comma-separated values) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Unit Name
+                  Topics
                 </label>
-                <input
-                  type="text"
-                  name="unitName"
-                  value={activity.unitName}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent"
-                  style={{ '--tw-ring-color': '#0BA596' } as React.CSSProperties}
-                  onFocus={(e) => e.target.style.borderColor = '#0BA596'}
-                  onBlur={(e) => e.target.style.borderColor = '#D1D5DB'}
-                  placeholder="Enter unit name (optional)"
-                  dir="ltr"
-                />
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={topicInput}
+                      onChange={(e) => setTopicInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addTopic();
+                        }
+                      }}
+                      className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent"
+                      style={{ '--tw-ring-color': '#0BA596' } as React.CSSProperties}
+                      onFocus={(e) => (e.target.style.borderColor = '#0BA596')}
+                      onBlur={(e) => (e.target.style.borderColor = '#D1D5DB')}
+                      placeholder="Type a topic then click +"
+                      dir="ltr"
+                    />
+                    <button
+                      type="button"
+                      onClick={addTopic}
+                      className="px-3 py-2 rounded-lg border border-teal-300 bg-teal-50 text-teal-700 hover:bg-teal-100"
+                      title="Add topic"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
+                  {parseTopics(activity.unitName).length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {parseTopics(activity.unitName).map((topic) => (
+                        <span
+                          key={topic}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-teal-100 text-teal-800"
+                        >
+                          {topic}
+                          <button
+                            type="button"
+                            onClick={() => removeTopic(topic)}
+                            className="text-teal-700 hover:text-teal-900"
+                            title={`Remove ${topic}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 

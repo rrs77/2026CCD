@@ -20,6 +20,8 @@ import {
   Copy,
   Type,
   Star,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { ActivityCard } from './ActivityCard';
 import { ActivityDetails } from './ActivityDetails';
@@ -245,6 +247,8 @@ export function ActivityLibrary({
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [userOwnedPacks, setUserOwnedPacks] = useState<string[]>([]);
+  const [topicsExpanded, setTopicsExpanded] = useState(true);
+  const [selectedTopic, setSelectedTopic] = useState('all');
 
   const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
   const [globalStarredFirst, setGlobalStarredFirst] = useState(false);
@@ -363,6 +367,7 @@ export function ActivityLibrary({
   // Handle local category change
   const handleCategoryChange = (category: string) => {
     setLocalSelectedCategory(category);
+    setSelectedTopic('all');
     if (onCategoryChange) {
       onCategoryChange(category);
     }
@@ -406,6 +411,12 @@ export function ActivityLibrary({
     return activity._id || activity.id || `${activity.activity}-${activity.category}-${activity.description || ''}`;
   };
 
+  const getTopicsFromActivity = (activity: Activity): string[] =>
+    String(activity.unitName || '')
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+
   // Filter activities, group by category, sort within groups
   const { displayGroups, filteredActivityCount } = useMemo(() => {
     const query = debouncedSearchQuery;
@@ -419,6 +430,8 @@ export function ActivityLibrary({
         activity.category,
         localSelectedCategory
       );
+      const topics = getTopicsFromActivity(activity);
+      const matchesTopic = selectedTopic === 'all' || topics.includes(selectedTopic);
       
       // Level filtering removed - show all levels
       const matchesLevel = true;
@@ -436,7 +449,7 @@ export function ActivityLibrary({
       // Check if user owns required pack (if activity requires one)
       const hasPackAccess = !activity.requiredPack || userOwnedPacks.includes(activity.requiredPack);
       
-      return matchesSearch && matchesCategory && matchesLevel && categoryIsAssignedToYearGroup && activityIsAssignedToYearGroup && hasPackAccess;
+      return matchesSearch && matchesCategory && matchesTopic && matchesLevel && categoryIsAssignedToYearGroup && activityIsAssignedToYearGroup && hasPackAccess;
     });
 
     const compareActivitiesInCategory = (a: Activity, b: Activity, categoryName: string) => {
@@ -491,7 +504,7 @@ export function ActivityLibrary({
       displayGroups: groups,
       filteredActivityCount: filteredActivities.length
     };
-  }, [allActivities, debouncedSearchQuery, localSelectedCategory, sortBy, sortOrder, categories, userOwnedPacks, availableCategoriesForYearGroup, globalStarredFirst, starredFirstCategories, starredIds]);
+  }, [allActivities, debouncedSearchQuery, localSelectedCategory, selectedTopic, sortBy, sortOrder, categories, userOwnedPacks, availableCategoriesForYearGroup, globalStarredFirst, starredFirstCategories, starredIds]);
 
   // Calculate total activities available for the current year group (without search/category filters)
   // When a category is assigned to a year group, all activities in that category count.
@@ -505,6 +518,16 @@ export function ActivityLibrary({
       return categoryIsAssignedToYearGroup && hasPackAccess;
     }).length;
   }, [allActivities, availableCategoriesForYearGroup, userOwnedPacks]);
+
+  const availableTopicsForSelection = useMemo(() => {
+    const topics = new Set<string>();
+    displayGroups.forEach((group) => {
+      group.activities.forEach((activity) => {
+        getTopicsFromActivity(activity).forEach((t) => topics.add(t));
+      });
+    });
+    return [...topics].sort((a, b) => a.localeCompare(b));
+  }, [displayGroups]);
 
   const toggleSort = (field: 'name' | 'category' | 'time' | 'level') => {
     if (sortBy === field) {
@@ -725,7 +748,13 @@ export function ActivityLibrary({
       });
     } catch (error) {
       console.error('Failed to create activity:', error);
-      toast.error('Failed to create activity. Please try again.', {
+      const message =
+        error instanceof Error
+          ? error.message
+          : (error && typeof error === 'object' && 'message' in error
+              ? String((error as { message?: string }).message)
+              : 'Failed to create activity. Please try again.');
+      toast.error(message, {
         id: loadingToast,
       });
     } finally {
@@ -917,6 +946,58 @@ export function ActivityLibrary({
       <div className="flex relative">
         
         <div className="p-6 flex-1">
+        {availableTopicsForSelection.length > 0 && (
+          <div className="mb-4 rounded-xl border border-teal-100 bg-teal-50/40">
+            <button
+              type="button"
+              onClick={() => setTopicsExpanded((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 text-left"
+            >
+              <div>
+                <p className="text-sm font-semibold text-teal-800">
+                  Topics for {className || 'selected class/year group'}
+                </p>
+                <p className="text-xs text-teal-700/80">
+                  {availableTopicsForSelection.length} topic{availableTopicsForSelection.length === 1 ? '' : 's'} available
+                </p>
+              </div>
+              {topicsExpanded ? (
+                <ChevronDown className="h-4 w-4 text-teal-700" />
+              ) : (
+                <ChevronRight className="h-4 w-4 text-teal-700" />
+              )}
+            </button>
+            {topicsExpanded && (
+              <div className="px-4 pb-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedTopic('all')}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
+                    selectedTopic === 'all'
+                      ? 'bg-teal-600 text-white border-teal-600'
+                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  All Topics
+                </button>
+                {availableTopicsForSelection.map((topic) => (
+                  <button
+                    key={topic}
+                    type="button"
+                    onClick={() => setSelectedTopic(topic)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
+                      selectedTopic === topic
+                        ? 'bg-teal-600 text-white border-teal-600'
+                        : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    {topic}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {loading || dataLoading ? (
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
