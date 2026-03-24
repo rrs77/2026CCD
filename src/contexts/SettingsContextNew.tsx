@@ -2,6 +2,11 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { supabase, isSupabaseConfigured } from '../config/supabase';
 import { yearGroupsApi, customCategoriesApi, categoryGroupsApi, brandingApi } from '../config/api';
 import { useAuth } from '../hooks/useAuth';
+import {
+  getOrderedYearGroupsFromSections,
+  mergeSectionsWithYearGroups,
+  normalizeSectionYearGroupIdList,
+} from '../utils/yearGroupSectionOrder';
 
 // Safari detection for enhanced sync handling
 const isSafari = () => {
@@ -404,37 +409,6 @@ function buildDefaultYearGroupSections(yearGroups: YearGroup[]): YearGroupSectio
   }));
 }
 
-/** Merge sections with current year groups: any id not in any section goes to Other. */
-function mergeSectionsWithYearGroups(sections: YearGroupSection[], yearGroupIds: string[]): YearGroupSection[] {
-  const assigned = new Set(sections.flatMap(s => s.yearGroupIds));
-  const otherSection = sections.find(s => s.id === 'other');
-  const otherIds = otherSection ? [...otherSection.yearGroupIds] : [];
-  yearGroupIds.forEach(id => {
-    if (!assigned.has(id)) {
-      otherIds.push(id);
-      assigned.add(id);
-    }
-  });
-  return sections.map(s => s.id === 'other' ? { ...s, yearGroupIds: otherIds } : s);
-}
-
-/** Return year groups in the order defined by sections (for display and sync). */
-function getOrderedYearGroupsFromSections(sections: YearGroupSection[], groups: YearGroup[]): YearGroup[] {
-  const byId = new Map(groups.map(g => [g.id, g]));
-  const ordered: YearGroup[] = [];
-  const sortedSections = [...sections].sort((a, b) => a.sortOrder - b.sortOrder);
-  for (const section of sortedSections) {
-    for (const id of section.yearGroupIds) {
-      const g = byId.get(id);
-      if (g) ordered.push(g);
-    }
-  }
-  for (const g of groups) {
-    if (!ordered.find(o => o.id === g.id)) ordered.push(g);
-  }
-  return ordered;
-}
-
 // Default category groups
 const DEFAULT_CATEGORY_GROUPS: CategoryGroups = {
   groups: []
@@ -550,7 +524,11 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
   });
   const updateYearGroupSections = React.useCallback((sections: YearGroupSection[] | ((prev: YearGroupSection[]) => YearGroupSection[])) => {
     setYearGroupSectionsState(prev => {
-      const next = typeof sections === 'function' ? sections(prev) : sections;
+      const rawNext = typeof sections === 'function' ? sections(prev) : sections;
+      const next = rawNext.map((s) => ({
+        ...s,
+        yearGroupIds: normalizeSectionYearGroupIdList(s.yearGroupIds || [], customYearGroups),
+      }));
       try {
         localStorage.setItem(YEAR_GROUP_SECTIONS_STORAGE_KEY, JSON.stringify(next));
       } catch (_) {}
@@ -1000,7 +978,7 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
               const loadedIds = deduplicated.map((g: any) => g.id);
               const hasMatchingIds = prev.length > 0 && prev.some(s => s.yearGroupIds.some((id: string) => loadedIds.includes(id)));
               const next = hasMatchingIds
-                ? mergeSectionsWithYearGroups(prev, loadedIds)
+                ? mergeSectionsWithYearGroups(prev, loadedIds, deduplicated)
                 : buildDefaultYearGroupSections(deduplicated);
               try {
                 localStorage.setItem(YEAR_GROUP_SECTIONS_STORAGE_KEY, JSON.stringify(next));
@@ -1033,7 +1011,7 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
                   const bands = flatToBands(deduplicatedGroups);
                   setYearGroupBands(bands);
                   setYearGroupSectionsState(prev => {
-                    const merged = mergeSectionsWithYearGroups(prev, deduplicatedGroups.map((g: any) => g.id));
+                    const merged = mergeSectionsWithYearGroups(prev, deduplicatedGroups.map((g: any) => g.id), deduplicatedGroups);
                     try {
                       localStorage.setItem(YEAR_GROUP_SECTIONS_STORAGE_KEY, JSON.stringify(merged));
                     } catch (_) {}
@@ -1919,7 +1897,7 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
 
   const ensureYearGroupsInSections = () => {
     const ids = customYearGroups.map(g => g.id);
-    setYearGroupSectionsState(prev => mergeSectionsWithYearGroups(prev, ids));
+    updateYearGroupSections(prev => mergeSectionsWithYearGroups(prev, ids, customYearGroups));
   };
 
   const saveCategoryToSupabase = async (name: string, color: string) => {

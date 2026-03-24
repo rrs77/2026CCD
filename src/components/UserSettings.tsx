@@ -14,6 +14,10 @@ import type { ActivityPack } from '../config/api';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import toast from 'react-hot-toast';
+import {
+  normalizeSectionYearGroupIdList,
+  resolveYearGroupFromToken,
+} from '../utils/yearGroupSectionOrder';
 
 // Draggable Category Item Component
 interface DraggableCategoryProps {
@@ -786,14 +790,17 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
 
   const handleYearGroupDropInSection = (draggedId: string, targetId: string, sectionId: string) => {
     if (!draggedId) return;
+    const groups = tempYearGroups;
     const targetSection = yearGroupSections.find(s => s.id === sectionId);
-    const sourceSection = yearGroupSections.find(s => s.yearGroupIds.includes(draggedId));
+    const sourceSection = yearGroupSections.find(s =>
+      s.yearGroupIds.some(t => resolveYearGroupFromToken(groups, t)?.id === draggedId)
+    );
     if (!targetSection) return;
     updateYearGroupSections(prev => {
       return prev.map(s => {
         if (s.id === sectionId) {
-          const ids = [...s.yearGroupIds];
-          if (s.yearGroupIds.includes(draggedId)) {
+          const ids = normalizeSectionYearGroupIdList([...s.yearGroupIds], groups);
+          if (ids.includes(draggedId)) {
             const dragIdx = ids.indexOf(draggedId);
             ids.splice(dragIdx, 1);
             const insertIdx = ids.indexOf(targetId);
@@ -805,7 +812,13 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
           return { ...s, yearGroupIds: ids };
         }
         if (sourceSection && s.id === sourceSection.id) {
-          return { ...s, yearGroupIds: s.yearGroupIds.filter(id => id !== draggedId) };
+          return {
+            ...s,
+            yearGroupIds: normalizeSectionYearGroupIdList(
+              s.yearGroupIds.filter(t => resolveYearGroupFromToken(groups, t)?.id !== draggedId),
+              groups
+            ),
+          };
         }
         return s;
       });
@@ -815,13 +828,28 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
   /** Drop a year group onto a key stage section (header or empty area) to move it into that section. */
   const handleYearGroupDropOnSection = (draggedId: string, sectionId: string) => {
     if (!draggedId) return;
+    const groups = tempYearGroups;
     const targetSection = yearGroupSections.find(s => s.id === sectionId);
-    const sourceSection = yearGroupSections.find(s => s.yearGroupIds.includes(draggedId));
+    const sourceSection = yearGroupSections.find(s =>
+      s.yearGroupIds.some(t => resolveYearGroupFromToken(groups, t)?.id === draggedId)
+    );
     if (!targetSection) return;
     if (sourceSection?.id === sectionId) return;
     updateYearGroupSections(prev => prev.map(s => {
-      if (s.id === sectionId) return { ...s, yearGroupIds: [...(s.yearGroupIds || []), draggedId], collapsed: false };
-      if (sourceSection && s.id === sourceSection.id) return { ...s, yearGroupIds: s.yearGroupIds.filter(id => id !== draggedId) };
+      if (s.id === sectionId) {
+        const base = normalizeSectionYearGroupIdList([...(s.yearGroupIds || [])], groups);
+        if (!base.includes(draggedId)) base.push(draggedId);
+        return { ...s, yearGroupIds: base, collapsed: false };
+      }
+      if (sourceSection && s.id === sourceSection.id) {
+        return {
+          ...s,
+          yearGroupIds: normalizeSectionYearGroupIdList(
+            s.yearGroupIds.filter(t => resolveYearGroupFromToken(groups, t)?.id !== draggedId),
+            groups
+          ),
+        };
+      }
       return s;
     }));
     setDraggedYearGroup(null);
@@ -1309,7 +1337,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                   <div className="space-y-2 max-h-[480px] overflow-y-auto">
                     {[...yearGroupSections].sort((a, b) => a.sortOrder - b.sortOrder).map((section) => {
                       const yearGroupsInSection = section.yearGroupIds
-                        .map(id => tempYearGroups.find(g => g.id === id))
+                        .map(token => resolveYearGroupFromToken(tempYearGroups, token))
                         .filter(Boolean) as typeof tempYearGroups;
                       return (
                         <div key={section.id} className="rounded-lg border border-gray-200 bg-white overflow-hidden">
