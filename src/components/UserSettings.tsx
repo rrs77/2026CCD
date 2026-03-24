@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Settings, Palette, RotateCcw, X, Plus, Trash2, GripVertical, Edit3, Save, Users, Database, AlertTriangle, GraduationCap, Package, Filter, Video, Music, Volume2, FileText, Link as LinkIcon, Image, FileVideo, FileMusic, File, Globe, ExternalLink, Share2, Download, Upload, Eye, Play, Pause, Headphones, Mic, Speaker, Film, Camera, BookOpen, Book, Folder, Cloud, Network, Target, HelpCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { Settings, Palette, RotateCcw, X, Plus, Trash2, GripVertical, Edit3, Save, Users, Database, AlertTriangle, GraduationCap, Package, Filter, Video, Music, Volume2, FileText, Link as LinkIcon, Image, FileVideo, FileMusic, File, Globe, ExternalLink, Share2, Download, Upload, Eye, Play, Pause, Headphones, Mic, Speaker, Film, Camera, BookOpen, Book, Folder, Cloud, Network, Target, HelpCircle, ChevronDown, ChevronRight, Undo2, Redo2 } from 'lucide-react';
 import { useSettings, Category, ResourceLinkConfig, SOCIAL_PLATFORMS, YearGroupSection } from '../contexts/SettingsContextNew';
 import { DataSourceSettings } from './DataSourceSettings';
 import { CustomObjectivesAdmin } from './CustomObjectivesAdmin';
@@ -166,6 +166,10 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
   const [newlyAddedYearGroup, setNewlyAddedYearGroup] = useState<{ id: string; name: string } | null>(null);
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [editingSectionLabel, setEditingSectionLabel] = useState('');
+  const [sectionUndoStack, setSectionUndoStack] = useState<YearGroupSection[][]>([]);
+  const [sectionRedoStack, setSectionRedoStack] = useState<YearGroupSection[][]>([]);
+  const sectionHistoryPrevRef = useRef<string>(JSON.stringify(yearGroupSections));
+  const applyingSectionHistoryRef = useRef(false);
   const [shopPacks, setShopPacks] = useState<ActivityPack[]>([]);
 
   const isAdmin = user?.email === 'rob.reichstorer@gmail.com' ||
@@ -188,6 +192,48 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
     if (activeTab === 'manage-packs' && !isAdmin && !isCreator) setActiveTab('resource-links');
     // general, resource-links, data are under Admin for all users – no redirect
   }, [isOpen, activeTab, showUserManagement, isAdmin, isCreator]);
+
+  // Keep undo/redo history for year-group sections (key stages).
+  React.useEffect(() => {
+    const currentSnapshot = JSON.stringify(yearGroupSections);
+    const prevSnapshot = sectionHistoryPrevRef.current;
+    if (currentSnapshot === prevSnapshot) return;
+    if (applyingSectionHistoryRef.current) {
+      sectionHistoryPrevRef.current = currentSnapshot;
+      applyingSectionHistoryRef.current = false;
+      return;
+    }
+    try {
+      const prevSections = JSON.parse(prevSnapshot) as YearGroupSection[];
+      if (Array.isArray(prevSections)) {
+        setSectionUndoStack((prev) => [...prev, prevSections].slice(-50));
+        setSectionRedoStack([]);
+      }
+    } catch {
+      // Ignore parse issues for history snapshots
+    }
+    sectionHistoryPrevRef.current = currentSnapshot;
+  }, [yearGroupSections]);
+
+  const handleUndoSections = () => {
+    if (sectionUndoStack.length === 0) return;
+    const previous = sectionUndoStack[sectionUndoStack.length - 1];
+    const current = yearGroupSections;
+    applyingSectionHistoryRef.current = true;
+    setSectionUndoStack((prev) => prev.slice(0, -1));
+    setSectionRedoStack((prev) => [...prev, current].slice(-50));
+    updateYearGroupSections(previous);
+  };
+
+  const handleRedoSections = () => {
+    if (sectionRedoStack.length === 0) return;
+    const next = sectionRedoStack[sectionRedoStack.length - 1];
+    const current = yearGroupSections;
+    applyingSectionHistoryRef.current = true;
+    setSectionRedoStack((prev) => prev.slice(0, -1));
+    setSectionUndoStack((prev) => [...prev, current].slice(-50));
+    updateYearGroupSections(next);
+  };
 
   // When admin dropdown opens, lock its position (fixed) so it doesn't move when content shifts
   React.useEffect(() => {
@@ -683,16 +729,25 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
     try {
       setIsDeletingYearGroup(true);
       const removed = tempYearGroups[index];
-      const exactName = (removed?.name || removed?.id || '').trim();
-      if (!exactName) {
+      const exactId = (removed?.id || '').trim();
+      const exactName = (removed?.name || '').trim();
+      const key = exactId || exactName;
+      if (!key) {
         setIsDeletingYearGroup(false);
         return;
       }
-      await deleteYearGroup(exactName);
+      await deleteYearGroup(key);
       const updatedYearGroups = tempYearGroups.filter((_, i) => i !== index);
       setTempYearGroups(updatedYearGroups);
       await updateYearGroups(updatedYearGroups);
-      updateYearGroupSections(prev => prev.map(s => ({ ...s, yearGroupIds: (s.yearGroupIds || []).filter(id => id !== removed.id) })));
+      updateYearGroupSections(prev =>
+        prev.map(s => ({
+          ...s,
+          yearGroupIds: (s.yearGroupIds || []).filter(
+            id => id !== removed.id && id !== removed.name
+          )
+        }))
+      );
       setTimeout(() => setIsDeletingYearGroup(false), 1000);
     } catch (error) {
       console.error('❌ Failed to delete year group:', error);
@@ -1203,6 +1258,32 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                     Group year groups into collapsible sections (e.g. EYFS, KS1, KS2). Drag to reorder within a section. Sections are customisable.
                   </p>
                   <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={handleUndoSections}
+                      disabled={sectionUndoStack.length === 0}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                        sectionUndoStack.length === 0
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                      title="Undo section changes"
+                    >
+                      <Undo2 className="h-4 w-4" /> Undo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRedoSections}
+                      disabled={sectionRedoStack.length === 0}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                        sectionRedoStack.length === 0
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                      title="Redo section changes"
+                    >
+                      <Redo2 className="h-4 w-4" /> Redo
+                    </button>
                     <button
                       type="button"
                       onClick={async () => {

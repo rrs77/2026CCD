@@ -16,7 +16,9 @@ import {
   Music,
   FileText,
   Link as LinkIcon,
-  Volume2
+  Volume2,
+  Undo2,
+  Redo2
 } from 'lucide-react';
 import { useSettings, ResourceLinkConfig } from '../contexts/SettingsContextNew';
 import { RichTextEditor } from './RichTextEditor';
@@ -77,6 +79,10 @@ export function ActivityCreator({ onClose, onSave, categories, levels }: Activit
   const [showObjectivesBrowser, setShowObjectivesBrowser] = useState(false);
   const [availablePacks, setAvailablePacks] = useState<ActivityPack[]>([]);
   const isAdmin = user?.email === 'rob.reichstorer@gmail.com';
+  const [formUndoStack, setFormUndoStack] = useState<Array<typeof activity>>([]);
+  const [formRedoStack, setFormRedoStack] = useState<Array<typeof activity>>([]);
+  const applyingFormHistoryRef = useRef(false);
+  const prevActivityRef = useRef(activity);
 
   const sanitizeText = (value: string): string =>
     (value || '')
@@ -115,6 +121,39 @@ export function ActivityCreator({ onClose, onSave, categories, levels }: Activit
       );
       return { ...prev, unitName: next.join(', ') };
     });
+  };
+
+  // Track creator form history for undo/redo
+  useEffect(() => {
+    if (applyingFormHistoryRef.current) {
+      prevActivityRef.current = activity;
+      applyingFormHistoryRef.current = false;
+      return;
+    }
+    const prev = prevActivityRef.current;
+    const same = JSON.stringify(prev) === JSON.stringify(activity);
+    if (same) return;
+    setFormUndoStack((stack) => [...stack, prev].slice(-100));
+    setFormRedoStack([]);
+    prevActivityRef.current = activity;
+  }, [activity]);
+
+  const handleUndoForm = () => {
+    if (formUndoStack.length === 0) return;
+    const prev = formUndoStack[formUndoStack.length - 1];
+    applyingFormHistoryRef.current = true;
+    setFormUndoStack((stack) => stack.slice(0, -1));
+    setFormRedoStack((stack) => [...stack, activity].slice(-100));
+    setActivity(prev);
+  };
+
+  const handleRedoForm = () => {
+    if (formRedoStack.length === 0) return;
+    const next = formRedoStack[formRedoStack.length - 1];
+    applyingFormHistoryRef.current = true;
+    setFormRedoStack((stack) => stack.slice(0, -1));
+    setFormUndoStack((stack) => [...stack, activity].slice(-100));
+    setActivity(next);
   };
 
   // Load available packs for admin
@@ -272,12 +311,32 @@ export function ActivityCreator({ onClose, onSave, categories, levels }: Activit
             <Tag className="h-6 w-6" />
             <h2 className="text-xl font-bold">Create New Activity</h2>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-white hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors duration-200"
-          >
-            <X className="h-6 w-6" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleUndoForm}
+              disabled={formUndoStack.length === 0}
+              className="p-2 text-white hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Undo"
+            >
+              <Undo2 className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={handleRedoForm}
+              disabled={formRedoStack.length === 0}
+              className="p-2 text-white hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Redo"
+            >
+              <Redo2 className="h-5 w-5" />
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 text-white hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors duration-200"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
         </div>
 
         {/* Form Content */}

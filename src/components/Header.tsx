@@ -111,9 +111,10 @@ export function Header() {
   }, [yearGroupsForSelector]);
 
   const displaySections = React.useMemo(() => {
-    // Always apply quick EYFS/KS grouping in selector for fast, predictable sections.
-    return quickSections.length > 0 ? quickSections : visibleSections;
-  }, [quickSections, visibleSections]);
+    // Prefer user/settings-defined sections so header matches Manage Year Groups exactly.
+    // Fallback to quick auto-grouping only when no visible configured sections exist.
+    return visibleSections.length > 0 ? visibleSections : quickSections;
+  }, [visibleSections, quickSections]);
 
   const toggleSectionExpanded = (sectionId: string) => {
     setYearGroupSectionsExpanded(prev => {
@@ -130,6 +131,21 @@ export function Header() {
     localStorage.setItem('currentSheetInfo', JSON.stringify(newSheetInfo));
     setYearGroupDropdownOpen(false);
   };
+
+  // Keep header label in sync when a class is renamed in Settings.
+  useEffect(() => {
+    const matchById = yearGroupsForSelector.find(g => g.id === currentSheetInfo.sheet);
+    if (!matchById) return;
+    if (currentSheetInfo.display !== matchById.name) {
+      const synced = {
+        ...currentSheetInfo,
+        display: matchById.name,
+        eyfs: `${matchById.id} Statements`,
+      };
+      setCurrentSheetInfo(synced);
+      localStorage.setItem('currentSheetInfo', JSON.stringify(synced));
+    }
+  }, [yearGroupsForSelector, currentSheetInfo, setCurrentSheetInfo]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

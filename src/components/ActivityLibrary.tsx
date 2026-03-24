@@ -22,6 +22,8 @@ import {
   Star,
   ChevronDown,
   ChevronRight,
+  Undo2,
+  Redo2,
 } from 'lucide-react';
 import { ActivityCard } from './ActivityCard';
 import { ActivityDetails } from './ActivityDetails';
@@ -55,6 +57,11 @@ interface ActivityLibraryProps {
   selectedCategory?: string;
   onCategoryChange?: (category: string) => void;
 }
+
+type ActivityHistoryAction =
+  | { type: 'create'; after: Activity }
+  | { type: 'delete'; before: Activity }
+  | { type: 'update'; before: Activity; after: Activity };
 
 export function ActivityLibrary({ 
   onActivitySelect, 
@@ -249,6 +256,9 @@ export function ActivityLibrary({
   const [userOwnedPacks, setUserOwnedPacks] = useState<string[]>([]);
   const [topicsExpanded, setTopicsExpanded] = useState(true);
   const [selectedTopic, setSelectedTopic] = useState('all');
+  const [historyUndoStack, setHistoryUndoStack] = useState<ActivityHistoryAction[]>([]);
+  const [historyRedoStack, setHistoryRedoStack] = useState<ActivityHistoryAction[]>([]);
+  const [isApplyingHistory, setIsApplyingHistory] = useState(false);
 
   const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
   const [globalStarredFirst, setGlobalStarredFirst] = useState(false);
@@ -343,6 +353,14 @@ export function ActivityLibrary({
     setLocalSelectedCategory(selectedCategory);
   }, [selectedCategory]);
 
+  // When the selected class/year group changes, clear library filters so
+  // users immediately see activities for the newly selected class.
+  React.useEffect(() => {
+    setLocalSelectedCategory('all');
+    setSelectedTopic('all');
+    if (onCategoryChange) onCategoryChange('all');
+  }, [className, currentSheetInfo?.sheet, onCategoryChange]);
+
   // Load user's owned packs (purchases + admin-preset packs; user cannot remove admin presets)
   React.useEffect(() => {
     const loadUserPacks = async () => {
@@ -409,6 +427,29 @@ export function ActivityLibrary({
   // Helper function to get activity identifier - FIXED
   const getActivityId = (activity: Activity) => {
     return activity._id || activity.id || `${activity.activity}-${activity.category}-${activity.description || ''}`;
+  };
+
+  const getPersistedActivityId = (activity: Activity): string | undefined => activity._id || activity.id;
+
+  const findCurrentActivityId = (snapshot: Activity): string | undefined => {
+    const snapshotId = getPersistedActivityId(snapshot);
+    if (snapshotId) {
+      const hit = allActivities.find((a) => (a._id || a.id) === snapshotId);
+      if (hit) return hit._id || hit.id;
+    }
+    const fallback = allActivities.find((a) =>
+      a.activity === snapshot.activity &&
+      a.category === snapshot.category &&
+      (a.lessonNumber || '') === (snapshot.lessonNumber || '') &&
+      (a.unitName || '') === (snapshot.unitName || '')
+    );
+    return fallback?._id || fallback?.id;
+  };
+
+  const pushHistoryAction = (action: ActivityHistoryAction) => {
+    if (isApplyingHistory) return;
+    setHistoryUndoStack((prev) => [...prev, action].slice(-100));
+    setHistoryRedoStack([]);
   };
 
   const getTopicsFromActivity = (activity: Activity): string[] =>
@@ -540,12 +581,16 @@ export function ActivityLibrary({
 
   const handleActivityUpdate = async (updatedActivity: Activity) => {
     try {
+      const existing = allActivities.find((a) => getActivityId(a) === getActivityId(updatedActivity));
       // Convert any "EYFS U" levels to "UKG"
       if (updatedActivity.level === "EYFS U") {
         updatedActivity.level = "UKG";
       }
       
-      await updateActivity(updatedActivity);
+      const saved = await updateActivity(updatedActivity);
+      if (existing) {
+        pushHistoryAction({ type: 'update', before: existing, after: saved || updatedActivity });
+      }
       setEditingActivity(null);
       setSelectedActivityDetails(null);
     } catch (error) {
@@ -566,7 +611,11 @@ export function ActivityLibrary({
     if (!showDeleteConfirm) return;
     
     try {
+      const existing = allActivities.find((a) => (a._id || a.id) === showDeleteConfirm);
       await deleteActivity(showDeleteConfirm);
+      if (existing) {
+        pushHistoryAction({ type: 'delete', before: existing });
+      }
       setShowDeleteConfirm(null);
       
       // If the deleted activity was being viewed, close the details modal
@@ -740,7 +789,8 @@ export function ActivityLibrary({
         yearGroupsLength: newActivity.yearGroups.length
       });
       
-      await addActivity(newActivity);
+      const created = await addActivity(newActivity);
+      pushHistoryAction({ type: 'create', after: created });
       setShowCreator(false);
       
       toast.success(`Activity "${newActivity.activity}" created successfully!`, {
@@ -759,6 +809,52 @@ export function ActivityLibrary({
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUndoActivityChange = async () => {
+    if (historyUndoStack.length === 0 || isApplyingHistory) return;
+    const action = historyUndoStack[historyUndoStack.length - 1];
+    setIsApplyingHistory(true);
+    try {
+      if (action.type === 'create') {
+        const id = findCurrentActivityId(action.after);
+        if (id) await deleteActivity(id);
+      } else if (action.type === 'delete') {
+        await addActivity(action.before);
+      } else {
+        await updateActivity(action.before);
+      }
+      setHistoryUndoStack((prev) => prev.slice(0, -1));
+      setHistoryRedoStack((prev) => [...prev, action].slice(-100));
+    } catch (error) {
+      console.error('Failed to undo activity change:', error);
+      alert('Undo failed. Please try again.');
+    } finally {
+      setIsApplyingHistory(false);
+    }
+  };
+
+  const handleRedoActivityChange = async () => {
+    if (historyRedoStack.length === 0 || isApplyingHistory) return;
+    const action = historyRedoStack[historyRedoStack.length - 1];
+    setIsApplyingHistory(true);
+    try {
+      if (action.type === 'create') {
+        await addActivity(action.after);
+      } else if (action.type === 'delete') {
+        const id = findCurrentActivityId(action.before);
+        if (id) await deleteActivity(id);
+      } else {
+        await updateActivity(action.after);
+      }
+      setHistoryRedoStack((prev) => prev.slice(0, -1));
+      setHistoryUndoStack((prev) => [...prev, action].slice(-100));
+    } catch (error) {
+      console.error('Failed to redo activity change:', error);
+      alert('Redo failed. Please try again.');
+    } finally {
+      setIsApplyingHistory(false);
     }
   };
 
@@ -823,6 +919,26 @@ export function ActivityLibrary({
             >
               <RotateCcw className={`h-3 w-3 sm:h-4 sm:w-4 ${loading ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">Refresh</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleUndoActivityChange}
+              disabled={historyUndoStack.length === 0 || isApplyingHistory}
+              className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white bg-opacity-20 hover:bg-opacity-30 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors duration-200 flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm"
+              title="Undo last activity change"
+            >
+              <Undo2 className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Undo</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleRedoActivityChange}
+              disabled={historyRedoStack.length === 0 || isApplyingHistory}
+              className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white bg-opacity-20 hover:bg-opacity-30 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors duration-200 flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm"
+              title="Redo last activity change"
+            >
+              <Redo2 className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Redo</span>
             </button>
             
             <button

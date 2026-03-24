@@ -1817,15 +1817,29 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
 
       if (isSupabaseConfigured()) {
         const YEAR_GROUPS_TABLE = 'year_groups';
-        // Match by name OR id (handles both TEXT ids like "assemb" and name-based lookups)
-        const { data: rows, error: selectError } = await supabase
+        // Use explicit filters (instead of .or string parsing) for robust matches with spaces/special chars.
+        const { data: rowsById, error: idSelectError } = await supabase
           .from(YEAR_GROUPS_TABLE)
           .select('id, name')
-          .or(`name.eq.${exact},id.eq.${exact}`);
+          .eq('id', exact);
 
-        if (selectError) {
-          console.error('❌ Failed to fetch year group for delete:', selectError);
-          throw new Error(selectError.message || `Database error: ${JSON.stringify(selectError)}`);
+        if (idSelectError) {
+          console.error('❌ Failed to fetch year group by id for delete:', idSelectError);
+          throw new Error(idSelectError.message || `Database error: ${JSON.stringify(idSelectError)}`);
+        }
+
+        let rows = rowsById || [];
+        if (rows.length === 0) {
+          const { data: rowsByName, error: nameSelectError } = await supabase
+            .from(YEAR_GROUPS_TABLE)
+            .select('id, name')
+            .eq('name', exact);
+
+          if (nameSelectError) {
+            console.error('❌ Failed to fetch year group by name for delete:', nameSelectError);
+            throw new Error(nameSelectError.message || `Database error: ${JSON.stringify(nameSelectError)}`);
+          }
+          rows = rowsByName || [];
         }
         if (!rows || rows.length === 0) {
           console.warn('⚠️ No year group in Supabase matching:', exact);
@@ -1840,9 +1854,21 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
         console.log('✅ Deleted year group from Supabase:', exact);
       }
 
-      setCustomYearGroups(prev => prev.filter(g => (g.id || '').trim() !== exact && (g.name || '').trim() !== exact));
-      const filtered = customYearGroups.filter(g => (g.id || '').trim() !== exact && (g.name || '').trim() !== exact);
-      localStorage.setItem('custom-year-groups', JSON.stringify(filtered));
+      setCustomYearGroups(prev => {
+        const lower = exact.toLowerCase();
+        const filtered = prev.filter(g => {
+          const id = (g.id || '').trim();
+          const name = (g.name || '').trim();
+          return (
+            id !== exact &&
+            name !== exact &&
+            id.toLowerCase() !== lower &&
+            name.toLowerCase() !== lower
+          );
+        });
+        localStorage.setItem('custom-year-groups', JSON.stringify(filtered));
+        return filtered;
+      });
     } catch (error) {
       console.error('❌ Failed to delete year group:', error);
       throw error;
