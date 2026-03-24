@@ -1696,7 +1696,9 @@ console.log('🏁 Set subjectsLoading to FALSE'); // ADD THIS DEBUG LINE
       });
       
       const activityId = activity._id || activity.id;
-      if (isSupabaseConfigured() && activityId) {
+      const isUuid = (id: string) =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      if (isSupabaseConfigured() && activityId && isUuid(activityId)) {
         try {
           updatedActivity = await activitiesApi.update(activityId, { ...updatedActivity, yearGroups: updatedActivity.yearGroups || [] });
           console.log('✅ Activity updated in Supabase with year groups:', {
@@ -1707,6 +1709,8 @@ console.log('🏁 Set subjectsLoading to FALSE'); // ADD THIS DEBUG LINE
           console.error('❌ Failed to update activity in Supabase:', error);
           throw error; // Rethrow so caller can show user feedback
         }
+      } else if (isSupabaseConfigured() && activityId && !isUuid(activityId)) {
+        console.warn('⚠️ Activity has local/non-UUID id - skipping Supabase update and saving locally only.', { activityId });
       } else if (isSupabaseConfigured() && !activityId) {
         console.warn('⚠️ Activity missing id - cannot persist to Supabase. Saving locally only.');
       } else {
@@ -1792,13 +1796,17 @@ console.log('🏁 Set subjectsLoading to FALSE'); // ADD THIS DEBUG LINE
   // Delete an activity
   const deleteActivity = async (activityId: string): Promise<void> => {
     try {
+      const isUuid = (id: string) =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
       // Try to delete from Supabase if connected
-      if (isSupabaseConfigured()) {
+      if (isSupabaseConfigured() && isUuid(activityId)) {
         try {
           await activitiesApi.delete(activityId);
         } catch (error) {
           console.warn('Failed to delete activity from Supabase:', error);
         }
+      } else if (isSupabaseConfigured() && !isUuid(activityId)) {
+        console.warn('⚠️ Activity has local/non-UUID id - skipping Supabase delete and removing locally only.', { activityId });
       }
       
       // Update local state
