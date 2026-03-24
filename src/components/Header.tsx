@@ -72,17 +72,15 @@ export function Header() {
 
     const getSectionId = (group: { id: string; name: string }) => {
       const text = `${group.name} ${group.id}`.toLowerCase();
-      const isDrama = text.includes('drama');
       if (
         text.includes('lower kindergarten') ||
         text.includes('upper kindergarten') ||
+        text.includes('reception') ||
         /\blkg\b/.test(text) ||
         /\bukg\b/.test(text)
       ) {
         return 'eyfs';
       }
-      // EYFS Drama should sit with Reception/EYFS
-      if (isDrama && text.includes('reception')) return 'eyfs';
       const yearMatch = text.match(/year\s*([0-9]{1,2})/i);
       const rawNum = yearMatch?.[1] ?? (text.match(/(?:^|[^0-9])([0-9]{1,2})(?:[^0-9]|$)/)?.[1] ?? '');
       const yearNum = Number(rawNum);
@@ -113,15 +111,9 @@ export function Header() {
   }, [yearGroupsForSelector]);
 
   const displaySections = React.useMemo(() => {
-    const customHasKsSplit = visibleSections.some(
-      (s) => ['ks1', 'ks2', 'ks3', 'ks4', 'ks5'].includes((s.id || '').toLowerCase())
-    );
-    const otherSection = visibleSections.find((s) => (s.id || '').toLowerCase() === 'other');
-    const otherCount = otherSection?.groups.length || 0;
-    // Use quick grouping when classes are mostly in Other and no KS split exists yet.
-    const shouldUseQuick = !customHasKsSplit && otherCount >= Math.max(4, Math.floor(yearGroupsForSelector.length / 2));
-    return shouldUseQuick ? quickSections : visibleSections;
-  }, [visibleSections, quickSections, yearGroupsForSelector.length]);
+    // Always apply quick EYFS/KS grouping in selector for fast, predictable sections.
+    return quickSections.length > 0 ? quickSections : visibleSections;
+  }, [quickSections, visibleSections]);
 
   const toggleSectionExpanded = (sectionId: string) => {
     setYearGroupSectionsExpanded(prev => {
