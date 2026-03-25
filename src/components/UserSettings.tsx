@@ -16,6 +16,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import toast from 'react-hot-toast';
 import {
   normalizeSectionYearGroupIdList,
+  normalizeYearGroupToken,
   resolveYearGroupFromToken,
 } from '../utils/yearGroupSectionOrder';
 
@@ -741,15 +742,29 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
       }
 
       // Optimistic UI update: remove immediately, then delete from Supabase in the background.
+      const beforeList = tempYearGroups;
       const updatedYearGroups = tempYearGroups.filter((_, i) => i !== index);
       setTempYearGroups(updatedYearGroups);
       await updateYearGroups(updatedYearGroups);
       updateYearGroupSections(prev =>
         prev.map(s => ({
           ...s,
-          yearGroupIds: (s.yearGroupIds || []).filter(
-            id => id !== removed.id && id !== removed.name
-          )
+          yearGroupIds: normalizeSectionYearGroupIdList(
+            (s.yearGroupIds || []).filter((token) => {
+              const g = resolveYearGroupFromToken(beforeList, token);
+              if (g) {
+                return (
+                  g.id !== removed.id &&
+                  normalizeYearGroupToken(g.name) !== normalizeYearGroupToken(removed.name)
+                );
+              }
+              return (
+                normalizeYearGroupToken(token) !== normalizeYearGroupToken(removed.id) &&
+                normalizeYearGroupToken(token) !== normalizeYearGroupToken(removed.name)
+              );
+            }),
+            updatedYearGroups
+          ),
         }))
       );
 

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { supabase, isSupabaseConfigured } from '../config/supabase';
+import { supabase, isSupabaseConfigured, TABLES } from '../config/supabase';
 import { yearGroupsApi, customCategoriesApi, categoryGroupsApi, brandingApi } from '../config/api';
 import { useAuth } from '../hooks/useAuth';
 import {
@@ -1806,48 +1806,35 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
       console.log('🗑️ Deleting year group (candidates):', candidates);
 
       if (isSupabaseConfigured()) {
-        const YEAR_GROUPS_TABLE = 'year_groups';
+        // Load all rows once and match case-insensitively on name/id.
+        // Fixes deletes for "Other" when UI id slug ≠ DB name, and avoids brittle .eq chains.
+        const { data: allRows, error: listError } = await supabase
+          .from(TABLES.YEAR_GROUPS)
+          .select('id, name');
 
-        const fetchRowsForDelete = async (): Promise<{ id: string; name: string }[]> => {
-          for (const c of candidates) {
-            if (isUuidString(c)) {
-              const { data, error } = await supabase
-                .from(YEAR_GROUPS_TABLE)
-                .select('id, name')
-                .eq('id', c);
-              if (error) {
-                console.error('❌ Failed to fetch year group by UUID id for delete:', error);
-                throw new Error(error.message || `Database error: ${JSON.stringify(error)}`);
-              }
-              if (data?.length) return data;
-            }
-          }
-          for (const c of candidates) {
-            const { data, error } = await supabase
-              .from(YEAR_GROUPS_TABLE)
-              .select('id, name')
-              .eq('id', c);
-            if (error) {
-              console.error('❌ Failed to fetch year group by id for delete:', error);
-              throw new Error(error.message || `Database error: ${JSON.stringify(error)}`);
-            }
-            if (data?.length) return data;
-          }
-          for (const c of candidates) {
-            const { data, error } = await supabase
-              .from(YEAR_GROUPS_TABLE)
-              .select('id, name')
-              .eq('name', c);
-            if (error) {
-              console.error('❌ Failed to fetch year group by name for delete:', error);
-              throw new Error(error.message || `Database error: ${JSON.stringify(error)}`);
-            }
-            if (data?.length) return data;
-          }
-          return [];
-        };
+        if (listError) {
+          console.error('❌ Failed to list year_groups for delete:', listError);
+          throw new Error(listError.message || `Database error: ${JSON.stringify(listError)}`);
+        }
 
-        const rows = await fetchRowsForDelete();
+        const norm = (s: string) => (s || '').trim().toLowerCase();
+        const want = new Set(candidates.map(norm));
+        const uuidWant = new Set(candidates.filter(isUuidString));
+
+        const matched = (allRows || []).filter((row) => {
+          const idStr = String((row as { id: unknown }).id ?? '');
+          const rowName = String((row as { name: unknown }).name ?? '');
+          if (uuidWant.has(idStr)) return true;
+          if (want.has(norm(rowName))) return true;
+          if (want.has(norm(idStr))) return true;
+          return false;
+        });
+
+        const rows = [...new Map(matched.map((r) => [String(r.id), r])).values()] as {
+          id: string;
+          name: string;
+        }[];
+
         if (!rows.length) {
           console.warn(
             '⚠️ No year group in Supabase matching — treating as OK (e.g. local-only or never synced):',
@@ -1855,9 +1842,20 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
           );
         } else {
           if (rows.length > 1) {
-            console.warn('⚠️ Multiple rows matching - deleting all');
+            console.warn('⚠️ Multiple rows matching delete — deleting all matched:', rows);
           }
-          await Promise.all(rows.map((group) => yearGroupsApi.delete(group.id)));
+
+          const deleteOneRow = async (row: { id: string; name: string }) => {
+            const { error: e1 } = await supabase.from(TABLES.YEAR_GROUPS).delete().eq('id', row.id);
+            if (!e1) return;
+            const { error: e2 } = await supabase.from(TABLES.YEAR_GROUPS).delete().eq('name', row.name);
+            if (e2) {
+              const msg = [e1?.message, e2?.message].filter(Boolean).join(' | ');
+              throw new Error(msg || 'Year group delete failed');
+            }
+          };
+
+          await Promise.all(rows.map((row) => deleteOneRow(row)));
           console.log('✅ Deleted year group(s) from Supabase:', rows.map((r) => r.name).join(', '));
         }
       }
