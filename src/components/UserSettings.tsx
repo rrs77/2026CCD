@@ -730,20 +730,38 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
     }
   };
 
-  const handleDeleteYearGroup = async (index: number) => {
+  const resolveYearGroupIndex = (yearGroup: { id: string; name: string }) =>
+    tempYearGroups.findIndex(
+      (g) =>
+        g.id === yearGroup.id ||
+        normalizeYearGroupToken(g.name) === normalizeYearGroupToken(yearGroup.name) ||
+        normalizeYearGroupToken(g.id) === normalizeYearGroupToken(yearGroup.name)
+    );
+
+  const handleDeleteYearGroup = async (yearGroup: { id: string; name: string }) => {
     try {
       setIsDeletingYearGroup(true);
-      const removed = tempYearGroups[index];
+      const index = resolveYearGroupIndex(yearGroup);
+      const removed =
+        index >= 0 ? tempYearGroups[index] : yearGroup;
       const exactId = (removed?.id || '').trim();
       const exactName = (removed?.name || '').trim();
       if (!exactId && !exactName) {
         setIsDeletingYearGroup(false);
+        toast.error('Could not resolve this class to delete. Try refreshing settings, then remove it again.');
         return;
       }
 
       // Optimistic UI update: remove immediately, then delete from Supabase in the background.
       const beforeList = tempYearGroups;
-      const updatedYearGroups = tempYearGroups.filter((_, i) => i !== index);
+      const updatedYearGroups =
+        index >= 0
+          ? tempYearGroups.filter((_, i) => i !== index)
+          : tempYearGroups.filter(
+              (g) =>
+                g.id !== removed.id &&
+                normalizeYearGroupToken(g.name) !== normalizeYearGroupToken(removed.name)
+            );
       setTempYearGroups(updatedYearGroups);
       await updateYearGroups(updatedYearGroups);
       updateYearGroupSections(prev =>
@@ -770,7 +788,10 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
 
       setIsDeletingYearGroup(false);
 
-      void deleteYearGroup({ id: removed.id, name: removed.name }, { skipLocal: true }).catch((error: unknown) => {
+      void deleteYearGroup(
+        { id: exactId || removed.id, name: exactName || removed.name },
+        { skipLocal: true }
+      ).catch((error: unknown) => {
         console.error('❌ Supabase delete failed:', error);
         const msg =
           error instanceof Error
@@ -1467,7 +1488,7 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                 </div>
                               ) : (
                                 yearGroupsInSection.map((yearGroup) => {
-                                  const index = tempYearGroups.findIndex(g => g.id === yearGroup.id);
+                                  const index = resolveYearGroupIndex(yearGroup);
                                   return (
                                     <div
                                       key={yearGroup.id}
@@ -1493,7 +1514,31 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                             <input type="text" value={editingYearGroupDraft?.name ?? yearGroup.name} onChange={(e) => setEditingYearGroupDraft(prev => prev ? { ...prev, name: e.target.value } : null)} className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />
                                             <input type="color" value={editingYearGroupDraft?.color ?? yearGroup.color} onChange={(e) => setEditingYearGroupDraft(prev => prev ? { ...prev, color: e.target.value } : null)} className="w-10 h-8 rounded border border-gray-300 cursor-pointer" />
                                           </div>
-                                          <button type="button" onClick={() => { if (editingYearGroupDraft) { handleUpdateYearGroup(index, editingYearGroupDraft.id, editingYearGroupDraft.name, editingYearGroupDraft.color); setEditingYearGroupDraft(null); } setEditingYearGroup(null); }} className="p-1.5 text-teal-600 hover:bg-teal-50 rounded"><Save className="h-5 w-5" /></button>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                if (!editingYearGroupDraft) {
+                                                  setEditingYearGroup(null);
+                                                  return;
+                                                }
+                                                const idx = resolveYearGroupIndex(yearGroup);
+                                                if (idx < 0) {
+                                                  toast.error('Could not save: class not found in list. Refresh settings and try again.');
+                                                  return;
+                                                }
+                                                handleUpdateYearGroup(
+                                                  idx,
+                                                  editingYearGroupDraft.id,
+                                                  editingYearGroupDraft.name,
+                                                  editingYearGroupDraft.color
+                                                );
+                                                setEditingYearGroupDraft(null);
+                                                setEditingYearGroup(null);
+                                              }}
+                                              className="p-1.5 text-teal-600 hover:bg-teal-50 rounded"
+                                            >
+                                              <Save className="h-5 w-5" />
+                                            </button>
                                         </div>
                                       ) : (
                                         <div className="flex items-center space-x-3">
@@ -1502,7 +1547,13 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                           <div className="flex-1 font-medium text-gray-900">{yearGroup.name}</div>
                                           <div className="flex items-center gap-1">
                                             <button type="button" onClick={() => { setEditingYearGroup(yearGroup.id); setEditingYearGroupDraft({ id: yearGroup.id, name: yearGroup.name, color: yearGroup.color || '#14B8A6' }); }} className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"><Edit3 className="h-4 w-4" /></button>
-                                            <button type="button" onClick={() => handleDeleteYearGroup(index)} className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4" /></button>
+                                            <button
+                                              type="button"
+                                              onClick={() => void handleDeleteYearGroup(yearGroup)}
+                                              className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
+                                            >
+                                              <Trash2 className="h-4 w-4" />
+                                            </button>
                                           </div>
                                         </div>
                                       )}
