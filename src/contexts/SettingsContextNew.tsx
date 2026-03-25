@@ -1785,7 +1785,7 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
     return null;
   };
 
-  const deleteYearGroup = async (yearGroupNameOrId: string) => {
+  const deleteYearGroup = async (yearGroupNameOrId: string, opts?: { skipLocal?: boolean }) => {
     // Match by name or id (frontend may pass either; DB can use TEXT id like "assemb" or UUID).
     const exact = (yearGroupNameOrId || '').trim();
     if (!exact) return;
@@ -1826,27 +1826,27 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
         if (rows.length > 1) {
           console.warn('⚠️ Multiple rows matching - deleting all');
         }
-        for (const group of rows) {
-          await yearGroupsApi.delete(group.id);
-        }
+        await Promise.all(rows.map((group) => yearGroupsApi.delete(group.id)));
         console.log('✅ Deleted year group from Supabase:', exact);
       }
 
-      setCustomYearGroups(prev => {
-        const lower = exact.toLowerCase();
-        const filtered = prev.filter(g => {
-          const id = (g.id || '').trim();
-          const name = (g.name || '').trim();
-          return (
-            id !== exact &&
-            name !== exact &&
-            id.toLowerCase() !== lower &&
-            name.toLowerCase() !== lower
-          );
+      if (!opts?.skipLocal) {
+        setCustomYearGroups(prev => {
+          const lower = exact.toLowerCase();
+          const filtered = prev.filter(g => {
+            const id = (g.id || '').trim();
+            const name = (g.name || '').trim();
+            return (
+              id !== exact &&
+              name !== exact &&
+              id.toLowerCase() !== lower &&
+              name.toLowerCase() !== lower
+            );
+          });
+          localStorage.setItem('custom-year-groups', JSON.stringify(filtered));
+          return filtered;
         });
-        localStorage.setItem('custom-year-groups', JSON.stringify(filtered));
-        return filtered;
-      });
+      }
     } catch (error) {
       console.error('❌ Failed to delete year group:', error);
       throw error;

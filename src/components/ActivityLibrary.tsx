@@ -89,8 +89,10 @@ export function ActivityLibrary({
   } = useData();
   const { getCategoryColor, categories, updateCategories, customYearGroups, mapActivityLevelToYearGroup } = useSettings();
   
+  const normalizeKey = React.useCallback((value: string | undefined | null) => (value || '').trim().toLowerCase(), []);
+
   // Get categories assigned to current year group (same logic as LessonPlanBuilder)
-  // IMPORTANT: This must match the EXACT keys used when saving categories in UserSettings (line 1460)
+  // IMPORTANT: This must match the keys used when saving categories in UserSettings.
   const getCurrentYearGroupKeys = React.useCallback((): string[] => {
     const sheetId = className || currentSheetInfo?.sheet;
     if (!sheetId) return [];
@@ -100,15 +102,14 @@ export function ActivityLibrary({
     }
     
     // Try to find by ID first
-    let yearGroup = customYearGroups.find(yg => yg.id === sheetId);
+    let yearGroup = customYearGroups.find(yg => normalizeKey(yg.id) === normalizeKey(sheetId));
     
     // If not found by ID, try to find by name (handles cases like "Example KS1 Maths")
     if (!yearGroup) {
-      yearGroup = customYearGroups.find(yg => 
-        yg.name === sheetId || 
-        yg.name.toLowerCase() === sheetId.toLowerCase() ||
-        sheetId.includes(yg.name) ||
-        yg.name.includes(sheetId)
+      yearGroup = customYearGroups.find(yg =>
+        normalizeKey(yg.name) === normalizeKey(sheetId) ||
+        normalizeKey(sheetId).includes(normalizeKey(yg.name)) ||
+        normalizeKey(yg.name).includes(normalizeKey(sheetId))
       );
     }
     
@@ -148,7 +149,7 @@ export function ActivityLibrary({
       return keys.filter(Boolean);
     }
     return [];
-  }, [className, currentSheetInfo, customYearGroups]);
+  }, [className, currentSheetInfo, customYearGroups, normalizeKey]);
   
   // Get categories available for current year group
   // STRICT FILTERING: Only show categories EXPLICITLY assigned to current year group
@@ -173,7 +174,7 @@ export function ActivityLibrary({
     
     // Find the current year group object (exact match for this class/sheet)
     const currentYearGroup = customYearGroups?.find(
-      yg => yg.id === currentYearGroupKey || yg.name === currentYearGroupKey
+      yg => normalizeKey(yg.id) === normalizeKey(currentYearGroupKey) || normalizeKey(yg.name) === normalizeKey(currentYearGroupKey)
     );
     
     console.log('📚 STRICT Category Filtering:', {
@@ -184,11 +185,12 @@ export function ActivityLibrary({
     });
     
     // Keys used when saving in UserSettings: yearGroup.id || yearGroup.name. Match exactly only.
-    const keysToCheck = [
+    const keysToCheck = [...new Set([
       currentYearGroup?.id,
       currentYearGroup?.name,
-      currentYearGroupKey
-    ].filter(Boolean) as string[];
+      currentYearGroupKey,
+      ...getCurrentYearGroupKeys(),
+    ].filter(Boolean).map((k) => String(k).trim()))];
     
     // STRICT: Only categories EXPLICITLY assigned to this year group. Exact match only (no partial/startsWith).
     const filteredCategories = categories
@@ -206,8 +208,8 @@ export function ActivityLibrary({
         
         // Exact match only: assigned key must equal one of this class's keys (case-insensitive)
         const isAssigned = assignedKeys.some(assignedKey => {
-          const a = (assignedKey || '').toLowerCase().trim();
-          return keysToCheck.some(checkKey => (checkKey || '').toLowerCase().trim() === a);
+          const a = normalizeKey(assignedKey);
+          return keysToCheck.some(checkKey => normalizeKey(checkKey) === a);
         });
         
         if (isAssigned) {
@@ -231,7 +233,7 @@ export function ActivityLibrary({
     
     // Return empty array if no categories assigned (NOT null - we want to show nothing)
     return categoryNames.length > 0 ? categoryNames : [];
-  }, [categories, className, currentSheetInfo, customYearGroups]);
+  }, [categories, className, currentSheetInfo, customYearGroups, getCurrentYearGroupKeys, normalizeKey]);
   
   const { user, profile } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');

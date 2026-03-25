@@ -740,7 +740,8 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
         setIsDeletingYearGroup(false);
         return;
       }
-      await deleteYearGroup(key);
+
+      // Optimistic UI update: remove immediately, then delete from Supabase in the background.
       const updatedYearGroups = tempYearGroups.filter((_, i) => i !== index);
       setTempYearGroups(updatedYearGroups);
       await updateYearGroups(updatedYearGroups);
@@ -752,7 +753,13 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
           )
         }))
       );
-      setTimeout(() => setIsDeletingYearGroup(false), 1000);
+
+      setIsDeletingYearGroup(false);
+
+      void deleteYearGroup(key, { skipLocal: true }).catch((error: unknown) => {
+        console.error('❌ Supabase delete failed:', error);
+        alert('Year group deleted locally, but failed to delete from the server. Please try again.');
+      });
     } catch (error) {
       console.error('❌ Failed to delete year group:', error);
       const message = error instanceof Error ? error.message : (error && typeof error === 'object' && 'message' in error ? String((error as { message?: string }).message) : 'Failed to delete year group. Please try again.');

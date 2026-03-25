@@ -43,19 +43,32 @@ export function Header() {
   const [showHelpGuide, setShowHelpGuide] = useState(false);
   const [helpGuideSection, setHelpGuideSection] = useState<'activity' | 'lesson' | 'unit' | 'assign' | undefined>(undefined);
 
-  // Sections that have at least one year group the user can access (only show key stages with resources)
-  const selectorIdSet = new Set(yearGroupsForSelector.map(g => g.id));
+  // Sections that have at least one year group the user can access.
+  // Resolve section tokens by id OR name so renamed classes still map correctly.
+  const normalizeToken = (value: string | undefined | null) => (value || '').trim().toLowerCase();
+  const selectorTokenMap = React.useMemo(() => {
+    const map = new Map<string, { id: string; name: string; color?: string }>();
+    yearGroupsForSelector.forEach((g) => {
+      const idKey = normalizeToken(g.id);
+      const nameKey = normalizeToken(g.name);
+      if (idKey) map.set(idKey, g);
+      if (nameKey) map.set(nameKey, g);
+    });
+    return map;
+  }, [yearGroupsForSelector]);
+
   const visibleSections = React.useMemo(() => {
     return [...yearGroupSections]
       .sort((a, b) => a.sortOrder - b.sortOrder)
-      .filter(section => section.yearGroupIds.some(id => selectorIdSet.has(id)))
+      .filter(section => section.yearGroupIds.some(token => selectorTokenMap.has(normalizeToken(token))))
       .map(section => ({
         ...section,
         groups: section.yearGroupIds
-          .map(id => yearGroupsForSelector.find(g => g.id === id))
+          .map(token => selectorTokenMap.get(normalizeToken(token)))
           .filter((g): g is { id: string; name: string; color?: string } => Boolean(g))
+          .filter((g, index, arr) => arr.findIndex(x => x.id === g.id) === index)
       }));
-  }, [yearGroupSections, yearGroupsForSelector]);
+  }, [yearGroupSections, selectorTokenMap]);
 
   // Quick auto-grouping for faster setup (keeps normal custom sections available in Settings).
   const quickSections = React.useMemo(() => {
