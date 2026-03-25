@@ -1846,12 +1846,21 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
           }
 
           const deleteOneRow = async (row: { id: string; name: string }) => {
+            const fmt = (err: { message?: string; code?: string; details?: string; hint?: string } | null) =>
+              err
+                ? [err.message, err.code ? `code=${err.code}` : '', err.details, err.hint]
+                    .filter(Boolean)
+                    .join(' ')
+                : '';
             const { error: e1 } = await supabase.from(TABLES.YEAR_GROUPS).delete().eq('id', row.id);
             if (!e1) return;
             const { error: e2 } = await supabase.from(TABLES.YEAR_GROUPS).delete().eq('name', row.name);
             if (e2) {
-              const msg = [e1?.message, e2?.message].filter(Boolean).join(' | ');
-              throw new Error(msg || 'Year group delete failed');
+              const msg = [fmt(e1), fmt(e2)].filter(Boolean).join(' | ');
+              throw new Error(
+                msg ||
+                  'Year group delete failed (check Supabase RLS: run year_groups_rls_allow_delete_all_roles.sql)'
+              );
             }
           };
 

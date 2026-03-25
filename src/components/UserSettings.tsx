@@ -780,8 +780,8 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
               : '';
         alert(
           msg
-            ? `Year group removed in the app, but the server reported an error: ${msg}`
-            : 'Year group removed in the app, but deleting on the server failed. If you use restricted accounts, ensure your profile allows managing year groups.'
+            ? `Year group removed in the app, but Supabase delete failed:\n\n${msg}\n\nIf this mentions RLS, policy, or permission: open Supabase → SQL Editor → run the migration file year_groups_rls_allow_delete_all_roles.sql from this project (or set can_manage_year_groups / admin on your profile).`
+            : 'Year group removed in the app, but Supabase delete failed. Open Supabase → SQL Editor → run year_groups_rls_allow_delete_all_roles.sql, or grant your user admin / can_manage_year_groups on profiles.'
         );
       });
     } catch (error) {
