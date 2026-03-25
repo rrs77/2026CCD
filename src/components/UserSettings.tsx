@@ -735,8 +735,7 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
       const removed = tempYearGroups[index];
       const exactId = (removed?.id || '').trim();
       const exactName = (removed?.name || '').trim();
-      const key = exactId || exactName;
-      if (!key) {
+      if (!exactId && !exactName) {
         setIsDeletingYearGroup(false);
         return;
       }
@@ -756,9 +755,19 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
 
       setIsDeletingYearGroup(false);
 
-      void deleteYearGroup(key, { skipLocal: true }).catch((error: unknown) => {
+      void deleteYearGroup({ id: removed.id, name: removed.name }, { skipLocal: true }).catch((error: unknown) => {
         console.error('❌ Supabase delete failed:', error);
-        alert('Year group deleted locally, but failed to delete from the server. Please try again.');
+        const msg =
+          error instanceof Error
+            ? error.message
+            : error && typeof error === 'object' && 'message' in error
+              ? String((error as { message?: string }).message)
+              : '';
+        alert(
+          msg
+            ? `Year group removed in the app, but the server reported an error: ${msg}`
+            : 'Year group removed in the app, but deleting on the server failed. If you use restricted accounts, ensure your profile allows managing year groups.'
+        );
       });
     } catch (error) {
       console.error('❌ Failed to delete year group:', error);
