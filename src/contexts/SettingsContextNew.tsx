@@ -1938,10 +1938,13 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const ensureYearGroupsInSections = () => {
-    const ids = customYearGroups.map(g => g.id);
-    updateYearGroupSections(prev => mergeSectionsWithYearGroups(prev, ids, customYearGroups));
-  };
+  const ensureYearGroupsInSections = React.useCallback(() => {
+    const ids = customYearGroups.map((g) => g.id);
+    updateYearGroupSections(
+      (prev) => mergeSectionsWithYearGroups(prev, ids, customYearGroups),
+      customYearGroups
+    );
+  }, [customYearGroups, updateYearGroupSections]);
 
   const saveCategoryToSupabase = async (name: string, color: string) => {
     console.log('💾 NEW: Starting Supabase save for:', name);

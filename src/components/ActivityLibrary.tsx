@@ -139,7 +139,7 @@ export function ActivityLibrary({
         if (!keys.includes('Reception')) keys.push('Reception');
       }
       
-      console.log('🔑 ActivityLibrary: Year group keys for matching:', {
+      if (import.meta.env.DEV) console.log('🔑 ActivityLibrary: Year group keys for matching:', {
         sheetId,
         yearGroupName: yearGroup.name,
         yearGroupId: yearGroup.id,
@@ -155,14 +155,14 @@ export function ActivityLibrary({
   // STRICT FILTERING: Only show categories EXPLICITLY assigned to current year group
   const availableCategoriesForYearGroup = React.useMemo(() => {
     if (!categories || categories.length === 0) {
-      console.log('📚 ActivityLibrary: No categories available');
+      if (import.meta.env.DEV) console.log('📚 ActivityLibrary: No categories available');
       return null;
     }
     
     const currentYearGroupKey = className || currentSheetInfo?.sheet;
     
     if (!currentYearGroupKey) {
-      console.log('📚 ActivityLibrary: No year group selected, showing NO categories');
+      if (import.meta.env.DEV) console.log('📚 ActivityLibrary: No year group selected, showing NO categories');
       return []; // Empty array = show nothing until year group selected
     }
     
@@ -177,7 +177,7 @@ export function ActivityLibrary({
       yg => normalizeKey(yg.id) === normalizeKey(currentYearGroupKey) || normalizeKey(yg.name) === normalizeKey(currentYearGroupKey)
     );
     
-    console.log('📚 STRICT Category Filtering:', {
+    if (import.meta.env.DEV) console.log('📚 STRICT Category Filtering:', {
       currentYearGroupKey,
       currentYearGroupId: currentYearGroup?.id,
       currentYearGroupName: currentYearGroup?.name,
@@ -213,7 +213,7 @@ export function ActivityLibrary({
         });
         
         if (isAssigned) {
-          console.log(`✅ Category "${category.name}" assigned to "${currentYearGroup?.name || currentYearGroupKey}"`);
+          if (import.meta.env.DEV) console.log(`✅ Category "${category.name}" assigned to "${currentYearGroup?.name || currentYearGroupKey}"`);
         } else {
           if (import.meta.env.DEV) console.log(`❌ Category "${category.name}" NOT assigned. Has: [${assignedKeys.join(', ')}], Need exact: [${keysToCheck.join(', ')}]`);
         }
@@ -229,7 +229,7 @@ export function ActivityLibrary({
       return [name];
     }))];
     
-    console.log(`📚 STRICT Filtering Result: ${categoryNames.length} categories for "${currentYearGroup?.name || currentYearGroupKey}":`, categoryNames);
+    if (import.meta.env.DEV) console.log(`📚 STRICT Filtering Result: ${categoryNames.length} categories for "${currentYearGroup?.name || currentYearGroupKey}":`, categoryNames);
     
     // Return empty array if no categories assigned (NOT null - we want to show nothing)
     return categoryNames.length > 0 ? categoryNames : [];
