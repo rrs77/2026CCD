@@ -688,7 +688,10 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
 
     console.log('🔄 Adding year group and persisting immediately:', newYearGroup);
     updateYearGroups(updatedYearGroups);
-    updateYearGroupSections(prev => prev.map(s => s.id === 'other' ? { ...s, yearGroupIds: [...(s.yearGroupIds || []), newYearGroup.id] } : s));
+    updateYearGroupSections(
+      (prev) => prev.map((s) => (s.id === 'other' ? { ...s, yearGroupIds: [...(s.yearGroupIds || []), newYearGroup.id] } : s)),
+      updatedYearGroups
+    );
     try {
       await forceSyncToSupabase({ yearGroups: updatedYearGroups });
     } catch (e) {
@@ -713,16 +716,20 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
     setTempYearGroups(updatedYearGroups);
     setEditingYearGroup(null);
 
-    // If the id changed, update sections so the year group still appears in the same section (it was disappearing because sections still referenced the old id)
-    if (oldId && oldId !== id) {
-      updateYearGroupSections(prev => prev.map(s => ({
-        ...s,
-        yearGroupIds: (s.yearGroupIds || []).map(mid => mid === oldId ? id : mid)
-      })));
-    }
-
     console.log('🔄 Updating year group and persisting immediately:', { id, name, color });
     updateYearGroups(updatedYearGroups);
+
+    // If the id changed, update sections so the year group still appears in the same section (it was disappearing because sections still referenced the old id)
+    if (oldId && oldId !== id) {
+      updateYearGroupSections(
+        (prev) =>
+          prev.map((s) => ({
+            ...s,
+            yearGroupIds: (s.yearGroupIds || []).map((mid) => (mid === oldId ? id : mid)),
+          })),
+        updatedYearGroups
+      );
+    }
     try {
       await forceSyncToSupabase({ yearGroups: updatedYearGroups });
     } catch (e) {
@@ -764,26 +771,28 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
             );
       setTempYearGroups(updatedYearGroups);
       await updateYearGroups(updatedYearGroups);
-      updateYearGroupSections(prev =>
-        prev.map(s => ({
-          ...s,
-          yearGroupIds: normalizeSectionYearGroupIdList(
-            (s.yearGroupIds || []).filter((token) => {
-              const g = resolveYearGroupFromToken(beforeList, token);
-              if (g) {
+      updateYearGroupSections(
+        (prev) =>
+          prev.map((s) => ({
+            ...s,
+            yearGroupIds: normalizeSectionYearGroupIdList(
+              (s.yearGroupIds || []).filter((token) => {
+                const g = resolveYearGroupFromToken(beforeList, token);
+                if (g) {
+                  return (
+                    g.id !== removed.id &&
+                    normalizeYearGroupToken(g.name) !== normalizeYearGroupToken(removed.name)
+                  );
+                }
                 return (
-                  g.id !== removed.id &&
-                  normalizeYearGroupToken(g.name) !== normalizeYearGroupToken(removed.name)
+                  normalizeYearGroupToken(token) !== normalizeYearGroupToken(removed.id) &&
+                  normalizeYearGroupToken(token) !== normalizeYearGroupToken(removed.name)
                 );
-              }
-              return (
-                normalizeYearGroupToken(token) !== normalizeYearGroupToken(removed.id) &&
-                normalizeYearGroupToken(token) !== normalizeYearGroupToken(removed.name)
-              );
-            }),
-            updatedYearGroups
-          ),
-        }))
+              }),
+              updatedYearGroups
+            ),
+          })),
+        updatedYearGroups
       );
 
       setIsDeletingYearGroup(false);

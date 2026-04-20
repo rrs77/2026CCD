@@ -31,6 +31,7 @@ import type {
 } from '../types/customObjectives';
 import { useAuth } from '../hooks/useAuth';
 import { useSettings } from '../contexts/SettingsContextNew';
+import { normalizeYearGroupToken, resolveYearGroupFromToken } from '../utils/yearGroupSectionOrder';
 
 // Draggable Year Group Item
 interface DraggableYearGroupProps {
@@ -99,7 +100,7 @@ interface CustomObjectivesAdminProps {
 
 export function CustomObjectivesAdmin({ isOpen, onClose, embedded = false }: CustomObjectivesAdminProps) {
   const { user } = useAuth();
-  const { customYearGroups } = useSettings();
+  const { customYearGroups, yearGroupSections } = useSettings();
   const isAdmin = user?.email === 'rob.reichstorer@gmail.com' || user?.role === 'administrator';
   
   // Get available year group names for linking
@@ -119,6 +120,72 @@ export function CustomObjectivesAdmin({ isOpen, onClose, embedded = false }: Cus
   const [showCloneDialog, setShowCloneDialog] = useState(false);
   const [cloneData, setCloneData] = useState({ sourceId: '', targetName: '', targetColor: '#3B82F6' });
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [collapsedSectionIds, setCollapsedSectionIds] = useState<Set<string>>(new Set());
+
+  const yearGroupIndexById = React.useMemo(() => {
+    const map = new Map<string, number>();
+    yearGroups.forEach((group, index) => {
+      map.set(group.id, index);
+    });
+    return map;
+  }, [yearGroups]);
+
+  const sectionOrder = React.useMemo(() => {
+    const source =
+      yearGroupSections && yearGroupSections.length > 0
+        ? yearGroupSections
+        : [{ id: 'other', label: 'Other', sortOrder: 999, yearGroupIds: [] }];
+    return [...source].sort((a, b) => a.sortOrder - b.sortOrder);
+  }, [yearGroupSections]);
+
+  const sectionLabelByCustomYearGroupName = React.useMemo(() => {
+    const labelByCanonicalId = new Map<string, string>();
+    sectionOrder.forEach((section) => {
+      (section.yearGroupIds || []).forEach((token) => {
+        const resolved = resolveYearGroupFromToken(customYearGroups || [], token);
+        if (resolved && !labelByCanonicalId.has(resolved.id)) {
+          labelByCanonicalId.set(resolved.id, section.label);
+        }
+      });
+    });
+
+    const byLinkedName = new Map<string, string>();
+    (customYearGroups || []).forEach((group) => {
+      const label = labelByCanonicalId.get(group.id);
+      if (!label) return;
+      byLinkedName.set(normalizeYearGroupToken(group.name), label);
+      byLinkedName.set(normalizeYearGroupToken(group.id), label);
+    });
+    return byLinkedName;
+  }, [sectionOrder, customYearGroups]);
+
+  const groupedYearGroups = React.useMemo(() => {
+    const sectionMap = new Map<string, { id: string; label: string; items: CustomObjectiveYearGroupWithAreas[] }>();
+    sectionOrder.forEach((section) => {
+      sectionMap.set(section.label, { id: section.id, label: section.label, items: [] });
+    });
+    if (!sectionMap.has('Other')) {
+      sectionMap.set('Other', { id: 'other', label: 'Other', items: [] });
+    }
+
+    yearGroups.forEach((group) => {
+      const linked = group.linked_year_groups || [];
+      const counts = new Map<string, number>();
+      linked.forEach((name) => {
+        const label = sectionLabelByCustomYearGroupName.get(normalizeYearGroupToken(name));
+        if (label) counts.set(label, (counts.get(label) || 0) + 1);
+      });
+
+      const bestLabel =
+        counts.size > 0
+          ? [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0]
+          : 'Other';
+      const target = sectionMap.get(bestLabel) || sectionMap.get('Other');
+      target?.items.push(group);
+    });
+
+    return [...sectionMap.values()].filter((section) => section.items.length > 0);
+  }, [yearGroups, sectionOrder, sectionLabelByCustomYearGroupName]);
 
   // Helper function to auto-resize textarea
   const autoResizeTextarea = (textarea: HTMLTextAreaElement) => {
@@ -715,128 +782,165 @@ export function CustomObjectivesAdmin({ isOpen, onClose, embedded = false }: Cus
               ) : (
                 // Drag-and-drop subject areas (same in modal and embedded)
                 <DndProvider backend={HTML5Backend}>
-                <div className="space-y-2">
-                  {yearGroups.map((yearGroup, index) => (
-                    <DraggableYearGroup
-                      key={yearGroup.id}
-                      yearGroup={yearGroup}
-                      index={index}
-                      isSelected={selectedYearGroup === yearGroup.id}
-                      onSelect={() => setSelectedYearGroup(yearGroup.id)}
-                      onReorder={(dragIndex, hoverIndex) => {
-                        const newYearGroups = [...yearGroups];
-                        const [removed] = newYearGroups.splice(dragIndex, 1);
-                        newYearGroups.splice(hoverIndex, 0, removed);
-                        newYearGroups.forEach((yg, i) => {
-                          yg.sort_order = i;
-                        });
-                        setYearGroups(newYearGroups);
-                        // Persist new order immediately (don't rely on onDragEnd – state may not have updated yet)
-                        (async () => {
-                          try {
-                            for (const yg of newYearGroups) {
-                              await customObjectivesApi.yearGroups.update(yg.id, { sort_order: yg.sort_order });
+                <div className="space-y-3">
+                  {groupedYearGroups.map((section) => (
+                    <div key={section.id} className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCollapsedSectionIds((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(section.id)) {
+                              next.delete(section.id);
+                            } else {
+                              next.add(section.id);
                             }
-                            setMessage({ type: 'success', text: 'Subject areas reordered successfully' });
-                          } catch (error) {
-                            console.error('Failed to save order:', error);
-                            setMessage({ type: 'error', text: 'Failed to save new order' });
-                          }
-                        })();
-                      }}
-                      onDragEnd={() => {}}
-                    >
-                    <div
-                      className={`p-3 rounded-lg border cursor-grab active:cursor-grabbing transition-colors duration-200 ${
-                        selectedYearGroup === yearGroup.id
-                          ? 'border-teal-500 bg-teal-50'
-                          : 'border-gray-200 bg-white hover:border-gray-300'
-                      }`}
-                      onClick={() => setSelectedYearGroup(yearGroup.id)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2 flex-1">
-                          <GripVertical className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                          <div
-                            className="w-3 h-3 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: yearGroup.color }}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <h4 className="font-medium text-gray-900 truncate">{yearGroup.name}</h4>
-                              {yearGroup.is_locked && (
-                                <Lock className="h-3 w-3 text-amber-500 flex-shrink-0" title="Locked - Read Only" />
-                              )}
-                              {yearGroup.linked_year_groups && yearGroup.linked_year_groups.length > 0 && (
-                                <Link2 className="h-3 w-3 text-teal-500 flex-shrink-0" title={`Linked to: ${yearGroup.linked_year_groups.join(', ')}`} />
-                              )}
-                            </div>
-                            <p className="text-xs text-gray-500">
-                              {yearGroup.areas.length} areas, {yearGroup.areas.reduce((sum, area) => sum + area.objectives.length, 0)} objectives
-                            </p>
-                            {yearGroup.linked_year_groups && yearGroup.linked_year_groups.length > 0 && (
-                              <p className="text-xs text-teal-600 truncate" title={yearGroup.linked_year_groups.join(', ')}>
-                                → {yearGroup.linked_year_groups.slice(0, 3).join(', ')}{yearGroup.linked_year_groups.length > 3 ? ` +${yearGroup.linked_year_groups.length - 3}` : ''}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex space-x-1 flex-shrink-0">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setCloneData({ sourceId: yearGroup.id, targetName: `${yearGroup.name} Copy`, targetColor: yearGroup.color });
-                              setShowCloneDialog(true);
-                            }}
-                            className="p-1 text-gray-400 hover:text-gray-600"
-                            title="Clone"
-                          >
-                            <Copy className="h-3 w-3" />
-                          </button>
-                          {isAdmin && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleToggleLock(yearGroup.id);
-                              }}
-                              className={`p-1 ${yearGroup.is_locked ? 'text-amber-500 hover:text-amber-600' : 'text-gray-400 hover:text-gray-600'}`}
-                              title={yearGroup.is_locked ? 'Unlock (Admin only)' : 'Lock (Admin only)'}
-                            >
-                              {yearGroup.is_locked ? (
-                                <Lock className="h-3 w-3" />
-                              ) : (
-                                <Unlock className="h-3 w-3" />
-                              )}
-                            </button>
+                            return next;
+                          })
+                        }
+                        className="w-full flex items-center justify-between px-2 py-1.5 rounded-md bg-white border border-gray-200 hover:border-gray-300 text-left"
+                      >
+                        <div className="flex items-center gap-2">
+                          {collapsedSectionIds.has(section.id) ? (
+                            <ChevronRight className="h-4 w-4 text-gray-500" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 text-gray-500" />
                           )}
-                          {!yearGroup.is_locked && (
-                            <>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEditYearGroup(yearGroup);
-                                }}
-                                className="p-1 text-gray-400 hover:text-gray-600"
-                                title="Edit"
-                              >
-                                <Edit2 className="h-3 w-3" />
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteYearGroup(yearGroup.id);
-                                }}
-                                className="p-1 text-gray-400 hover:text-red-600"
-                                title="Delete"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </button>
-                            </>
-                          )}
+                          <span className="text-sm font-semibold text-gray-800">{section.label}</span>
                         </div>
-                      </div>
+                        <span className="text-xs font-medium text-gray-500">({section.items.length})</span>
+                      </button>
+
+                      {!collapsedSectionIds.has(section.id) && (
+                        <div className="space-y-2 pl-1">
+                          {section.items.map((yearGroup) => {
+                            const index = yearGroupIndexById.get(yearGroup.id);
+                            if (typeof index !== 'number') return null;
+                            return (
+                              <DraggableYearGroup
+                                key={yearGroup.id}
+                                yearGroup={yearGroup}
+                                index={index}
+                                isSelected={selectedYearGroup === yearGroup.id}
+                                onSelect={() => setSelectedYearGroup(yearGroup.id)}
+                                onReorder={(dragIndex, hoverIndex) => {
+                                  const newYearGroups = [...yearGroups];
+                                  const [removed] = newYearGroups.splice(dragIndex, 1);
+                                  newYearGroups.splice(hoverIndex, 0, removed);
+                                  newYearGroups.forEach((yg, i) => {
+                                    yg.sort_order = i;
+                                  });
+                                  setYearGroups(newYearGroups);
+                                  (async () => {
+                                    try {
+                                      for (const yg of newYearGroups) {
+                                        await customObjectivesApi.yearGroups.update(yg.id, { sort_order: yg.sort_order });
+                                      }
+                                      setMessage({ type: 'success', text: 'Subject areas reordered successfully' });
+                                    } catch (error) {
+                                      console.error('Failed to save order:', error);
+                                      setMessage({ type: 'error', text: 'Failed to save new order' });
+                                    }
+                                  })();
+                                }}
+                                onDragEnd={() => {}}
+                              >
+                              <div
+                                className={`p-3 rounded-lg border cursor-grab active:cursor-grabbing transition-colors duration-200 ${
+                                  selectedYearGroup === yearGroup.id
+                                    ? 'border-teal-500 bg-teal-50'
+                                    : 'border-gray-200 bg-white hover:border-gray-300'
+                                }`}
+                                onClick={() => setSelectedYearGroup(yearGroup.id)}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-2 flex-1">
+                                    <GripVertical className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                    <div
+                                      className="w-3 h-3 rounded-full flex-shrink-0"
+                                      style={{ backgroundColor: yearGroup.color }}
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-1.5">
+                                        <h4 className="font-medium text-gray-900 truncate">{yearGroup.name}</h4>
+                                        {yearGroup.is_locked && (
+                                          <Lock className="h-3 w-3 text-amber-500 flex-shrink-0" title="Locked - Read Only" />
+                                        )}
+                                        {yearGroup.linked_year_groups && yearGroup.linked_year_groups.length > 0 && (
+                                          <Link2 className="h-3 w-3 text-teal-500 flex-shrink-0" title={`Linked to: ${yearGroup.linked_year_groups.join(', ')}`} />
+                                        )}
+                                      </div>
+                                      <p className="text-xs text-gray-500">
+                                        {yearGroup.areas.length} areas, {yearGroup.areas.reduce((sum, area) => sum + area.objectives.length, 0)} objectives
+                                      </p>
+                                      {yearGroup.linked_year_groups && yearGroup.linked_year_groups.length > 0 && (
+                                        <p className="text-xs text-teal-600 truncate" title={yearGroup.linked_year_groups.join(', ')}>
+                                          → {yearGroup.linked_year_groups.slice(0, 3).join(', ')}{yearGroup.linked_year_groups.length > 3 ? ` +${yearGroup.linked_year_groups.length - 3}` : ''}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex space-x-1 flex-shrink-0">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setCloneData({ sourceId: yearGroup.id, targetName: `${yearGroup.name} Copy`, targetColor: yearGroup.color });
+                                        setShowCloneDialog(true);
+                                      }}
+                                      className="p-1 text-gray-400 hover:text-gray-600"
+                                      title="Clone"
+                                    >
+                                      <Copy className="h-3 w-3" />
+                                    </button>
+                                    {isAdmin && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleToggleLock(yearGroup.id);
+                                        }}
+                                        className={`p-1 ${yearGroup.is_locked ? 'text-amber-500 hover:text-amber-600' : 'text-gray-400 hover:text-gray-600'}`}
+                                        title={yearGroup.is_locked ? 'Unlock (Admin only)' : 'Lock (Admin only)'}
+                                      >
+                                        {yearGroup.is_locked ? (
+                                          <Lock className="h-3 w-3" />
+                                        ) : (
+                                          <Unlock className="h-3 w-3" />
+                                        )}
+                                      </button>
+                                    )}
+                                    {!yearGroup.is_locked && (
+                                      <>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleEditYearGroup(yearGroup);
+                                          }}
+                                          className="p-1 text-gray-400 hover:text-gray-600"
+                                          title="Edit"
+                                        >
+                                          <Edit2 className="h-3 w-3" />
+                                        </button>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteYearGroup(yearGroup.id);
+                                          }}
+                                          className="p-1 text-gray-400 hover:text-red-600"
+                                          title="Delete"
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              </DraggableYearGroup>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                    </DraggableYearGroup>
                   ))}
                 </div>
                 </DndProvider>

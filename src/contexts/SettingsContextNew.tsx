@@ -160,7 +160,10 @@ interface SettingsContextType {
   yearGroupBands: YearGroupBand[];
   yearGroupSections: YearGroupSection[];
   updateYearGroups: (newYearGroups: YearGroup[]) => void;
-  updateYearGroupSections: (sections: YearGroupSection[] | ((prev: YearGroupSection[]) => YearGroupSection[])) => void;
+  updateYearGroupSections: (
+    sections: YearGroupSection[] | ((prev: YearGroupSection[]) => YearGroupSection[]),
+    yearGroupsOverride?: YearGroup[]
+  ) => void;
   /** Ordered year groups by section (for display/sync). Pass sections to use a candidate list before state updates. */
   getOrderedYearGroups: (sections?: YearGroupSection[]) => YearGroup[];
   updateSettings: (newSettings: Partial<UserSettings>) => void;
@@ -525,17 +528,21 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
     } catch (_) {}
     return buildDefaultYearGroupSections(DEFAULT_YEAR_GROUPS);
   });
-  const updateYearGroupSections = React.useCallback((sections: YearGroupSection[] | ((prev: YearGroupSection[]) => YearGroupSection[])) => {
-    setYearGroupSectionsState(prev => {
+  const updateYearGroupSections: (
+    sections: YearGroupSection[] | ((prev: YearGroupSection[]) => YearGroupSection[]),
+    yearGroupsOverride?: YearGroup[]
+  ) => void = React.useCallback((sections, yearGroupsOverride) => {
+    const groupsBasis = yearGroupsOverride ?? customYearGroups;
+    setYearGroupSectionsState((prev) => {
       const rawNext = typeof sections === 'function' ? sections(prev) : sections;
       const next = rawNext.map((s) => ({
         ...s,
-        yearGroupIds: normalizeSectionYearGroupIdList(s.yearGroupIds || [], customYearGroups),
+        yearGroupIds: normalizeSectionYearGroupIdList(s.yearGroupIds || [], groupsBasis),
       }));
       try {
         localStorage.setItem(YEAR_GROUP_SECTIONS_STORAGE_KEY, JSON.stringify(next));
       } catch (_) {}
-      setYearGroupBands(flatToBands(getOrderedYearGroupsFromSections(next, customYearGroups)));
+      setYearGroupBands(flatToBands(getOrderedYearGroupsFromSections(next, groupsBasis)));
       return next;
     });
   }, [customYearGroups]);
