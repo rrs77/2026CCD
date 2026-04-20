@@ -307,12 +307,19 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
     }
   }, [activeTab]);
 
-  // When opening Year Groups tab, ensure any orphaned year groups (e.g. after a rename) appear under Other
+  // When opening Year Groups tab, ensure any orphaned year groups (e.g. after a rename) appear under Other.
+  // IMPORTANT: This effect is intentionally NOT dependent on `ensureYearGroupsInSections` because that
+  // callback's identity changes whenever `customYearGroups` changes, which itself mutates when we call
+  // ensureYearGroupsInSections — producing an infinite render loop. We also gate on `isOpen` so the
+  // effect only runs while the modal is actually visible.
+  const ensureYearGroupsInSectionsRef = React.useRef(ensureYearGroupsInSections);
+  ensureYearGroupsInSectionsRef.current = ensureYearGroupsInSections;
   React.useEffect(() => {
-    if (activeTab === 'yeargroups') {
-      ensureYearGroupsInSections();
-    }
-  }, [activeTab, ensureYearGroupsInSections]);
+    if (!isOpen) return;
+    if (activeTab !== 'yeargroups') return;
+    ensureYearGroupsInSectionsRef.current();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, activeTab]);
 
   // When switching to Custom Objectives tab, scroll content into view so the panel is visible
   React.useEffect(() => {

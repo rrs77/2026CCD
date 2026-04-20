@@ -51,7 +51,7 @@ export function SimpleNestedCategoryDropdown({
          yearGroup.name.toLowerCase().includes('upper') || yearGroup.name.toLowerCase().includes('ukg') ? 'UKG' :
          yearGroup.name.toLowerCase().includes('reception') ? 'Reception' : yearGroup.name);
       
-      console.log('🔑 Year group PRIMARY key:', {
+      if (import.meta.env.DEV) console.log('🔑 Year group PRIMARY key:', {
         sheetId,
         yearGroupName: yearGroup.name,
         yearGroupId: yearGroup.id,
@@ -68,7 +68,7 @@ export function SimpleNestedCategoryDropdown({
           (yearGroupByName.name.toLowerCase().includes('lower') || yearGroupByName.name.toLowerCase().includes('lkg') ? 'LKG' :
            yearGroupByName.name.toLowerCase().includes('upper') || yearGroupByName.name.toLowerCase().includes('ukg') ? 'UKG' :
            yearGroupByName.name.toLowerCase().includes('reception') ? 'Reception' : yearGroupByName.name);
-        console.log('🔑 Year group PRIMARY key (by name):', {
+        if (import.meta.env.DEV) console.log('🔑 Year group PRIMARY key (by name):', {
           sheetId,
           yearGroupName: yearGroupByName.name,
           yearGroupId: yearGroupByName.id,
@@ -77,7 +77,7 @@ export function SimpleNestedCategoryDropdown({
         return [primaryKey];
       } else {
         // Fallback: use sheetId as-is
-        console.log('🔑 Year group PRIMARY key (fallback):', sheetId);
+        if (import.meta.env.DEV) console.log('🔑 Year group PRIMARY key (fallback):', sheetId);
         return [sheetId];
       }
     }
@@ -96,13 +96,13 @@ export function SimpleNestedCategoryDropdown({
   const filteredCategories = useMemo(() => {
     // If showAllCategories is true, skip filtering and show all categories
     if (showAllCategories) {
-      console.log('📋 Showing all categories (showAllCategories=true)');
+      if (import.meta.env.DEV) console.log('📋 Showing all categories (showAllCategories=true)');
       return categories;
     }
     
     const yearGroupKeys = getCurrentYearGroupKeys();
     
-    console.log('🔍 Category filtering:', {
+    if (import.meta.env.DEV) console.log('🔍 Category filtering:', {
       sheetId: currentSheetInfo?.sheet,
       yearGroupKeys,
       totalCategories: categories.length
@@ -110,7 +110,7 @@ export function SimpleNestedCategoryDropdown({
     
     // If no year group keys found, show all categories (backward compatibility)
     if (yearGroupKeys.length === 0) {
-      console.log('⚠️ No year group keys found, showing all categories');
+      if (import.meta.env.DEV) console.log('⚠️ No year group keys found, showing all categories');
       return categories;
     }
 
@@ -131,9 +131,11 @@ export function SimpleNestedCategoryDropdown({
       
       if (hasOldDefaults) {
         // This category has old default values - ignore it unless explicitly assigned to current year group
-        const categoryIndex = categories.indexOf(category);
-        if (categoryIndex < 3) {
-          console.log(`⚠️ Category "${category.name}" has old default assignments (LKG, UKG, Reception all true) - ignoring`);
+        if (import.meta.env.DEV) {
+          const categoryIndex = categories.indexOf(category);
+          if (categoryIndex < 3) {
+            console.log(`⚠️ Category "${category.name}" has old default assignments (LKG, UKG, Reception all true) - ignoring`);
+          }
         }
         return false;
       }
@@ -150,7 +152,7 @@ export function SimpleNestedCategoryDropdown({
       if ((categoryNameLower.includes('ks2') || categoryNameLower.includes('key stage 2')) && 
           (primaryKeyLower.includes('lower kindergarten') || primaryKeyLower.includes('lkg') || 
            primaryKeyLower.includes('reception') || primaryKeyLower.includes('ukg'))) {
-        console.log(`🚫 EXCLUDING: "${category.name}" (KS2) should not be shown for "${primaryKey}" (Lower Kindergarten/Reception)`);
+        if (import.meta.env.DEV) console.log(`🚫 EXCLUDING: "${category.name}" (KS2) should not be shown for "${primaryKey}" (Lower Kindergarten/Reception)`);
         return false;
       }
       
@@ -160,15 +162,17 @@ export function SimpleNestedCategoryDropdown({
       const isEnabled = value === true;
       
       // Log detailed info for debugging (only first 5 categories to avoid spam)
-      const categoryIndex = categories.indexOf(category);
-      if (categoryIndex < 5) {
-        console.log(`📋 Category "${category.name}":`, {
-          storedKeys,
-          storedValues,
-          primaryKey,
-          value,
-          isEnabled
-        });
+      if (import.meta.env.DEV) {
+        const categoryIndex = categories.indexOf(category);
+        if (categoryIndex < 5) {
+          console.log(`📋 Category "${category.name}":`, {
+            storedKeys,
+            storedValues,
+            primaryKey,
+            value,
+            isEnabled
+          });
+        }
       }
       
       return isEnabled;
@@ -178,7 +182,7 @@ export function SimpleNestedCategoryDropdown({
     const categoriesWithYearGroups = categories.filter(c => c.yearGroups && Object.keys(c.yearGroups).length > 0);
     const categoriesWithoutYearGroups = categories.filter(c => !c.yearGroups || Object.keys(c.yearGroups).length === 0);
     
-    console.log(`📊 Category filtering summary:`, {
+    if (import.meta.env.DEV) console.log(`📊 Category filtering summary:`, {
       yearGroup: getCurrentYearGroupName() || currentSheetInfo?.sheet,
       yearGroupKeys,
       totalCategories: categories.length,

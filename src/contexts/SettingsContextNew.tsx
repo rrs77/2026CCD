@@ -539,10 +539,25 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
         ...s,
         yearGroupIds: normalizeSectionYearGroupIdList(s.yearGroupIds || [], groupsBasis),
       }));
+      // Skip state update when nothing actually changed (prevents render loops caused
+      // by callers that run ensureYearGroupsInSections repeatedly).
+      const prevJson = JSON.stringify(prev);
+      const nextJson = JSON.stringify(next);
+      if (prevJson === nextJson) {
+        // Still recompute bands in case they're stale vs. sections, but only apply if different
+        setYearGroupBands((currentBands) => {
+          const candidate = flatToBands(getOrderedYearGroupsFromSections(next, groupsBasis));
+          return JSON.stringify(currentBands) === JSON.stringify(candidate) ? currentBands : candidate;
+        });
+        return prev;
+      }
       try {
         localStorage.setItem(YEAR_GROUP_SECTIONS_STORAGE_KEY, JSON.stringify(next));
       } catch (_) {}
-      setYearGroupBands(flatToBands(getOrderedYearGroupsFromSections(next, groupsBasis)));
+      setYearGroupBands((currentBands) => {
+        const candidate = flatToBands(getOrderedYearGroupsFromSections(next, groupsBasis));
+        return JSON.stringify(currentBands) === JSON.stringify(candidate) ? currentBands : candidate;
+      });
       return next;
     });
   }, [customYearGroups]);
@@ -1442,9 +1457,9 @@ export const SettingsProviderNew: React.FC<{ children: React.ReactNode }> = ({
     }
     
     // Save to localStorage immediately
-      localStorage.setItem('custom-year-groups', JSON.stringify(customYearGroups));
-    console.log('💾 Year groups saved to localStorage');
-    
+    localStorage.setItem('custom-year-groups', JSON.stringify(customYearGroups));
+    if (import.meta.env.DEV) console.log('💾 Year groups saved to localStorage');
+
     // Queue Supabase save
     queueSave('yearGroups', customYearGroups);
   }, [customYearGroups]);

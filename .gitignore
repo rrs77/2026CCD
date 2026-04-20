@@ -54,3 +54,4 @@ _cursorchanges_ref/
 # Netlify (deploy via GitHub → Vercel only)
 .netlify/
 netlify/
+.vercel
