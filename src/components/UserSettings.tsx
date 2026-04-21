@@ -1566,7 +1566,23 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                             onChange={(e) => {
                                               const nextSectionId = e.target.value;
                                               if (!nextSectionId || nextSectionId === section.id) return;
-                                              handleYearGroupDropOnSection(yearGroup.id, nextSectionId);
+                                              const targetExists = yearGroupSections.some((s) => s.id === nextSectionId);
+                                              if (!targetExists) return;
+                                              // Atomic move: remove the year group from every section, then add it
+                                              // to the target. This avoids any source-resolution edge cases and
+                                              // guarantees the dropdown reflects the new section on the next render.
+                                              updateYearGroupSections((prev) => prev.map((s) => {
+                                                const cleaned = normalizeSectionYearGroupIdList(
+                                                  (s.yearGroupIds || []).filter(
+                                                    (t) => resolveYearGroupFromToken(tempYearGroups, t)?.id !== yearGroup.id
+                                                  ),
+                                                  tempYearGroups
+                                                );
+                                                if (s.id === nextSectionId) {
+                                                  return { ...s, yearGroupIds: [...cleaned, yearGroup.id], collapsed: false };
+                                                }
+                                                return { ...s, yearGroupIds: cleaned };
+                                              }));
                                             }}
                                             onClick={(e) => e.stopPropagation()}
                                             onMouseDown={(e) => e.stopPropagation()}
