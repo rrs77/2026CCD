@@ -40,47 +40,51 @@ export function SimpleNestedCategoryDropdown({
     const sheetId = currentSheetInfo?.sheet;
     if (!sheetId) return [];
 
-    // Find the year group - match by ID first (since currentSheetInfo.sheet is the ID)
-    const yearGroup = customYearGroups.find(yg => yg.id === sheetId);
-    
-    if (yearGroup) {
-      // Use the EXACT same logic as UserSettings (line 1557-1560)
-      // This is the PRIMARY key that was used when saving
-      const primaryKey = yearGroup.id || 
-        (yearGroup.name.toLowerCase().includes('lower') || yearGroup.name.toLowerCase().includes('lkg') ? 'LKG' :
-         yearGroup.name.toLowerCase().includes('upper') || yearGroup.name.toLowerCase().includes('ukg') ? 'UKG' :
-         yearGroup.name.toLowerCase().includes('reception') ? 'Reception' : yearGroup.name);
-      
-      if (import.meta.env.DEV) console.log('🔑 Year group PRIMARY key:', {
-        sheetId,
-        yearGroupName: yearGroup.name,
-        yearGroupId: yearGroup.id,
-        primaryKey
-      });
-      
-      // Return ONLY the primary key - this is what was used when saving
-      return [primaryKey];
-    } else {
-      // If no year group found by ID, try by name
-      const yearGroupByName = customYearGroups.find(yg => yg.name === sheetId);
-      if (yearGroupByName) {
-        const primaryKey = yearGroupByName.id || 
-          (yearGroupByName.name.toLowerCase().includes('lower') || yearGroupByName.name.toLowerCase().includes('lkg') ? 'LKG' :
-           yearGroupByName.name.toLowerCase().includes('upper') || yearGroupByName.name.toLowerCase().includes('ukg') ? 'UKG' :
-           yearGroupByName.name.toLowerCase().includes('reception') ? 'Reception' : yearGroupByName.name);
-        if (import.meta.env.DEV) console.log('🔑 Year group PRIMARY key (by name):', {
-          sheetId,
-          yearGroupName: yearGroupByName.name,
-          yearGroupId: yearGroupByName.id,
-          primaryKey
-        });
-        return [primaryKey];
-      } else {
-        // Fallback: use sheetId as-is
-        if (import.meta.env.DEV) console.log('🔑 Year group PRIMARY key (fallback):', sheetId);
-        return [sheetId];
-      }
+    const norm = (v: string | undefined | null) => (v || '').trim().toLowerCase();
+    const sheetNorm = norm(sheetId);
+
+    // Short-code → long-name matchers for backward compatibility.
+    const shortToLong: Record<string, (name: string) => boolean> = {
+      lkg: (n) => n.includes('lower') && n.includes('kindergarten'),
+      ukg: (n) => n.includes('upper') && n.includes('kindergarten'),
+      reception: (n) => n === 'reception',
+    };
+
+    // 1) Try exact match by ID, then by name.
+    let yearGroup = customYearGroups.find(yg => yg.id === sheetId);
+    if (!yearGroup) {
+      yearGroup = customYearGroups.find(yg => yg.name === sheetId);
     }
+    // 2) Fallback: if sheetId is a legacy short code (LKG / UKG / Reception),
+    //    resolve it to the long-named year group saved in Supabase.
+    if (!yearGroup && shortToLong[sheetNorm]) {
+      const matcher = shortToLong[sheetNorm];
+      yearGroup = customYearGroups.find((yg) => matcher(norm(yg.name)));
+    }
+
+    const keys: string[] = [];
+
+    if (yearGroup) {
+      const nameLower = yearGroup.name.toLowerCase();
+      const primaryKey = yearGroup.id ||
+        (nameLower.includes('lower') || nameLower.includes('lkg') ? 'LKG' :
+         nameLower.includes('upper') || nameLower.includes('ukg') ? 'UKG' :
+         nameLower.includes('reception') ? 'Reception' : yearGroup.name);
+
+      if (primaryKey) keys.push(primaryKey);
+      if (yearGroup.name && !keys.includes(yearGroup.name)) keys.push(yearGroup.name);
+      // Also include derived short codes so categories assigned under either
+      // long name or short code both match.
+      if ((nameLower.includes('lower') || nameLower.includes('lkg')) && !keys.includes('LKG')) keys.push('LKG');
+      if ((nameLower.includes('upper') || nameLower.includes('ukg')) && !keys.includes('UKG')) keys.push('UKG');
+      if (nameLower.includes('reception') && !keys.includes('Reception')) keys.push('Reception');
+    }
+
+    // Always include the original sheetId as a safety net.
+    if (sheetId && !keys.includes(sheetId)) keys.push(sheetId);
+
+    if (import.meta.env.DEV) console.log('🔑 Year group keys:', { sheetId, keys });
+    return keys;
   };
 
   // Get current year group display name for visual indicator

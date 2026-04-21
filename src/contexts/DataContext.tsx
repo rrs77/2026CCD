@@ -1523,8 +1523,31 @@ console.log('🏁 Set subjectsLoading to FALSE'); // ADD THIS DEBUG LINE
           console.log('📦 Activities received from API:', activities?.length || 0);
 
           if (activities && activities.length > 0) {
+            // Apply activities FIRST so the UI always has fresh data even if caching fails.
             applyActivities(activities);
-            localStorage.setItem(ACTIVITIES_CACHE_KEY, JSON.stringify({ data: activities, timestamp: Date.now() }));
+            // Caching is best-effort. If localStorage is full (QuotaExceededError),
+            // prune other keys and retry; ultimately swallow the error so we never
+            // clobber fresh state with stale fallbacks.
+            try {
+              localStorage.setItem(ACTIVITIES_CACHE_KEY, JSON.stringify({ data: activities, timestamp: Date.now() }));
+            } catch (cacheErr) {
+              console.warn('⚠️ Could not cache activities to localStorage (quota?). Continuing with fresh data in memory.', cacheErr);
+              // Try to free space by dropping large/legacy keys, then retry once.
+              try {
+                const legacyKeys = ['library-activities', 'activities-cache', 'cached-activities'];
+                legacyKeys.forEach((k) => localStorage.removeItem(k));
+                // Drop any old half-term-lessons dumps which can be large
+                Object.keys(localStorage).forEach((k) => {
+                  if (/half-term-lessons|lesson-plans-cache|old-activities/i.test(k)) {
+                    try { localStorage.removeItem(k); } catch (_) {}
+                  }
+                });
+                localStorage.setItem(ACTIVITIES_CACHE_KEY, JSON.stringify({ data: activities, timestamp: Date.now() }));
+                if (import.meta.env.DEV) console.log('♻️ Cached activities after pruning legacy keys');
+              } catch (retryErr) {
+                if (import.meta.env.DEV) console.warn('⚠️ Cache retry failed; skipping cache this session.', retryErr);
+              }
+            }
             return;
           }
           console.warn('⚠️ No activities returned from Supabase API');

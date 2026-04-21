@@ -112,6 +112,21 @@ export function ActivityLibrary({
         normalizeKey(yg.name).includes(normalizeKey(sheetId))
       );
     }
+
+    // Backward-compat: map legacy short sheet codes (LKG / UKG / Reception) to
+    // the equivalent long-named year group if only the long name exists in Supabase.
+    if (!yearGroup) {
+      const sheetNorm = normalizeKey(sheetId);
+      const shortToLongMatchers: Record<string, (name: string) => boolean> = {
+        lkg: (n) => n.includes('lower') && n.includes('kindergarten'),
+        ukg: (n) => n.includes('upper') && n.includes('kindergarten'),
+        reception: (n) => n === 'reception',
+      };
+      const matcher = shortToLongMatchers[sheetNorm];
+      if (matcher) {
+        yearGroup = customYearGroups.find((yg) => matcher(normalizeKey(yg.name)));
+      }
+    }
     
     if (yearGroup) {
       // CRITICAL: Return the EXACT same keys that UserSettings uses when saving (line 1460: yearGroup.id || yearGroup.name)
@@ -125,6 +140,12 @@ export function ActivityLibrary({
       // Also add the other one if different
       if (yearGroup.id && yearGroup.name && yearGroup.id !== yearGroup.name) {
         keys.push(yearGroup.name);
+      }
+
+      // Also include the original sheet code (e.g. "LKG") so categories assigned
+      // under either long name or short code both match.
+      if (sheetId && !keys.includes(sheetId)) {
+        keys.push(sheetId);
       }
       
       // Add derived codes for backward compatibility (LKG, UKG, Reception)
