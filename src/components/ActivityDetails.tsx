@@ -367,12 +367,31 @@ export function ActivityDetails({
     }
   };
 
+  // Normalized set of year groups currently assigned to this activity.
+  // Used to pre-tick checkboxes regardless of casing / id-vs-name storage variants.
+  const normalizeYgKey = React.useCallback((v: string | undefined | null) => (v || '').trim().toLowerCase(), []);
+  const assignedYearGroupSet = React.useMemo(() => {
+    const list = Array.isArray(editedActivity.yearGroups) ? editedActivity.yearGroups : [];
+    return new Set(list.map(normalizeYgKey).filter(Boolean));
+  }, [editedActivity.yearGroups, normalizeYgKey]);
+  const isYearGroupAssigned = React.useCallback(
+    (group: { id?: string; name: string }) => {
+      return (
+        assignedYearGroupSet.has(normalizeYgKey(group.name)) ||
+        (!!group.id && assignedYearGroupSet.has(normalizeYgKey(group.id)))
+      );
+    },
+    [assignedYearGroupSet, normalizeYgKey]
+  );
+
   const handleYearGroupChange = (yearGroup: string, checked: boolean) => {
     setEditedActivity(prev => {
-      const currentYearGroups = prev.yearGroups || [];
-      const newYearGroups = checked 
-        ? [...currentYearGroups, yearGroup]
-        : currentYearGroups.filter(g => g !== yearGroup);
+      const currentYearGroups = Array.isArray(prev.yearGroups) ? prev.yearGroups : [];
+      // Remove any normalized duplicates of this year group (handles legacy casing variants)
+      const withoutTarget = currentYearGroups.filter(g => normalizeYgKey(g) !== normalizeYgKey(yearGroup));
+      const newYearGroups = checked
+        ? [...withoutTarget, yearGroup]
+        : withoutTarget;
       
       console.log('🔄 Year group assignment changed:', {
         yearGroup,
@@ -529,7 +548,7 @@ export function ActivityDetails({
                       >
                         <input
                           type="checkbox"
-                          checked={editedActivity.yearGroups?.includes(group.name) || false}
+                          checked={isYearGroupAssigned(group)}
                           onChange={(e) => {
                             e.stopPropagation();
                             handleYearGroupChange(group.name, e.target.checked);
@@ -911,16 +930,28 @@ export function ActivityDetails({
           <div className="flex justify-between p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0">
             {isEditMode && !isReadOnly ? (
               <div className="flex justify-between w-full">
-                <button
-                  onClick={() => {
-                    setIsEditMode(false);
-                    setEditedActivity({...activity}); // Reset changes
-                    setHasUnsavedChanges(false);
-                  }}
-                  className="px-6 py-2 bg-[#2D3748] hover:bg-[#1a202c] text-white font-medium rounded-lg transition-colors duration-200"
-                >
-                  Cancel
-                </button>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => {
+                      setIsEditMode(false);
+                      setEditedActivity({...activity}); // Reset changes
+                      setHasUnsavedChanges(false);
+                    }}
+                    className="px-6 py-2 bg-[#2D3748] hover:bg-[#1a202c] text-white font-medium rounded-lg transition-colors duration-200"
+                  >
+                    Cancel
+                  </button>
+                  {onDelete && !isLessonBuilderContext && (
+                    <button
+                      onClick={handleDelete}
+                      className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center space-x-2"
+                      title="Delete Activity"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span>Delete</span>
+                    </button>
+                  )}
+                </div>
                 <div className="flex space-x-3">
                   {isLessonBuilderContext && (
                     <button

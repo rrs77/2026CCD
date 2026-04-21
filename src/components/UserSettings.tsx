@@ -1560,7 +1560,28 @@ This action CANNOT be undone. Are you absolutely sure you want to continue?`;
                                         <div className="flex items-center space-x-3">
                                           <div className="flex-shrink-0 cursor-move"><GripVertical className="h-5 w-5 text-gray-400" /></div>
                                           <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: yearGroup.color }} />
-                                          <div className="flex-1 font-medium text-gray-900">{yearGroup.name}</div>
+                                          <div className="flex-1 min-w-0 font-medium text-gray-900 truncate">{yearGroup.name}</div>
+                                          <select
+                                            value={section.id}
+                                            onChange={(e) => {
+                                              const nextSectionId = e.target.value;
+                                              if (!nextSectionId || nextSectionId === section.id) return;
+                                              handleYearGroupDropOnSection(yearGroup.id, nextSectionId);
+                                            }}
+                                            onClick={(e) => e.stopPropagation()}
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                            onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                            draggable={false}
+                                            className="flex-shrink-0 w-40 max-w-[10rem] px-2 py-1 text-sm border border-gray-300 rounded bg-white text-gray-700 hover:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                                            title="Assign to section"
+                                          >
+                                            <option value="" disabled>Select section</option>
+                                            {[...yearGroupSections]
+                                              .sort((a, b) => a.sortOrder - b.sortOrder)
+                                              .map((s) => (
+                                                <option key={s.id} value={s.id}>{s.label}</option>
+                                              ))}
+                                          </select>
                                           <div className="flex items-center gap-1">
                                             <button type="button" onClick={() => { setEditingYearGroup(yearGroup.id); setEditingYearGroupDraft({ id: yearGroup.id, name: yearGroup.name, color: yearGroup.color || '#14B8A6' }); }} className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"><Edit3 className="h-4 w-4" /></button>
                                             <button
