@@ -531,38 +531,86 @@ export function ActivityDetails({
                   return null;
                 })()}
                 {/* Edit year groups */}
-                {isEditMode && !isReadOnly && (
-                  <div 
-                    className="space-y-2 max-h-32 overflow-y-auto border border-[#D4F1EF] bg-white rounded-xl p-3 shadow-sm"
-                    onClick={(e) => e.stopPropagation()}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onMouseUp={(e) => e.stopPropagation()}
-                  >
-                    {customYearGroups.map(group => (
-                      <label 
-                        key={group.name} 
-                        className="flex items-center space-x-3 cursor-pointer group"
-                        onClick={(e) => e.stopPropagation()}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onMouseUp={(e) => e.stopPropagation()}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isYearGroupAssigned(group)}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            handleYearGroupChange(group.name, e.target.checked);
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onMouseUp={(e) => e.stopPropagation()}
-                          className="h-4 w-4 rounded-full border-2 border-gray-300 text-[#17A697] focus:ring-2 focus:ring-[#17A697] focus:ring-offset-0 cursor-pointer checked:bg-[#17A697] checked:border-[#17A697] transition-all duration-200"
-                        />
-                        <span className="text-sm text-[#2D3748] group-hover:text-[#17A697] transition-colors duration-200">{group.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
+                {isEditMode && !isReadOnly && (() => {
+                  // Sort so assigned year groups appear first; preserve original order within each group.
+                  const sortedYearGroups = [...customYearGroups].sort((a, b) => {
+                    const aAssigned = isYearGroupAssigned(a) ? 0 : 1;
+                    const bAssigned = isYearGroupAssigned(b) ? 0 : 1;
+                    if (aAssigned !== bAssigned) return aAssigned - bAssigned;
+                    return customYearGroups.indexOf(a) - customYearGroups.indexOf(b);
+                  });
+                  const assignedCount = sortedYearGroups.filter(isYearGroupAssigned).length;
+                  // Surface any stored values that don't map to a current year group so the user can tell.
+                  const currentNormalized = new Set(
+                    customYearGroups.flatMap((g) => [normalizeYgKey(g.name), normalizeYgKey(g.id)]).filter(Boolean)
+                  );
+                  const unmatchedAssigned = (editedActivity.yearGroups || []).filter(
+                    (v) => v && !currentNormalized.has(normalizeYgKey(v))
+                  );
+                  if (import.meta.env.DEV) {
+                    console.log('🎯 ActivityDetails year-group preselect:', {
+                      activity: editedActivity.activity,
+                      stored: editedActivity.yearGroups,
+                      assignedCount,
+                      unmatchedAssigned,
+                    });
+                  }
+                  return (
+                    <div
+                      className="border border-[#D4F1EF] bg-white rounded-xl shadow-sm"
+                      onClick={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onMouseUp={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center justify-between px-3 pt-2 pb-1 border-b border-[#D4F1EF]">
+                        <span className="text-xs font-medium text-[#17A697]">
+                          {assignedCount > 0 ? `${assignedCount} assigned` : 'No classes assigned'}
+                        </span>
+                        {unmatchedAssigned.length > 0 && (
+                          <span className="text-[10px] text-amber-600" title={unmatchedAssigned.join(', ')}>
+                            {unmatchedAssigned.length} unrecognised
+                          </span>
+                        )}
+                      </div>
+                      <div className="space-y-2 max-h-60 overflow-y-auto p-3">
+                        {sortedYearGroups.map((group) => {
+                          const checked = isYearGroupAssigned(group);
+                          return (
+                            <label
+                              key={group.id || group.name}
+                              className={`flex items-center space-x-3 cursor-pointer group rounded-md px-1 py-0.5 ${
+                                checked ? 'bg-[#D4F1EF]/60' : ''
+                              }`}
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onMouseUp={(e) => e.stopPropagation()}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  handleYearGroupChange(group.name, e.target.checked);
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onMouseUp={(e) => e.stopPropagation()}
+                                className="h-4 w-4 rounded-full border-2 border-gray-300 text-[#17A697] focus:ring-2 focus:ring-[#17A697] focus:ring-offset-0 cursor-pointer checked:bg-[#17A697] checked:border-[#17A697] transition-all duration-200"
+                              />
+                              <span
+                                className={`text-sm transition-colors duration-200 ${
+                                  checked ? 'text-[#17A697] font-medium' : 'text-[#2D3748] group-hover:text-[#17A697]'
+                                }`}
+                              >
+                                {group.name}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
             <div className="flex items-center space-x-2">
