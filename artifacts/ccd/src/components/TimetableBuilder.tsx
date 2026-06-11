@@ -50,6 +50,12 @@ const DRAG_TYPE_TIMETABLE_BLOCK = 'timetable-block';
 const PX_PER_MINUTE = 1.5;
 const MIN_SLOT_HEIGHT_PX = 48;
 
+function getMinSlotHeightPx(intervalMinutes: number): number {
+  if (intervalMinutes <= 5) return 24;
+  if (intervalMinutes <= 15) return 36;
+  return MIN_SLOT_HEIGHT_PX;
+}
+
 const DEFAULT_DAY_START = '7:30';
 const DEFAULT_DAY_END = '17:00';
 const DEFAULT_SLOT_INTERVAL = 15; // minutes; 5, 15, 30, 60 supported
@@ -181,7 +187,7 @@ export function TimetableBuilder({
   const slotDurationMinutes = slotInterval;
   // Slot rows enforce a minimum height, so event top/height must use the same
   // effective px-per-minute as the grid — not the nominal PX_PER_MINUTE constant.
-  const slotHeightPx = Math.max(slotDurationMinutes * PX_PER_MINUTE, MIN_SLOT_HEIGHT_PX);
+  const slotHeightPx = Math.max(slotDurationMinutes * PX_PER_MINUTE, getMinSlotHeightPx(slotDurationMinutes));
   const effectivePxPerMinute = slotHeightPx / slotDurationMinutes;
   const gridHeightPx = slotStartTimes.length * slotHeightPx;
 
@@ -482,151 +488,156 @@ export function TimetableBuilder({
   if (!isOpen) return null;
 
   return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[70]">
-        <div className="bg-white rounded-2xl shadow-xl max-w-[95vw] w-full max-h-[95vh] flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-teal-500 to-teal-600 text-white">
-          <div>
-            <h2 className="text-2xl font-bold">Timetable Builder</h2>
-            <p className="text-teal-100 mt-1">{className}</p>
+      <div className="fixed inset-0 bg-black/50 z-[70] flex items-stretch justify-center">
+        <div className="bg-white w-full h-[100dvh] max-h-[100dvh] flex flex-col overflow-hidden sm:max-w-[100vw] sm:rounded-none">
+        {/* Header — compact so controls below stay on screen */}
+        <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 py-2 border-b border-teal-700 bg-gradient-to-r from-teal-500 to-teal-600 text-white">
+          <div className="min-w-0">
+            <h2 className="text-lg font-bold leading-tight truncate">Timetable Builder</h2>
+            <p className="text-teal-100 text-xs truncate">{className}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-shrink-0">
             <button
               onClick={() => setViewMode(viewMode === 'days' ? 'week' : 'days')}
-              className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white font-medium rounded-lg transition-colors text-sm"
+              className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white font-medium rounded-lg transition-colors text-xs sm:text-sm whitespace-nowrap"
             >
-              {viewMode === 'days' ? 'Show All Days' : 'School Days Only'}
+              {viewMode === 'days' ? 'All Days' : 'School Days'}
             </button>
             <button
               type="button"
               onClick={() => saveTimetable(timetableClasses)}
               disabled={isSaving}
-              className="flex items-center gap-2 px-4 py-2 bg-white text-teal-600 hover:bg-teal-50 font-medium rounded-lg transition-colors text-sm shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-teal-600 hover:bg-teal-50 font-medium rounded-lg transition-colors text-xs sm:text-sm shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <Save className="h-4 w-4" />
-              {isSaving ? 'Saving...' : 'Save'}
+              <Save className="h-3.5 w-3.5" />
+              {isSaving ? 'Saving…' : 'Save'}
             </button>
             <button
               onClick={onClose}
-              className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+              className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+              aria-label="Close"
             >
-              <X className="h-6 w-6" />
+              <X className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        {/* Content - min-h-0 so flex children can shrink and scroll */}
-        <div className="flex-1 min-h-0 overflow-hidden flex">
-          {/* Left Sidebar - Class List; min-h-0 so inner overflow-y-auto can scroll */}
-          <div className="w-80 flex-shrink-0 min-h-0 border-r border-gray-200 bg-gray-50 flex flex-col overflow-hidden">
-            {/* Semester/Term Selection */}
-            <div className="p-4 border-b border-gray-200 bg-white">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase mb-2">Semester</h3>
-              <select
-                value={selectedTermId}
-                onChange={(e) => setSelectedTermId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3"
+        {/* Toolbar — semester + grid settings always visible (no sidebar scroll needed) */}
+        <div className="flex-shrink-0 border-b border-gray-200 bg-gray-50 px-3 py-2 flex flex-wrap items-end gap-x-3 gap-y-2 text-xs">
+          <div className="flex flex-col gap-0.5">
+            <label className="text-[10px] font-semibold uppercase text-gray-500">Term</label>
+            <select
+              value={selectedTermId}
+              onChange={(e) => setSelectedTermId(e.target.value)}
+              className="px-2 py-1 border border-gray-300 rounded text-sm min-w-[7rem]"
+            >
+              {TERM_IDS.map(id => (
+                <option key={id} value={id}>{TERM_LABELS[id]}</option>
+              ))}
+            </select>
+          </div>
+          <label className="flex items-center gap-1.5 cursor-pointer pb-1">
+            <input
+              type="checkbox"
+              checked={isGlobalTimetable}
+              onChange={(e) => {
+                if (e.target.checked) setSameForWholeYear();
+                else setPerTermTimetable();
+              }}
+              className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+            />
+            <span className="text-gray-700 whitespace-nowrap">All terms</span>
+          </label>
+          {!isGlobalTimetable && (
+            <>
+              <button
+                type="button"
+                onClick={copyFromPreviousTerm}
+                className="flex items-center gap-1 px-2 py-1 text-teal-700 bg-teal-50 border border-teal-200 rounded hover:bg-teal-100 transition-colors mb-0.5"
+                title="Copy from previous term"
               >
-                {TERM_IDS.map(id => (
-                  <option key={id} value={id}>{TERM_LABELS[id]}</option>
-                ))}
-              </select>
-              <label className="flex items-center gap-2 mb-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isGlobalTimetable}
-                  onChange={(e) => {
-                    if (e.target.checked) setSameForWholeYear();
-                    else setPerTermTimetable();
-                  }}
-                  className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
-                />
-                <span className="text-sm text-gray-700">Same timetable for all terms</span>
-              </label>
-              {!isGlobalTimetable && (
-                <div className="space-y-2">
-                  <button
-                    type="button"
-                    onClick={copyFromPreviousTerm}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition-colors"
-                  >
-                    <Copy className="h-4 w-4" />
-                    Copy from previous term
-                  </button>
-                  <button
-                    type="button"
-                    onClick={setSameForWholeYear}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    <CopyPlus className="h-4 w-4" />
-                    Apply this timetable to whole year
-                  </button>
-                </div>
-              )}
-              <p className="text-xs text-gray-500 mt-2">
-                {isGlobalTimetable
-                  ? 'One timetable for the whole year. Uncheck above to edit per term.'
-                  : 'Each term has its own timetable. Change semester to view or edit that term.'}
-              </p>
-            </div>
+                <Copy className="h-3.5 w-3.5" />
+                <span className="hidden lg:inline">Copy prev.</span>
+              </button>
+              <button
+                type="button"
+                onClick={setSameForWholeYear}
+                className="flex items-center gap-1 px-2 py-1 text-gray-700 bg-white border border-gray-200 rounded hover:bg-gray-100 transition-colors mb-0.5"
+                title="Apply this timetable to whole year"
+              >
+                <CopyPlus className="h-3.5 w-3.5" />
+                <span className="hidden lg:inline">Whole year</span>
+              </button>
+            </>
+          )}
+          <div className="hidden sm:block w-px h-8 bg-gray-300 self-center" aria-hidden />
+          <div className="flex flex-col gap-0.5">
+            <label className="text-[10px] font-semibold uppercase text-gray-500">Start</label>
+            <input
+              type="time"
+              value={normalizeTimeForInput(dayStart)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setDayStart(v);
+                persistTimeConfig('dayStart', v);
+              }}
+              className="px-2 py-1 border border-gray-300 rounded text-sm w-[6.5rem]"
+            />
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <label className="text-[10px] font-semibold uppercase text-gray-500">End</label>
+            <input
+              type="time"
+              value={normalizeTimeForInput(dayEnd)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setDayEnd(v);
+                persistTimeConfig('dayEnd', v);
+              }}
+              className="px-2 py-1 border border-gray-300 rounded text-sm w-[6.5rem]"
+            />
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <label className="text-[10px] font-semibold uppercase text-gray-500">Interval</label>
+            <select
+              value={slotInterval}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setSlotInterval(v);
+                persistTimeConfig('slotInterval', String(v));
+              }}
+              className="px-2 py-1 border border-gray-300 rounded text-sm w-[5.5rem]"
+            >
+              <option value={5}>5 min</option>
+              <option value={15}>15 min</option>
+              <option value={30}>30 min</option>
+              <option value={60}>60 min</option>
+            </select>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (selectedSlot) {
+                handleAddNonCurriculum(selectedSlot.day, selectedSlot.time);
+              } else {
+                alert('Click a time slot on the grid first, then add a break or club.');
+              }
+            }}
+            className="flex items-center gap-1 px-2 py-1 text-gray-700 bg-white border border-gray-200 rounded hover:bg-gray-100 transition-colors mb-0.5"
+            title="Add break or club at selected slot"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span className="hidden md:inline">Break/Club</span>
+          </button>
+        </div>
 
-            {/* Grid times – customisable so lessons can start at e.g. 2:15 or 4:05 */}
-            <div className="p-4 border-b border-gray-200 bg-white">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase mb-2">Grid times</h3>
-              <div className="grid grid-cols-2 gap-2 mb-2">
-                <div>
-                  <label className="block text-xs text-gray-600 mb-0.5">Day start</label>
-                  <input
-                    type="time"
-                    value={normalizeTimeForInput(dayStart)}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setDayStart(v);
-                      persistTimeConfig('dayStart', v);
-                    }}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-600 mb-0.5">Day end</label>
-                  <input
-                    type="time"
-                    value={normalizeTimeForInput(dayEnd)}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setDayEnd(v);
-                      persistTimeConfig('dayEnd', v);
-                    }}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-600 mb-0.5">Slot interval</label>
-                <select
-                  value={slotInterval}
-                  onChange={(e) => {
-                    const v = Number(e.target.value);
-                    setSlotInterval(v);
-                    persistTimeConfig('slotInterval', String(v));
-                  }}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
-                >
-                  <option value={5}>5 min</option>
-                  <option value={15}>15 min</option>
-                  <option value={30}>30 min</option>
-                  <option value={60}>60 min</option>
-                </select>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                Slots define drop targets. Edit any entry to set times like 2:15 or 4:05.
-              </p>
-            </div>
-
-            {/* Class List - scrollable so you can reach bottom */}
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-900">Class List</h3>
+        {/* Content — only drag list + timetable grid scroll */}
+        <div className="flex-1 min-h-0 overflow-hidden flex">
+          {/* Left Sidebar — drag sources only */}
+          <div className="w-64 lg:w-72 flex-shrink-0 min-h-0 border-r border-gray-200 bg-gray-50 flex flex-col overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-gray-900">Drag to Add</h3>
                 <button
                   onClick={() => {
                     setEditingClass({
@@ -640,16 +651,12 @@ export function TimetableBuilder({
                       type: 'curriculum'
                     });
                   }}
-                  className="p-1.5 text-teal-600 hover:text-teal-700 hover:bg-teal-50 rounded-lg transition-colors"
+                  className="p-1 text-teal-600 hover:text-teal-700 hover:bg-teal-50 rounded-lg transition-colors"
                   title="Add a Class"
                 >
-                  <Plus className="h-5 w-5" />
+                  <Plus className="h-4 w-4" />
                 </button>
               </div>
-
-              {/* Year Groups for Dragging – same key stage structure as Settings */}
-              <div className="mb-4">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Drag to Add</h4>
                 <div className="space-y-1">
                   {yearGroupsByKeyStage.map(({ sectionId, label, yearGroups: sectionYearGroups }) => {
                     const isExpanded = timetableKeyStagesExpanded.has(sectionId);
@@ -675,16 +682,11 @@ export function TimetableBuilder({
                     );
                   })}
                 </div>
-              </div>
 
-              {/* Scheduled Classes */}
-              {classList.length === 0 ? (
-                <div className="text-center py-8 text-gray-500 text-sm">
-                  <p>No classes scheduled</p>
-                  <p className="text-xs mt-1">Drag year groups or click + to add</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
+              {classList.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <h4 className="text-[10px] font-semibold uppercase text-gray-500 mb-1.5">Scheduled</h4>
+                  <div className="space-y-1">
                   {classList.map((cls) => {
                     const daysText = cls.scheduledDays.length === 0 
                       ? 'Unscheduled'
@@ -736,25 +738,9 @@ export function TimetableBuilder({
                       </div>
                     );
                   })}
+                  </div>
                 </div>
               )}
-
-              {/* Non-Curriculum Button */}
-              <div className="mt-6 pt-4 border-t border-gray-200">
-                <button
-                  onClick={() => {
-                    if (selectedSlot) {
-                      handleAddNonCurriculum(selectedSlot.day, selectedSlot.time);
-                    } else {
-                      alert('Please select a time slot first');
-                    }
-                  }}
-                  className="w-full p-3 bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow flex items-center justify-center space-x-2"
-                >
-                  <Plus className="h-4 w-4 text-gray-400" />
-                  <span className="text-sm text-gray-700">Add Break/Club</span>
-                </button>
-              </div>
             </div>
           </div>
 
@@ -765,14 +751,14 @@ export function TimetableBuilder({
               className="flex-shrink-0 border-b-2 border-gray-300 bg-gray-50 sticky top-0 z-30 grid"
               style={{ gridTemplateColumns: `80px repeat(${displayDayIndices.length}, minmax(0, 1fr))` }}
             >
-              <div className="p-3 border-r border-gray-300 flex items-center">
-                <button className="px-2 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors flex items-center">
+              <div className="px-2 py-1.5 border-r border-gray-300 flex items-center">
+                <button className="px-1.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors flex items-center">
                   Rotation
-                  <ChevronDown className="ml-1 h-4 w-4" />
+                  <ChevronDown className="ml-0.5 h-3.5 w-3.5" />
                 </button>
               </div>
               {displayDayIndices.map((dayIndex, index) => (
-                <div key={dayIndex} className="p-3 text-center text-sm font-semibold text-gray-700 border-r border-gray-300 last:border-r-0">
+                <div key={dayIndex} className="px-2 py-1.5 text-center text-xs font-semibold text-gray-700 border-r border-gray-300 last:border-r-0">
                   {viewMode === 'days' ? `Day ${index + 1}` : displayDays[index]}
                 </div>
               ))}
