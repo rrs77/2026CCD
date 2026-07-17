@@ -1,41 +1,23 @@
 /**
- * Left page of the open-notebook login.
- * Uses the approved sketchbook artwork (Drama / Music / Dance scenes,
- * sticky note, and stamp) so the page matches the original design.
+ * Left page of the open-notebook login — the approved sketchbook mockup.
+ * Shows the original Drama / Music / Dance artwork, sticky note, and stamp.
  */
 export function SketchbookLeftPage() {
-  const artSrc = `${import.meta.env.BASE_URL}login-sketchbook-left-art.jpg`;
+  const artSrc = `${import.meta.env.BASE_URL}login-sketchbook-left.jpg`;
 
   return (
-    <div className="login-book-page login-book-page--left relative flex h-full min-h-[28rem] flex-col overflow-hidden lg:min-h-0">
-      <div className="pointer-events-none absolute inset-0 login-book-paper" aria-hidden />
-
-      {/* Desktop: hand-lettered brand title above the original art */}
-      <header className="relative z-10 hidden shrink-0 px-7 pb-1 pt-8 lg:block lg:px-9 lg:pt-9">
-        <span className="mb-1 inline-block text-sm text-[#0a2a44]/40" aria-hidden>
-          ✦
-        </span>
-        <h1
-          className="text-[clamp(1.85rem,4.2vw,2.85rem)] font-semibold leading-[1.02] tracking-tight text-[#0a2a44]"
-          style={{ fontFamily: '"Caveat", cursive' }}
-        >
-          Creative
-          <br />
-          Curriculum
-          <br />
-          Designer
-        </h1>
-      </header>
-
-      {/* Original sketchbook art — stage, music, dance, sticky, stamp */}
-      <div className="relative z-10 flex flex-1 items-stretch justify-center px-2 pb-3 pt-3 sm:px-3 sm:pb-4 lg:px-4 lg:pb-5 lg:pt-2">
-        <img
-          src={artSrc}
-          alt="Sketchbook page: Drama stage, Music notes, and Dance figures with lesson ideas."
-          className="login-sketch-left-art h-full w-full object-contain object-top"
-          decoding="async"
-        />
-      </div>
+    <div className="login-book-page login-book-page--left relative flex h-full min-h-[32rem] flex-col overflow-hidden bg-[#f3eadc] lg:min-h-0">
+      <img
+        src={artSrc}
+        alt="Creative Curriculum Designer sketchbook: Drama, Music and Dance."
+        className="absolute inset-0 h-full w-full object-cover object-top"
+        decoding="async"
+      />
+      {/* Soft fade at bottom on very tall screens so the page edge feels natural */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-[#f3eadc]/40 to-transparent lg:hidden"
+      />
     </div>
   );
 }

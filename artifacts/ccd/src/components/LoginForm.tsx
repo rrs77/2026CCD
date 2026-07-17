@@ -32,13 +32,11 @@ import { PrototypeNoticeBar } from './login/PrototypeNoticeBar';
 import { LOGO_BG } from './Logo';
 
 const LOGIN_GREEN = LOGO_BG;
-const INK = '#0a2a44';
 
 /**
- * Responsive open-notebook login.
- * Desktop: two pages side by side. Mobile: brand + login first, creative page below.
- * Phone brand title is pinned to the top of the login page (not vertically centered).
- * One Sign in control only — no photo overlay / duplicated UI.
+ * Responsive open-notebook login matching the approved sketchbook mockup.
+ * Desktop: left page = original art; right page = live form over mockup decor.
+ * Mobile: brand + login first, then the original left-page art below.
  */
 export function LoginForm() {
   const { login } = useAuth();
@@ -211,10 +209,18 @@ export function LoginForm() {
             <SketchbookLeftPage />
           </div>
 
-          {/* Login right page — first on mobile */}
-          <div className="login-book-page login-book-page--right order-1 relative flex flex-1 flex-col lg:order-2">
+          {/* Login right page — first on mobile; plant/guitar from approved mockup */}
+          <div className="login-book-page login-book-page--right order-1 relative flex flex-1 flex-col overflow-hidden lg:order-2">
             <div className="pointer-events-none absolute inset-0 login-book-paper" aria-hidden />
-            <GuitarDecor />
+            {/* Desktop: original right-page art (plant, guitar, stars) with form zone cleared */}
+            <img
+              src={`${import.meta.env.BASE_URL}login-sketchbook-right-bg.jpg`}
+              alt=""
+              aria-hidden
+              className="pointer-events-none absolute inset-0 hidden h-full w-full object-cover object-right lg:block"
+              decoding="async"
+            />
+            <SketchStars />
 
             <div className="relative z-10 flex flex-1 flex-col justify-start px-5 pb-6 pt-4 sm:px-8 sm:pb-8 sm:pt-5 lg:justify-center lg:px-10 lg:py-10">
               {/* Phone: brand pinned to the top of the page (not centered with the form) */}
@@ -245,19 +251,27 @@ export function LoginForm() {
 
               <div className="login-book-login-cluster w-full max-w-[23rem]">
                 <h2
-                  className="mb-5 flex items-center gap-2 text-[clamp(1.85rem,3vw,2.35rem)] leading-tight text-[#0a2a44]"
+                  className="mb-1 text-[clamp(1.85rem,3vw,2.45rem)] leading-tight text-[#0a2a44]"
                   style={{ fontFamily: '"Caveat", cursive', fontWeight: 700 }}
                 >
-                  <span aria-hidden className="text-base opacity-40">
-                    ✦
-                  </span>
                   Back to the studio
-                  <span aria-hidden className="text-base opacity-40">
-                    ✦
-                  </span>
                 </h2>
+                <svg
+                  aria-hidden
+                  className="mb-5 h-3 w-36 text-[#0a2a44]/45"
+                  viewBox="0 0 140 12"
+                  fill="none"
+                >
+                  <path
+                    d="M2 8c18-6 38 2 58-1s42-4 78 2"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
 
-                <div className="login-book-frame">
+                <div className="login-book-frame relative">
+                  <FrameVines />
                 {showForgotPassword ? (
                   <div className="space-y-3">
                     <p
@@ -331,20 +345,9 @@ export function LoginForm() {
                     </div>
 
                     <div>
-                      <div className="mb-1.5 flex items-center justify-between gap-2">
-                        <label htmlFor="login-password" className="block text-sm font-medium text-[#2f4a42]">
-                          Password
-                        </label>
-                        {isSupabaseConfigured() && (
-                          <button
-                            type="button"
-                            onClick={() => setShowForgotPassword(true)}
-                            className="text-sm font-medium text-[#0a2a44] underline-offset-2 hover:underline"
-                          >
-                            Forgot password?
-                          </button>
-                        )}
-                      </div>
+                      <label htmlFor="login-password" className="mb-1.5 block text-sm font-medium text-[#2f4a42]">
+                        Password
+                      </label>
                       <div className="relative">
                         <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8aa099]" />
                         <input
@@ -368,17 +371,30 @@ export function LoginForm() {
                       </div>
                     </div>
 
-                    {isSupabaseAuthEnabled() && (
-                      <label className="flex cursor-pointer items-center gap-2 text-sm text-[#3d5c54]">
-                        <input
-                          type="checkbox"
-                          checked={staySignedIn}
-                          onChange={(e) => setStaySignedIn(e.target.checked)}
-                          className="h-4 w-4 rounded border-[#0a2a44]/30 text-[#0a2a44]"
-                        />
-                        Remember me
-                      </label>
-                    )}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      {isSupabaseAuthEnabled() ? (
+                        <label className="flex cursor-pointer items-center gap-2 text-sm text-[#3d5c54]">
+                          <input
+                            type="checkbox"
+                            checked={staySignedIn}
+                            onChange={(e) => setStaySignedIn(e.target.checked)}
+                            className="h-4 w-4 rounded border-[#0a2a44]/30 text-[#0a2a44]"
+                          />
+                          Remember me
+                        </label>
+                      ) : (
+                        <span />
+                      )}
+                      {isSupabaseConfigured() && (
+                        <button
+                          type="button"
+                          onClick={() => setShowForgotPassword(true)}
+                          className="text-sm font-medium text-[#0a2a44] underline underline-offset-2 hover:text-[#0a2a44]/80"
+                        >
+                          Forgot password?
+                        </button>
+                      )}
+                    </div>
 
                     {error && (
                       <div className="flex items-start gap-2 rounded-md bg-red-50 p-3 text-sm text-red-700">
@@ -522,20 +538,42 @@ function MobileBrandPencil() {
   );
 }
 
-function GuitarDecor() {
+function SketchStars() {
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0 z-[1] text-[#0a2a44]/35 lg:hidden">
+      <svg className="absolute left-3 top-3 h-4 w-4" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M8 0l1.2 5.2L14 6.5l-4 3.2L11.5 16 8 12.8 4.5 16l1.5-6.3L2 6.5l4.8-1.3L8 0z" />
+      </svg>
+      <svg className="absolute right-4 top-5 h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M8 0l1.2 5.2L14 6.5l-4 3.2L11.5 16 8 12.8 4.5 16l1.5-6.3L2 6.5l4.8-1.3L8 0z" />
+      </svg>
+      <svg className="absolute bottom-6 right-5 h-3 w-3" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M8 0l1.2 5.2L14 6.5l-4 3.2L11.5 16 8 12.8 4.5 16l1.5-6.3L2 6.5l4.8-1.3L8 0z" />
+      </svg>
+    </div>
+  );
+}
+
+function FrameVines() {
   return (
     <svg
       aria-hidden
-      className="pointer-events-none absolute bottom-3 right-2 hidden h-28 w-20 opacity-[0.18] lg:bottom-6 lg:right-4 lg:block lg:h-40 lg:w-28"
-      viewBox="0 0 80 140"
+      className="pointer-events-none absolute -right-2 -top-3 h-10 w-14 text-[#0a2a44]/40"
+      viewBox="0 0 56 40"
       fill="none"
-      style={{ color: INK }}
     >
-      <ellipse cx="40" cy="100" rx="22" ry="28" stroke="currentColor" strokeWidth="1.6" />
-      <circle cx="40" cy="100" r="8" stroke="currentColor" strokeWidth="1.3" />
-      <path d="M40 72V18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <rect x="34" y="8" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.3" />
-      <path d="M28 110c8 6 16 6 24 0" stroke="currentColor" strokeWidth="1" opacity="0.5" />
+      <path
+        d="M4 32c8-2 12-10 14-18M18 14c2 6 8 10 16 10M20 12c4-6 10-8 16-6"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M16 16c2-3 1-6-1-8M28 22c3-1 5-4 5-7"
+        stroke="currentColor"
+        strokeWidth="1.1"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }

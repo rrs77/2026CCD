@@ -764,17 +764,6 @@ button[data-state="active"] {
   background-color: #f3eadc;
 }
 
-/* Original left-page artwork scales inside the notebook page */
-.login-sketch-left-art {
-  max-height: min(72vh, 52rem);
-}
-
-@media (min-width: 1024px) {
-  .login-sketch-left-art {
-    max-height: none;
-  }
-}
-
 /* Login cluster sits slightly on the page slant — like writing in a real book */
 .login-book-login-cluster {
   transform: rotate(-1.25deg);
@@ -782,10 +771,10 @@ button[data-state="active"] {
 }
 
 .login-book-frame {
-  border: 1.5px solid rgba(10, 42, 68, 0.28);
-  border-radius: 4px;
+  border: 1.5px solid rgba(10, 42, 68, 0.35);
+  border-radius: 3px;
   padding: 1rem 1rem 1.1rem;
-  background: rgba(255, 253, 248, 0.55);
+  background: rgba(255, 253, 248, 0.72);
   box-shadow: 1px 2px 0 rgba(10, 42, 68, 0.04);
 }
 
