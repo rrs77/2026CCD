@@ -18,7 +18,16 @@ export const DEMO_SEED_MARKER_KEY = 'ccd-demo-seeded';
 
 export function isDemoModeActive(): boolean {
   try {
-    return typeof window !== 'undefined' && sessionStorage.getItem(DEMO_MODE_KEY) === '1';
+    if (typeof window === 'undefined') return false;
+    if (sessionStorage.getItem(DEMO_MODE_KEY) === '1') return true;
+    // Recover if sessionStorage was cleared mid-navigation but the URL still
+    // carries the demo flag (e.g. shared link / flaky mobile WebView storage).
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('demo') === '1') {
+      sessionStorage.setItem(DEMO_MODE_KEY, '1');
+      return true;
+    }
+    return false;
   } catch {
     return false;
   }
