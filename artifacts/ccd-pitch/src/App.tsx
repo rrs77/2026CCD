@@ -174,15 +174,13 @@ function AllSlides() {
 // This component is used for the deployed view at `/`
 function SlideViewer() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  // Portrait screens rotate the 16:9 slide 90° so it fills the screen.
+  // Always show 16:9 letterboxed in the viewport (black bars in portrait).
   const fitDims = () => {
-    const rotated = window.innerHeight > window.innerWidth;
-    const availW = rotated ? window.innerHeight : window.innerWidth;
-    const availH = rotated ? window.innerWidth : window.innerHeight;
+    const availW = window.innerWidth;
+    const availH = window.innerHeight;
     return {
       width: Math.min(availW, availH * (16 / 9)),
       height: Math.min(availH, availW * (9 / 16)),
-      rotated,
     };
   };
   const [dims, setDims] = useState(fitDims);
@@ -214,11 +212,10 @@ function SlideViewer() {
 
   return (
     <div
-      className="slide-viewer h-screen w-screen overflow-hidden bg-black flex items-center justify-center"
+      className="slide-viewer flex h-screen w-screen items-center justify-center overflow-hidden bg-black"
       onClick={() => iframeRef.current?.focus()}
     >
-      {/* Fixed 16:9 design resolution scaled to fit — keeps slide layout
-          identical across phones, tablets and desktops. */}
+      {/* Fixed 16:9 design resolution scaled to fit — letterboxed in portrait. */}
       <div
         style={{
           width: dims.width,
@@ -226,7 +223,6 @@ function SlideViewer() {
           overflow: "hidden",
           position: "relative",
           flexShrink: 0,
-          transform: dims.rotated ? "rotate(90deg)" : undefined,
         }}
       >
         <iframe

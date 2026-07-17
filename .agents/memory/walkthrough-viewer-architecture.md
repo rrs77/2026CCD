@@ -7,4 +7,4 @@ Pitch slides size text/layout with vw/vh units, so they only look right when the
 
 **Why:** Responsive rework of the Feature Walkthrough (July 2026) — inline rendering with `[&_.h-screen]:!h-full` overrides produced giant/squeezed text on phones.
 
-**How to apply:** Keep `PitchAutoplayViewer` rendering slides inside a letterboxed 16:9 iframe sized via ResizeObserver, with all navigation driven from the viewer via `postMessage({type:'navigateToSlide', position})` and a transparent overlay owning tap/swipe (prevents parent/iframe state drift). The embedded bundle in the ccd app must be rebuilt with `pnpm --filter @workspace/ccd run build:pitch` after any ccd-pitch change.
+**How to apply:** Keep `PitchAutoplayViewer` rendering slides inside a letterboxed 16:9 iframe sized via ResizeObserver (black bars top/bottom in portrait — do not rotate the viewer 90°). Drive navigation from the viewer via `postMessage({type:'navigateToSlide', position})` with a transparent overlay owning tap/swipe. Rebuild the embedded bundle with `pnpm --filter @workspace/ccd run build:pitch` after any ccd-pitch change.
