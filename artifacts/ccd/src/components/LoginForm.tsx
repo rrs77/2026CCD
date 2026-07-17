@@ -201,19 +201,19 @@ export function LoginForm() {
           }}
         >
         <div className="flex flex-1 flex-col lg:flex-row">
-          {/* Mobile hero — compact */}
-          <div className="border-b border-[#002D24]/10 lg:hidden">
-            <LoginHeroPanel logoLetters={logoLetters} compact />
+          {/* Mobile: login first. Desktop: sketchbook left, sign-in right */}
+          <div className="order-2 border-t border-[#002D24]/10 lg:order-1 lg:flex lg:w-[56%] lg:border-t-0 lg:border-r">
+            <div className="lg:hidden">
+              <LoginHeroPanel logoLetters={logoLetters} compact />
+            </div>
+            <div className="hidden w-full lg:flex">
+              <LoginHeroPanel logoLetters={logoLetters} />
+            </div>
           </div>
 
-          {/* Desktop hero — left page */}
-          <div className="hidden border-r border-[#002D24]/10 lg:flex lg:w-[56%]">
-            <LoginHeroPanel logoLetters={logoLetters} />
-          </div>
-
-          {/* Sign-in panel — right page */}
+          {/* Sign-in panel — first on iPhone */}
           <div
-            className="flex flex-1 flex-col lg:w-[44%]"
+            className="order-1 flex flex-1 flex-col lg:order-2 lg:w-[44%]"
             style={{
               backgroundColor: '#f7f1e6',
               backgroundImage: `
@@ -222,27 +222,25 @@ export function LoginForm() {
               `,
             }}
           >
-            <div className="flex items-start justify-between gap-3 px-5 pt-4 sm:px-8 lg:px-10">
-              <FeatureWalkthroughGraphic onClick={() => setShowFeatureWalkthrough(true)} />
-              {canInstall && !isInstalled && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await install();
-                  }}
-                  className="mt-1 flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-2 text-sm font-medium text-[#5a726a] transition-colors hover:bg-[#002D24]/5 hover:text-[#002D24]"
-                >
-                  <Download className="h-4 w-4" />
-                  <span className="hidden sm:inline">Install</span>
-                </button>
-              )}
-            </div>
-
-            <div className="flex flex-1 items-center justify-center px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10">
+            <div className="flex flex-1 items-center justify-center px-5 py-5 sm:px-8 sm:py-8 lg:px-10 lg:py-10">
               <div className="w-full max-w-[380px]">
-                <LogoSVG size="sm" showText={false} letters={logoLetters} className="!space-x-0" />
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <LogoSVG size="sm" showText={false} letters={logoLetters} className="!space-x-0" />
+                  {canInstall && !isInstalled && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await install();
+                      }}
+                      className="flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-2 text-sm font-medium text-[#5a726a] transition-colors hover:bg-[#002D24]/5 hover:text-[#002D24]"
+                    >
+                      <Download className="h-4 w-4" />
+                      <span className="hidden sm:inline">Install</span>
+                    </button>
+                  )}
+                </div>
 
-                <div className="mb-7 mt-5">
+                <div className="mb-6">
                   <p
                     className="mb-1 text-sm text-[#5a726a]"
                     style={{ fontFamily: '"Caveat", cursive' }}
@@ -408,6 +406,10 @@ export function LoginForm() {
 
                 {!showForgotPassword && (
                   <>
+                    <div className="my-5">
+                      <FeatureWalkthroughGraphic onClick={() => setShowFeatureWalkthrough(true)} />
+                    </div>
+
                     <div className="my-5 flex items-center gap-3">
                       <div className="h-px flex-1 bg-[#002D24]/15" />
                       <span
