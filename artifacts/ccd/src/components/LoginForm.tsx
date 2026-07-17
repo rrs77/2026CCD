@@ -231,14 +231,21 @@ export function LoginForm() {
                 </div>
               )}
 
-              <h2
-                className="mb-6 text-[clamp(1.85rem,3vw,2.35rem)] leading-tight text-[#0a2a44]"
-                style={{ fontFamily: '"Caveat", cursive', fontWeight: 700 }}
-              >
-                Back to the studio
-              </h2>
+              <div className="login-book-login-cluster w-full max-w-[23rem]">
+                <h2
+                  className="mb-5 flex items-center gap-2 text-[clamp(1.85rem,3vw,2.35rem)] leading-tight text-[#0a2a44]"
+                  style={{ fontFamily: '"Caveat", cursive', fontWeight: 700 }}
+                >
+                  <span aria-hidden className="text-base opacity-40">
+                    ✦
+                  </span>
+                  Back to the studio
+                  <span aria-hidden className="text-base opacity-40">
+                    ✦
+                  </span>
+                </h2>
 
-              <div className="w-full max-w-[22rem]">
+                <div className="login-book-frame">
                 {showForgotPassword ? (
                   <div className="space-y-3">
                     <p
@@ -402,15 +409,18 @@ export function LoginForm() {
                         'Sign in'
                       )}
                     </button>
+                  </form>
+                )}
+                </div>
 
-                    <div className="pt-1">
-                      <FeatureWalkthroughGraphic
-                        onClick={() => setShowFeatureWalkthrough(true)}
-                        className="max-w-none"
-                      />
-                    </div>
+                {!showForgotPassword && (
+                  <div className="mt-5 space-y-4">
+                    <FeatureWalkthroughGraphic
+                      onClick={() => setShowFeatureWalkthrough(true)}
+                      className="max-w-none"
+                    />
 
-                    <p className="pt-1 text-center text-sm text-[#5a726a]">
+                    <p className="text-center text-sm text-[#5a726a]">
                       Don&apos;t have an account?{' '}
                       <a
                         href={loginSubtitleUrl}
@@ -425,7 +435,7 @@ export function LoginForm() {
                     <button
                       type="button"
                       onClick={handleStartPreview}
-                      className="login-sketch-lift mx-auto block text-center text-[1.15rem] text-[#0a2a44] underline decoration-[#0a2a44]/40 underline-offset-4 hover:decoration-[#0a2a44]"
+                      className="login-sketch-lift mx-auto block text-center text-[1.2rem] text-[#0a2a44] underline decoration-[#0a2a44]/40 underline-offset-4 hover:decoration-[#0a2a44]"
                       style={{ fontFamily: '"Caveat", cursive', fontWeight: 600 }}
                     >
                       Explore the working prototype
@@ -438,7 +448,7 @@ export function LoginForm() {
                     >
                       About this prototype
                     </button>
-                  </form>
+                  </div>
                 )}
               </div>
             </div>

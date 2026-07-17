@@ -760,6 +760,32 @@ button[data-state="active"] {
   background-color: #f7f1e6;
 }
 
+/* Login cluster sits slightly on the page slant — like writing in a real book */
+.login-book-login-cluster {
+  transform: rotate(-1.25deg);
+  transform-origin: left top;
+}
+
+.login-book-frame {
+  border: 1.5px solid rgba(10, 42, 68, 0.28);
+  border-radius: 4px;
+  padding: 1rem 1rem 1.1rem;
+  background: rgba(255, 253, 248, 0.55);
+  box-shadow: 1px 2px 0 rgba(10, 42, 68, 0.04);
+}
+
+@media (min-width: 1024px) {
+  .login-book-login-cluster {
+    transform: rotate(-1.6deg);
+  }
+}
+
+@media (max-width: 640px) {
+  .login-book-login-cluster {
+    transform: rotate(-0.6deg);
+  }
+}
+
 .login-book-field {
   display: block;
   width: 100%;
