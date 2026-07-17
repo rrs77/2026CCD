@@ -4,6 +4,11 @@ import { Lock, X } from 'lucide-react';
 const GATE_PASSWORD = 'artscouncil26';
 const GATE_KEY = 'ccd-prototype-gate';
 
+/** Normalise typed passwords so spaces / casing / punctuation don't reject a valid entry. */
+function normaliseGatePassword(value: string): string {
+  return value.trim().toLowerCase().replace(/[\s_\-./]+/g, '');
+}
+
 export function isPrototypeUnlocked(): boolean {
   try {
     return sessionStorage.getItem(GATE_KEY) === '1';
@@ -35,7 +40,7 @@ export function PrototypePasswordPrompt({ onUnlocked, onCancel }: PrototypePassw
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (password.trim().toLowerCase() === GATE_PASSWORD) {
+    if (normaliseGatePassword(password) === GATE_PASSWORD) {
       rememberUnlock();
       onUnlocked();
     } else {
@@ -79,6 +84,10 @@ export function PrototypePasswordPrompt({ onUnlocked, onCancel }: PrototypePassw
             }}
             placeholder="Access password"
             autoFocus
+            autoComplete="off"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
             className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-[#7c3aed] focus:outline-none focus:ring-2 focus:ring-[#a78bfa]/40"
             aria-label="Access password"
           />

@@ -691,3 +691,167 @@ button[data-state="active"] {
     padding-top: 0.5rem;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Sketchbook login — soft presence motion (scoped)
+ * ------------------------------------------------------------------------ */
+@keyframes login-sketch-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes login-sketch-spread-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.login-sketchbook-spread {
+  animation: login-sketch-spread-in 520ms var(--ccd-ease-out) both;
+}
+
+.login-sketch-card {
+  animation: login-sketch-rise 420ms var(--ccd-ease-out) both;
+}
+
+.login-sketch-sticky {
+  animation: login-sketch-rise 520ms var(--ccd-ease-out) 220ms both;
+}
+
+/* Shared sticky-note lift used by walkthrough CTA and secondary actions */
+.login-sketch-lift {
+  transition: transform 300ms var(--ccd-ease-out), box-shadow 300ms var(--ccd-ease-out);
+  transform-origin: center;
+}
+
+.login-sketch-lift:hover {
+  transform: rotate(-1deg) scale(1.02);
+}
+
+.login-sketch-lift:active {
+  transform: rotate(-0.5deg) scale(0.99);
+}
+
+/* Fields drawn onto the sketchbook page (no floating white modal) */
+.login-book-paper {
+  background-color: #f3eadc;
+  background-image:
+    radial-gradient(ellipse at 18% 12%, rgba(255, 255, 255, 0.45), transparent 50%),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 29px,
+      rgba(10, 42, 68, 0.035) 30px
+    );
+}
+
+.login-book-page--right {
+  background-color: #f7f1e6;
+}
+
+.login-book-page--left {
+  background-color: #f3eadc;
+}
+
+/* Login cluster sits slightly on the page slant — like writing in a real book */
+.login-book-login-cluster {
+  transform: rotate(-1.25deg);
+  transform-origin: left top;
+}
+
+.login-book-frame {
+  border: 1.5px solid rgba(10, 42, 68, 0.35);
+  border-radius: 3px;
+  padding: 1rem 1rem 1.1rem;
+  background: rgba(255, 253, 248, 0.72);
+  box-shadow: 1px 2px 0 rgba(10, 42, 68, 0.04);
+}
+
+@media (min-width: 1024px) {
+  .login-book-login-cluster {
+    transform: rotate(-1.6deg);
+  }
+}
+
+@media (max-width: 640px) {
+  .login-book-login-cluster {
+    transform: rotate(-0.6deg);
+  }
+}
+
+.login-book-field {
+  display: block;
+  width: 100%;
+  border-radius: 4px;
+  border: 1.5px solid rgba(10, 42, 68, 0.4);
+  background: #fffdf8;
+  padding: 0.75rem 0.85rem;
+  font-size: 0.95rem;
+  color: #1a2e28;
+  outline: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.login-book-field::placeholder {
+  color: #8aa099;
+}
+
+.login-book-field:focus {
+  border-color: #0a2a44;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(10, 42, 68, 0.12);
+}
+
+.login-book-submit {
+  display: block;
+  width: 100%;
+  border-radius: 6px;
+  border: none;
+  padding: 0.8rem 1rem;
+  font-family: "Caveat", cursive;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 160ms var(--ccd-ease-out), transform 200ms var(--ccd-ease-out);
+}
+
+.login-book-submit:hover:not(:disabled) {
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
+
+.login-book-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-sketchbook-spread,
+  .login-sketch-card,
+  .login-sketch-sticky {
+    animation: none;
+  }
+
+  .login-sketch-lift,
+  .login-sketch-lift:hover,
+  .login-sketch-lift:active {
+    transition: none;
+    transform: none;
+  }
+
+  .login-book-submit:hover:not(:disabled) {
+    transform: none;
+  }
+}
