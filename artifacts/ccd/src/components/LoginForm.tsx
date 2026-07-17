@@ -216,6 +216,14 @@ export function LoginForm() {
             <GuitarDecor />
 
             <div className="relative z-10 flex flex-1 flex-col justify-center px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10">
+              {/* Brand at top on phone — desktop keeps the full left-page title */}
+              <h1
+                className="mb-4 whitespace-nowrap text-center text-[clamp(1.4rem,6.5vw,1.85rem)] font-semibold leading-none tracking-tight text-[#0a2a44] lg:hidden"
+                style={{ fontFamily: '"Caveat", cursive' }}
+              >
+                Creative Curriculum Designer
+              </h1>
+
               {canInstall && !isInstalled && (
                 <div className="mb-3 flex justify-end">
                   <button

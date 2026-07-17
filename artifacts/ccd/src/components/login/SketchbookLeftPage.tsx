@@ -9,25 +9,20 @@ export function SketchbookLeftPage() {
       <div className="pointer-events-none absolute inset-0 login-book-paper" aria-hidden />
       <PencilCorner />
 
-      <header className="relative z-10 mb-6 sm:mb-8">
+      <header className="relative z-10 mb-6 hidden sm:mb-8 lg:block">
         <span className="mb-1 inline-block text-sm text-[#0a2a44]/40" aria-hidden>
           ✦
         </span>
-        {/* One line on phone; three-line hand-lettering on the desktop book page */}
+        {/* Desktop book page: three-line hand-lettered title */}
         <h1
-          className="font-semibold leading-[1.02] tracking-tight text-[#0a2a44]"
+          className="text-[clamp(1.85rem,4.2vw,2.85rem)] font-semibold leading-[1.02] tracking-tight text-[#0a2a44]"
           style={{ fontFamily: '"Caveat", cursive' }}
         >
-          <span className="block whitespace-nowrap text-[clamp(1.35rem,6vw,1.85rem)] lg:hidden">
-            Creative Curriculum Designer
-          </span>
-          <span className="hidden text-[clamp(1.85rem,4.2vw,2.85rem)] lg:block">
-            Creative
-            <br />
-            Curriculum
-            <br />
-            Designer
-          </span>
+          Creative
+          <br />
+          Curriculum
+          <br />
+          Designer
         </h1>
       </header>
 
