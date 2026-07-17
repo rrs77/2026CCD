@@ -760,6 +760,21 @@ button[data-state="active"] {
   background-color: #f7f1e6;
 }
 
+.login-book-page--left {
+  background-color: #f3eadc;
+}
+
+/* Original left-page artwork scales inside the notebook page */
+.login-sketch-left-art {
+  max-height: min(72vh, 52rem);
+}
+
+@media (min-width: 1024px) {
+  .login-sketch-left-art {
+    max-height: none;
+  }
+}
+
 /* Login cluster sits slightly on the page slant — like writing in a real book */
 .login-book-login-cluster {
   transform: rotate(-1.25deg);
