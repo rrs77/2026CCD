@@ -729,10 +729,31 @@ button[data-state="active"] {
   animation: login-sketch-rise 520ms var(--ccd-ease-out) 220ms both;
 }
 
+/* Shared sticky-note lift used by walkthrough CTA and secondary actions */
+.login-sketch-lift {
+  transition: transform 300ms var(--ccd-ease-out), box-shadow 300ms var(--ccd-ease-out);
+  transform-origin: center;
+}
+
+.login-sketch-lift:hover {
+  transform: rotate(-1deg) scale(1.02);
+}
+
+.login-sketch-lift:active {
+  transform: rotate(-0.5deg) scale(0.99);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .login-sketchbook-spread,
   .login-sketch-card,
   .login-sketch-sticky {
     animation: none;
+  }
+
+  .login-sketch-lift,
+  .login-sketch-lift:hover,
+  .login-sketch-lift:active {
+    transition: none;
+    transform: none;
   }
 }

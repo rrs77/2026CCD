@@ -12,7 +12,7 @@ export function FeatureWalkthroughGraphic({ onClick, className = '' }: FeatureWa
     <button
       type="button"
       onClick={onClick}
-      className={`group relative w-full max-w-[280px] text-left transition-transform duration-300 hover:-rotate-1 hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#002D24] ${className}`}
+      className={`login-sketch-lift group relative w-full max-w-[280px] text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#002D24] ${className}`}
       aria-label="Watch the feature walkthrough — a short tour of how Creative Curriculum Designer works"
     >
       <span

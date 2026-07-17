@@ -31,7 +31,7 @@ import { AboutPrototypeModal } from './login/AboutPrototypeModal';
 import { FeatureWalkthroughGraphic } from './login/FeatureWalkthroughGraphic';
 import { LoginHeroPanel } from './login/LoginHeroPanel';
 import { PrototypeNoticeBar } from './login/PrototypeNoticeBar';
-import { LogoSVG, LOGO_BG } from './Logo';
+import { LOGO_BG } from './Logo';
 
 const LOGIN_GREEN = LOGO_BG;
 
@@ -58,7 +58,6 @@ export function LoginForm() {
   const [showPrototypePassword, setShowPrototypePassword] = useState(false);
 
   const branding = settings.branding || {};
-  const logoLetters = branding.logoLetters || 'CCD';
   const loginSubtitleUrl = branding.loginSubtitleUrl || 'https://www.rhythmstix.co.uk';
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -192,9 +191,9 @@ export function LoginForm() {
       }}
     >
       <PrototypeNoticeBar />
-      <div className="relative z-10 flex flex-1 flex-col p-0 sm:p-4 lg:p-6">
+      <div className="relative z-10 flex flex-1 flex-col p-0">
         <div
-          className="login-sketchbook-spread mx-auto flex min-h-0 w-full max-w-[1440px] flex-1 flex-col overflow-hidden sm:min-h-[calc(100vh-2.5rem)] sm:rounded-sm sm:shadow-[0_30px_80px_rgba(0,0,0,0.45)] lg:min-h-[calc(100vh-3.5rem)]"
+          className="login-sketchbook-spread mx-auto flex min-h-0 w-full max-w-none flex-1 flex-col overflow-hidden lg:min-h-[calc(100vh-3rem)]"
           style={{
             backgroundColor: '#f3eadc',
             boxShadow: 'inset 0 0 0 1px rgba(0,45,36,0.08)',
@@ -202,18 +201,18 @@ export function LoginForm() {
         >
         <div className="flex flex-1 flex-col lg:flex-row">
           {/* Mobile: login first. Desktop: sketchbook left, sign-in right */}
-          <div className="order-2 border-t border-[#002D24]/10 lg:order-1 lg:flex lg:w-[56%] lg:border-t-0 lg:border-r">
+          <div className="order-2 border-t border-[#002D24]/10 lg:order-1 lg:flex lg:w-[58%] lg:border-t-0 lg:border-r">
             <div className="lg:hidden">
-              <LoginHeroPanel logoLetters={logoLetters} compact />
+              <LoginHeroPanel compact />
             </div>
             <div className="hidden w-full lg:flex">
-              <LoginHeroPanel logoLetters={logoLetters} />
+              <LoginHeroPanel />
             </div>
           </div>
 
           {/* Sign-in panel — first on iPhone */}
           <div
-            className="order-1 flex flex-1 flex-col lg:order-2 lg:w-[44%]"
+            className="order-1 flex flex-1 flex-col lg:order-2 lg:w-[42%]"
             style={{
               backgroundColor: '#f7f1e6',
               backgroundImage: `
@@ -222,11 +221,10 @@ export function LoginForm() {
               `,
             }}
           >
-            <div className="flex flex-1 items-center justify-center px-5 py-5 sm:px-8 sm:py-8 lg:px-10 lg:py-10">
-              <div className="w-full max-w-[380px]">
-                <div className="mb-4 flex items-start justify-between gap-3">
-                  <LogoSVG size="sm" showText={false} letters={logoLetters} className="!space-x-0" />
-                  {canInstall && !isInstalled && (
+            <div className="flex flex-1 items-center justify-center px-4 py-5 sm:px-5 sm:py-6 lg:px-6 lg:py-8">
+              <div className="w-full max-w-[400px]">
+                {canInstall && !isInstalled && (
+                  <div className="mb-3 flex justify-end">
                     <button
                       type="button"
                       onClick={async () => {
@@ -237,25 +235,16 @@ export function LoginForm() {
                       <Download className="h-4 w-4" />
                       <span className="hidden sm:inline">Install</span>
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <div className="mb-6">
-                  <p
-                    className="mb-1 text-sm text-[#5a726a]"
-                    style={{ fontFamily: '"Caveat", cursive' }}
-                  >
-                    Half-term plan · Lesson Library
-                  </p>
                   <h2
                     className="text-3xl font-semibold tracking-tight text-[#002D24] sm:text-[2rem]"
                     style={{ fontFamily: '"Fraunces", Georgia, serif' }}
                   >
                     Back to the studio
                   </h2>
-                  <p className="mt-1.5 text-sm text-[#4a635c]">
-                    Pick up where your half-term left off.
-                  </p>
                 </div>
 
                 {showForgotPassword ? (
@@ -424,7 +413,7 @@ export function LoginForm() {
                     <button
                       type="button"
                       onClick={handleStartPreview}
-                      className="flex w-full items-center justify-center gap-2 rounded-md border border-[#002D24]/25 bg-[#fffdf8] px-4 py-3.5 text-sm font-semibold text-[#002D24] transition-colors hover:bg-white"
+                      className="login-sketch-lift flex w-full items-center justify-center gap-2 rounded-md border border-[#002D24]/25 bg-[#fffdf8] px-4 py-3.5 text-sm font-semibold text-[#002D24] transition-colors hover:bg-white"
                     >
                       Explore the working prototype
                       <ExternalLink className="h-4 w-4" />
@@ -448,13 +437,6 @@ export function LoginForm() {
                       >
                         Create one
                       </a>
-                    </p>
-
-                    <p
-                      className="mt-4 text-center text-lg text-[#5a726a]"
-                      style={{ fontFamily: '"Caveat", cursive' }}
-                    >
-                      Ideas grow here
                     </p>
                   </>
                 )}
