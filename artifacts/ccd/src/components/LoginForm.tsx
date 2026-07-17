@@ -215,17 +215,20 @@ export function LoginForm() {
             <div className="pointer-events-none absolute inset-0 login-book-paper" aria-hidden />
             <GuitarDecor />
 
-            <div className="relative z-10 flex flex-1 flex-col justify-center px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10">
-              {/* Brand at top on phone — desktop keeps the full left-page title */}
-              <h1
-                className="mb-4 whitespace-nowrap text-center text-[clamp(1.4rem,6.5vw,1.85rem)] font-semibold leading-none tracking-tight text-[#0a2a44] lg:hidden"
-                style={{ fontFamily: '"Caveat", cursive' }}
-              >
-                Creative Curriculum Designer
-              </h1>
+            <div className="relative z-10 flex flex-1 flex-col justify-start px-5 pb-6 pt-4 sm:px-8 sm:pb-8 sm:pt-5 lg:justify-center lg:px-10 lg:py-10">
+              {/* Phone: brand pinned to the top of the page (not centered with the form) */}
+              <header className="mb-5 flex shrink-0 items-start justify-between gap-3 lg:hidden">
+                <h1
+                  className="min-w-0 flex-1 whitespace-nowrap text-left text-[clamp(1.55rem,7vw,2rem)] font-semibold leading-none tracking-tight text-[#0a2a44]"
+                  style={{ fontFamily: '"Caveat", cursive' }}
+                >
+                  Creative Curriculum Designer
+                </h1>
+                <MobileBrandPencil />
+              </header>
 
               {canInstall && !isInstalled && (
-                <div className="mb-3 flex justify-end">
+                <div className="mb-3 flex justify-end lg:mb-3">
                   <button
                     type="button"
                     onClick={async () => {
@@ -497,11 +500,32 @@ export function LoginForm() {
   );
 }
 
+function MobileBrandPencil() {
+  return (
+    <svg
+      aria-hidden
+      className="mt-0.5 h-11 w-8 shrink-0 text-[#0a2a44]/35"
+      viewBox="0 0 40 64"
+      fill="none"
+    >
+      <path d="M18 4l6 2-8 48-6-2L18 4z" stroke="currentColor" strokeWidth="1.3" />
+      <path
+        d="M12 52l6 2 2-10-6-2-2 10z"
+        fill="currentColor"
+        fillOpacity="0.2"
+        stroke="currentColor"
+        strokeWidth="1"
+      />
+      <path d="M20 6l3 1" stroke="currentColor" strokeWidth="1" />
+    </svg>
+  );
+}
+
 function GuitarDecor() {
   return (
     <svg
       aria-hidden
-      className="pointer-events-none absolute bottom-3 right-2 h-28 w-20 opacity-[0.18] sm:bottom-6 sm:right-4 sm:h-40 sm:w-28"
+      className="pointer-events-none absolute bottom-3 right-2 hidden h-28 w-20 opacity-[0.18] lg:bottom-6 lg:right-4 lg:block lg:h-40 lg:w-28"
       viewBox="0 0 80 140"
       fill="none"
       style={{ color: INK }}

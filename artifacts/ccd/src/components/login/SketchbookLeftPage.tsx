@@ -7,13 +7,16 @@ export function SketchbookLeftPage() {
   return (
     <div className="login-book-page login-book-page--left relative flex h-full flex-col overflow-hidden px-5 py-6 sm:px-7 sm:py-8 lg:px-9 lg:py-10">
       <div className="pointer-events-none absolute inset-0 login-book-paper" aria-hidden />
-      <PencilCorner />
+      {/* Pencil lives with the desktop title — phone brand sits above login instead */}
+      <div className="hidden lg:block">
+        <PencilCorner />
+      </div>
 
-      <header className="relative z-10 mb-6 hidden sm:mb-8 lg:block">
+      {/* Desktop only — phone shows the brand at the top of the login page */}
+      <header className="relative z-10 mb-8 hidden lg:block">
         <span className="mb-1 inline-block text-sm text-[#0a2a44]/40" aria-hidden>
           ✦
         </span>
-        {/* Desktop book page: three-line hand-lettered title */}
         <h1
           className="text-[clamp(1.85rem,4.2vw,2.85rem)] font-semibold leading-[1.02] tracking-tight text-[#0a2a44]"
           style={{ fontFamily: '"Caveat", cursive' }}
@@ -26,7 +29,7 @@ export function SketchbookLeftPage() {
         </h1>
       </header>
 
-      <div className="relative z-10 flex flex-1 flex-col justify-center gap-5 sm:gap-6 lg:gap-7">
+      <div className="relative z-10 flex flex-1 flex-col justify-start gap-5 pt-1 sm:gap-6 lg:justify-center lg:gap-7 lg:pt-0">
         <SubjectRow
           n="1"
           title="Drama"
