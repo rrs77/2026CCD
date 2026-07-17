@@ -2,7 +2,7 @@ interface LoginHeroPanelProps {
   compact?: boolean;
 }
 
-const SKETCHBOOK_IMG = `${import.meta.env.BASE_URL}login-sketchbook-reference.jpg`;
+const SKETCHBOOK_IMG = `${import.meta.env.BASE_URL}login-sketchbook-v5.jpg`;
 
 /**
  * Sketchbook visual matching the approved open-notebook mockup.
