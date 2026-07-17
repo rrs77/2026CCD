@@ -186,33 +186,33 @@ export function LoginForm() {
         alt=""
         aria-hidden
         className="pointer-events-none fixed inset-0 h-full w-full object-cover"
-        style={{ objectPosition: 'center center', transform: 'scale(1.08)' }}
+        style={{ objectPosition: 'center 42%', transform: 'scale(1.18)' }}
         decoding="async"
       />
-      {/* Soft vignette so form stays readable without hiding the book */}
+      {/* Light wash only behind the form so the book stays dominant */}
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-0 bg-gradient-to-b from-[#f3eadc]/25 via-transparent to-[#f3eadc]/35 lg:bg-gradient-to-r lg:from-transparent lg:via-transparent lg:to-[#f3eadc]/55"
+        className="pointer-events-none fixed inset-0 lg:bg-gradient-to-r lg:from-transparent lg:from-45% lg:via-transparent lg:to-[#f3eadc]/40"
       />
 
       <div className="relative z-10 flex min-h-[100dvh] flex-col">
         <PrototypeNoticeBar />
 
         <div className="flex flex-1 flex-col lg:flex-row lg:items-stretch">
-          {/* Desktop: left page of the book stays visible (no extra panel) */}
+          {/* Desktop: left page of the book stays fully visible */}
           <div className="hidden flex-1 lg:block" aria-hidden />
 
           {/* Sign-in — first on iPhone, sits on the right page on desktop */}
-          <div className="order-1 flex w-full flex-1 justify-center px-3 py-4 sm:px-4 lg:order-2 lg:max-w-[min(42vw,28rem)] lg:px-5 lg:py-6 xl:max-w-[30rem]">
+          <div className="order-1 flex w-full flex-1 justify-center px-2 py-3 sm:px-3 lg:order-2 lg:max-w-[min(40vw,26rem)] lg:items-center lg:px-3 lg:py-4 xl:max-w-[28rem]">
             <div
-              className="login-sketchbook-spread flex w-full max-w-[420px] flex-col justify-center rounded-sm px-4 py-5 sm:px-5 sm:py-6 lg:max-w-none lg:px-5 lg:py-7"
+              className="login-sketchbook-spread flex w-full max-w-[420px] flex-col justify-center rounded-sm px-3 py-4 sm:px-4 sm:py-5 lg:max-w-none lg:bg-[#f7f1e6]/80 lg:px-4 lg:py-5"
               style={{
-                backgroundColor: 'rgba(247, 241, 230, 0.92)',
+                backgroundColor: 'rgba(247, 241, 230, 0.88)',
                 backgroundImage: `
-                  repeating-linear-gradient(0deg, transparent, transparent 31px, rgba(0,45,36,0.04) 32px)
+                  repeating-linear-gradient(0deg, transparent, transparent 31px, rgba(0,45,36,0.035) 32px)
                 `,
-                boxShadow: '0 12px 40px rgba(0,0,0,0.18)',
-                backdropFilter: 'blur(2px)',
+                boxShadow: '0 8px 28px rgba(0,0,0,0.12)',
+                backdropFilter: 'blur(1.5px)',
               }}
             >
               {canInstall && !isInstalled && (
