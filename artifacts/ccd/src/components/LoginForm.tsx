@@ -36,7 +36,8 @@ const INK = '#0a2a44';
 
 /**
  * Responsive open-notebook login.
- * Desktop: two pages side by side. Mobile: login page first, creative page below.
+ * Desktop: two pages side by side. Mobile: brand + login first, creative page below.
+ * Phone brand title is pinned to the top of the login page (not vertically centered).
  * One Sign in control only — no photo overlay / duplicated UI.
  */
 export function LoginForm() {
