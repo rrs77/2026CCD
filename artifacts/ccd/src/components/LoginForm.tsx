@@ -9,7 +9,6 @@ import {
   X,
   RefreshCw,
   ArrowRight,
-  PlayCircle,
   ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
@@ -29,6 +28,7 @@ import { seedDemoData } from '../utils/demoSeed';
 import { FeatureWalkthroughModal } from './FeatureWalkthrough/FeatureWalkthroughModal';
 import { PrototypePasswordPrompt, isPrototypeUnlocked } from './PrototypeGate';
 import { AboutPrototypeModal } from './login/AboutPrototypeModal';
+import { FeatureWalkthroughGraphic } from './login/FeatureWalkthroughGraphic';
 import { LoginHeroPanel } from './login/LoginHeroPanel';
 import { PrototypeNoticeBar } from './login/PrototypeNoticeBar';
 import { LogoSVG, LOGO_BG } from './Logo';
@@ -177,56 +177,65 @@ export function LoginForm() {
   };
 
   const inputClassName =
-    'w-full rounded-lg border border-gray-300 bg-white py-3 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 focus:border-[#002D24] focus:outline-none focus:ring-2 focus:ring-[#002D24]/20';
+    'w-full rounded-md border border-[#002D24]/20 bg-[#fffdf8] py-3 pl-10 pr-4 text-sm text-[#1a2e28] placeholder-[#8aa099] focus:border-[#002D24] focus:outline-none focus:ring-2 focus:ring-[#002D24]/15';
 
   return (
     <div
-      className="relative flex min-h-screen flex-col overflow-hidden"
+      className="login-sketchbook relative flex min-h-screen flex-col overflow-hidden"
       style={{
-        /* Soft writing-paper: cool-warm grey + fine tiled grain (not stretched noise). */
-        backgroundColor: '#e9e7e3',
-        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.25' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.52 0 0 0 0 0.51 0 0 0 0 0.49 0 0 0 0.07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
-        backgroundRepeat: 'repeat',
-        backgroundSize: '180px 180px',
+        backgroundColor: '#2a1f18',
+        backgroundImage: `
+          radial-gradient(ellipse at 30% 20%, rgba(90,60,40,0.45), transparent 55%),
+          radial-gradient(ellipse at 80% 80%, rgba(20,12,8,0.7), transparent 50%),
+          linear-gradient(160deg, #3a2a20 0%, #1c1410 100%)
+        `,
       }}
     >
       <PrototypeNoticeBar />
       <div className="relative z-10 flex flex-1 flex-col p-0 sm:p-4 lg:p-6">
-        <div className="mx-auto flex min-h-0 w-full max-w-[1440px] flex-1 flex-col overflow-hidden bg-white sm:min-h-[calc(100vh-2.5rem)] sm:rounded-2xl sm:shadow-[0_24px_80px_rgba(0,45,36,0.12)] lg:min-h-[calc(100vh-3.5rem)]">
+        <div
+          className="login-sketchbook-spread mx-auto flex min-h-0 w-full max-w-[1440px] flex-1 flex-col overflow-hidden sm:min-h-[calc(100vh-2.5rem)] sm:rounded-sm sm:shadow-[0_30px_80px_rgba(0,0,0,0.45)] lg:min-h-[calc(100vh-3.5rem)]"
+          style={{
+            backgroundColor: '#f3eadc',
+            boxShadow: 'inset 0 0 0 1px rgba(0,45,36,0.08)',
+          }}
+        >
         <div className="flex flex-1 flex-col lg:flex-row">
           {/* Mobile hero — compact */}
-          <div className="lg:hidden">
+          <div className="border-b border-[#002D24]/10 lg:hidden">
             <LoginHeroPanel logoLetters={logoLetters} compact />
           </div>
 
-          {/* Desktop hero */}
-          <div className="hidden lg:flex lg:w-[58%]">
+          {/* Desktop hero — left page */}
+          <div className="hidden border-r border-[#002D24]/10 lg:flex lg:w-[56%]">
             <LoginHeroPanel logoLetters={logoLetters} />
           </div>
 
-          {/* Sign-in panel */}
-          <div className="flex flex-1 flex-col bg-white lg:w-[42%]">
-            <div className="flex items-center justify-end gap-2 px-5 pt-4 sm:px-8 lg:px-10">
+          {/* Sign-in panel — right page */}
+          <div
+            className="flex flex-1 flex-col lg:w-[44%]"
+            style={{
+              backgroundColor: '#f7f1e6',
+              backgroundImage: `
+                radial-gradient(ellipse at 88% 12%, rgba(0,45,36,0.035), transparent 40%),
+                repeating-linear-gradient(0deg, transparent, transparent 31px, rgba(0,45,36,0.04) 32px)
+              `,
+            }}
+          >
+            <div className="flex items-start justify-between gap-3 px-5 pt-4 sm:px-8 lg:px-10">
+              <FeatureWalkthroughGraphic onClick={() => setShowFeatureWalkthrough(true)} />
               {canInstall && !isInstalled && (
                 <button
                   type="button"
                   onClick={async () => {
                     await install();
                   }}
-                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700"
+                  className="mt-1 flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-2 text-sm font-medium text-[#5a726a] transition-colors hover:bg-[#002D24]/5 hover:text-[#002D24]"
                 >
                   <Download className="h-4 w-4" />
                   <span className="hidden sm:inline">Install</span>
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => setShowFeatureWalkthrough(true)}
-                className="flex items-center gap-2 rounded-lg bg-[#B6FF7E] px-3 py-2 text-sm font-semibold text-black transition-opacity hover:opacity-90"
-              >
-                <PlayCircle className="h-5 w-5 shrink-0 text-black" />
-                <span>Feature walkthrough</span>
-              </button>
             </div>
 
             <div className="flex flex-1 items-center justify-center px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10">
@@ -234,10 +243,19 @@ export function LoginForm() {
                 <LogoSVG size="sm" showText={false} letters={logoLetters} className="!space-x-0" />
 
                 <div className="mb-7 mt-5">
-                  <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-[1.65rem]">
+                  <p
+                    className="mb-1 text-sm text-[#5a726a]"
+                    style={{ fontFamily: '"Caveat", cursive' }}
+                  >
+                    Half-term plan · Lesson Library
+                  </p>
+                  <h2
+                    className="text-3xl font-semibold tracking-tight text-[#002D24] sm:text-[2rem]"
+                    style={{ fontFamily: '"Fraunces", Georgia, serif' }}
+                  >
                     Back to the studio
                   </h2>
-                  <p className="mt-1 text-sm text-gray-500">
+                  <p className="mt-1.5 text-sm text-[#4a635c]">
                     Pick up where your half-term left off.
                   </p>
                 </div>
@@ -260,11 +278,11 @@ export function LoginForm() {
                 ) : (
                   <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                     <div>
-                      <label htmlFor="login-email" className="mb-1.5 block text-sm font-medium text-gray-700">
+                      <label htmlFor="login-email" className="mb-1.5 block text-sm font-medium text-[#2f4a42]">
                         Email address
                       </label>
                       <div className="relative">
-                        <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8aa099]" />
                         <input
                           id="login-email"
                           type="email"
@@ -280,7 +298,7 @@ export function LoginForm() {
 
                     <div>
                       <div className="mb-1.5 flex items-center justify-between">
-                        <label htmlFor="login-password" className="block text-sm font-medium text-gray-700">
+                        <label htmlFor="login-password" className="block text-sm font-medium text-[#2f4a42]">
                           Password
                         </label>
                         {isSupabaseConfigured() && (
@@ -294,7 +312,7 @@ export function LoginForm() {
                         )}
                       </div>
                       <div className="relative">
-                        <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8aa099]" />
                         <input
                           id="login-password"
                           type={showPassword ? 'text' : 'password'}
@@ -308,7 +326,7 @@ export function LoginForm() {
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:text-gray-600"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-[#8aa099] hover:text-[#002D24]"
                           aria-label={showPassword ? 'Hide password' : 'Show password'}
                         >
                           {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -317,7 +335,7 @@ export function LoginForm() {
                     </div>
 
                     {isSupabaseAuthEnabled() && (
-                      <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
+                      <label className="flex cursor-pointer items-center gap-2 text-sm text-[#4a635c]">
                         <input
                           type="checkbox"
                           checked={staySignedIn}
@@ -329,7 +347,7 @@ export function LoginForm() {
                     )}
 
                     {error && (
-                      <div className="flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                      <div className="flex items-start gap-2 rounded-md bg-red-50 p-3 text-sm text-red-700">
                         <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
                         <div className="flex-1">
                           <span>{error}</span>
@@ -349,7 +367,7 @@ export function LoginForm() {
                     )}
 
                     {isSupabaseConfigured() && !isSupabaseAuthEnabled() && (
-                      <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                      <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
                         Email/password sign-in is off. Set VITE_USE_SUPABASE_AUTH=true in your environment
                         and redeploy to sign in and use password reset.
                       </p>
@@ -357,8 +375,8 @@ export function LoginForm() {
 
                     {isSupabaseAuthEnabled() && authStatus && authStatus !== 'ok' && (
                       <div
-                        className={`rounded-lg p-2 text-xs ${
-                          authStatus === 'fail' ? 'bg-amber-50 text-amber-800' : 'bg-gray-50 text-gray-600'
+                        className={`rounded-md p-2 text-xs ${
+                          authStatus === 'fail' ? 'bg-amber-50 text-amber-800' : 'bg-[#002D24]/5 text-[#4a635c]'
                         }`}
                       >
                         {authStatus === 'checking' && 'Checking Supabase...'}
@@ -370,7 +388,7 @@ export function LoginForm() {
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3.5 text-sm font-semibold text-white transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="flex w-full items-center justify-center gap-2 rounded-md px-4 py-3.5 text-sm font-semibold text-white transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
                       style={{ backgroundColor: isSubmitting ? '#6B7280' : LOGIN_GREEN }}
                     >
                       {isSubmitting ? (
@@ -391,15 +409,20 @@ export function LoginForm() {
                 {!showForgotPassword && (
                   <>
                     <div className="my-5 flex items-center gap-3">
-                      <div className="h-px flex-1 bg-gray-200" />
-                      <span className="text-xs font-medium uppercase tracking-wide text-gray-400">or</span>
-                      <div className="h-px flex-1 bg-gray-200" />
+                      <div className="h-px flex-1 bg-[#002D24]/15" />
+                      <span
+                        className="text-base text-[#5a726a]"
+                        style={{ fontFamily: '"Caveat", cursive' }}
+                      >
+                        or
+                      </span>
+                      <div className="h-px flex-1 bg-[#002D24]/15" />
                     </div>
 
                     <button
                       type="button"
                       onClick={handleStartPreview}
-                      className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-3.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+                      className="flex w-full items-center justify-center gap-2 rounded-md border border-[#002D24]/25 bg-[#fffdf8] px-4 py-3.5 text-sm font-semibold text-[#002D24] transition-colors hover:bg-white"
                     >
                       Explore the working prototype
                       <ExternalLink className="h-4 w-4" />
@@ -408,12 +431,12 @@ export function LoginForm() {
                     <button
                       type="button"
                       onClick={() => setShowAboutPrototype(true)}
-                      className="mt-2 w-full text-center text-sm text-gray-500 transition-colors hover:text-[#002D24]"
+                      className="mt-2 w-full text-center text-sm text-[#5a726a] transition-colors hover:text-[#002D24]"
                     >
                       About this prototype
                     </button>
 
-                    <p className="mt-6 text-center text-sm text-gray-500">
+                    <p className="mt-6 text-center text-sm text-[#5a726a]">
                       Don&apos;t have an account?{' '}
                       <a
                         href={loginSubtitleUrl}
@@ -423,6 +446,13 @@ export function LoginForm() {
                       >
                         Create one
                       </a>
+                    </p>
+
+                    <p
+                      className="mt-4 text-center text-lg text-[#5a726a]"
+                      style={{ fontFamily: '"Caveat", cursive' }}
+                    >
+                      Ideas grow here
                     </p>
                   </>
                 )}

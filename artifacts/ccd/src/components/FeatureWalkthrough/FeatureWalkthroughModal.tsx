@@ -31,7 +31,7 @@ export function FeatureWalkthroughModal({ isOpen, onClose }: FeatureWalkthroughM
       className="fixed inset-0 z-[100] bg-black"
       role="dialog"
       aria-modal="true"
-      aria-label="Feature walkthrough"
+      aria-label="Watch the feature walkthrough"
     >
       <iframe
         src={PROMO_SRC}

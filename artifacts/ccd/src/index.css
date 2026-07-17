@@ -691,3 +691,48 @@ button[data-state="active"] {
     padding-top: 0.5rem;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Sketchbook login — soft presence motion (scoped)
+ * ------------------------------------------------------------------------ */
+@keyframes login-sketch-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes login-sketch-spread-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.login-sketchbook-spread {
+  animation: login-sketch-spread-in 520ms var(--ccd-ease-out) both;
+}
+
+.login-sketch-card {
+  animation: login-sketch-rise 420ms var(--ccd-ease-out) both;
+}
+
+.login-sketch-sticky {
+  animation: login-sketch-rise 520ms var(--ccd-ease-out) 220ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-sketchbook-spread,
+  .login-sketch-card,
+  .login-sketch-sticky {
+    animation: none;
+  }
+}
