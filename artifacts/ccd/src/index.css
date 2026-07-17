@@ -743,6 +743,80 @@ button[data-state="active"] {
   transform: rotate(-0.5deg) scale(0.99);
 }
 
+/* Fields drawn onto the sketchbook page (no floating white modal) */
+.login-book-field {
+  display: block;
+  width: 100%;
+  border-radius: 3px;
+  border: 1.5px solid rgba(0, 45, 36, 0.35);
+  background: rgba(255, 253, 248, 0.55);
+  padding: 0.55rem 0.7rem;
+  font-size: clamp(0.7rem, 1.35vw, 0.95rem);
+  color: #1a2e28;
+  outline: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(0.5px);
+}
+
+.login-book-field::placeholder {
+  color: #8aa099;
+  font-family: "Caveat", cursive;
+  font-size: 1.15em;
+}
+
+.login-book-field:focus {
+  border-color: #002d24;
+  background: rgba(255, 253, 248, 0.82);
+  box-shadow: 0 0 0 2px rgba(0, 45, 36, 0.12);
+}
+
+.login-book-submit {
+  display: block;
+  width: 100%;
+  border-radius: 4px;
+  border: none;
+  padding: 0.6rem 0.75rem;
+  font-family: "Caveat", cursive;
+  font-size: clamp(1rem, 2vw, 1.35rem);
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 160ms var(--ccd-ease-out), transform 200ms var(--ccd-ease-out);
+}
+
+.login-book-submit:hover:not(:disabled) {
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
+
+.login-book-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+/* Keep the whole book readable on phones — enlarge the right-page hit zone */
+@media (max-width: 1023px) {
+  .login-book-form-zone {
+    left: 48% !important;
+    top: 22% !important;
+    width: 48% !important;
+    transform: perspective(900px) rotateY(-5deg) rotateZ(-1deg) !important;
+  }
+
+  .login-book-field {
+    padding: 0.65rem 0.7rem;
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .login-book-form-zone {
+    left: 46% !important;
+    top: 18% !important;
+    width: 52% !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .login-sketchbook-spread,
   .login-sketch-card,
@@ -754,6 +828,10 @@ button[data-state="active"] {
   .login-sketch-lift:hover,
   .login-sketch-lift:active {
     transition: none;
+    transform: none;
+  }
+
+  .login-book-submit:hover:not(:disabled) {
     transform: none;
   }
 }

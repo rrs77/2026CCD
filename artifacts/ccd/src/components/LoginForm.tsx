@@ -1,15 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Mail,
-  Lock,
   Eye,
   EyeOff,
   AlertCircle,
   Download,
   X,
   RefreshCw,
-  ArrowRight,
-  ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { getAppBaseUrl } from '../utils/apiUrl';
@@ -34,6 +30,9 @@ import { PrototypeNoticeBar } from './login/PrototypeNoticeBar';
 import { LOGO_BG } from './Logo';
 
 const LOGIN_GREEN = LOGO_BG;
+
+/** Open-book artwork aspect (login-sketchbook-v6.jpg). */
+const BOOK_ASPECT = '1459 / 953';
 
 export function LoginForm() {
   const { login } = useAuth();
@@ -175,265 +174,247 @@ export function LoginForm() {
     window.location.assign('/?demo=1');
   };
 
-  const inputClassName =
-    'w-full rounded-md border border-[#002D24]/20 bg-[#fffdf8] py-3 pl-10 pr-4 text-sm text-[#1a2e28] placeholder-[#8aa099] focus:border-[#002D24] focus:outline-none focus:ring-2 focus:ring-[#002D24]/15';
-
   return (
-    <div className="login-sketchbook relative min-h-[100dvh] w-full overflow-x-hidden overflow-y-auto bg-[#f3eadc]">
-      {/* Full-screen open book — covers the whole login viewport */}
-      <img
-        src={SKETCHBOOK_IMG}
-        alt=""
-        aria-hidden
-        className="pointer-events-none fixed inset-0 h-full w-full object-cover"
-        style={{ objectPosition: 'center 42%', transform: 'scale(1.18)' }}
-        decoding="async"
-      />
-      {/* Light wash only behind the form so the book stays dominant */}
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0 lg:bg-gradient-to-r lg:from-transparent lg:from-45% lg:via-transparent lg:to-[#f3eadc]/40"
-      />
+    <div
+      className="login-sketchbook relative flex min-h-[100dvh] w-full flex-col overflow-x-hidden"
+      style={{
+        backgroundColor: '#1c1410',
+        backgroundImage: `
+          radial-gradient(ellipse at 30% 20%, rgba(90,60,40,0.4), transparent 55%),
+          linear-gradient(160deg, #2a1f18 0%, #120e0c 100%)
+        `,
+      }}
+    >
+      <PrototypeNoticeBar />
 
-      <div className="relative z-10 flex min-h-[100dvh] flex-col">
-        <PrototypeNoticeBar />
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-1 py-2 sm:px-2 sm:py-3">
+        {/* Whole open book visible — interactive fields live on the right page */}
+        <div
+          className="login-sketchbook-spread relative w-full max-w-[min(96vw,1280px)]"
+          style={{ aspectRatio: BOOK_ASPECT }}
+        >
+          <img
+            src={SKETCHBOOK_IMG}
+            alt="Creative Curriculum Designer sketchbook — Drama, Music and Dance. Sign in on the right page."
+            className="absolute inset-0 h-full w-full object-contain object-center select-none"
+            draggable={false}
+            decoding="async"
+          />
 
-        <div className="flex flex-1 flex-col lg:flex-row lg:items-stretch">
-          {/* Desktop: left page of the book stays fully visible */}
-          <div className="hidden flex-1 lg:block" aria-hidden />
-
-          {/* Sign-in — first on iPhone, sits on the right page on desktop */}
-          <div className="order-1 flex w-full flex-1 justify-center px-2 py-3 sm:px-3 lg:order-2 lg:max-w-[min(40vw,26rem)] lg:items-center lg:px-3 lg:py-4 xl:max-w-[28rem]">
-            <div
-              className="login-sketchbook-spread flex w-full max-w-[420px] flex-col justify-center rounded-sm px-3 py-4 sm:px-4 sm:py-5 lg:max-w-none lg:bg-[#f7f1e6]/80 lg:px-4 lg:py-5"
-              style={{
-                backgroundColor: 'rgba(247, 241, 230, 0.88)',
-                backgroundImage: `
-                  repeating-linear-gradient(0deg, transparent, transparent 31px, rgba(0,45,36,0.035) 32px)
-                `,
-                boxShadow: '0 8px 28px rgba(0,0,0,0.12)',
-                backdropFilter: 'blur(1.5px)',
-              }}
-            >
-              {canInstall && !isInstalled && (
-                <div className="mb-3 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await install();
-                    }}
-                    className="flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-2 text-sm font-medium text-[#5a726a] transition-colors hover:bg-[#002D24]/5 hover:text-[#002D24]"
-                  >
-                    <Download className="h-4 w-4" />
-                    <span className="hidden sm:inline">Install</span>
-                  </button>
-                </div>
-              )}
-
-              <div className="mb-6">
-                <h1
-                  className="text-3xl font-semibold tracking-tight text-[#002D24] sm:text-[2rem]"
-                  style={{ fontFamily: '"Fraunces", Georgia, serif' }}
+          {/* Slanted interactive zone aligned to the drawn form on the right page */}
+          <div
+            className="login-book-form-zone absolute z-20"
+            style={{
+              left: '51.5%',
+              top: '26%',
+              width: '34%',
+              transform: 'perspective(1400px) rotateY(-7deg) rotateZ(-1.4deg)',
+              transformOrigin: 'left center',
+            }}
+          >
+            {showForgotPassword ? (
+              <div className="space-y-2 rounded-sm bg-[#f7f1e6]/90 p-2 shadow-sm backdrop-blur-[1px] sm:p-3">
+                <p
+                  className="text-lg text-[#002D24] sm:text-xl"
+                  style={{ fontFamily: '"Caveat", cursive', fontWeight: 600 }}
                 >
-                  Back to the studio
-                </h1>
-              </div>
-
-              {showForgotPassword ? (
-                <ForgotPasswordPanel
-                  forgotEmail={forgotEmail}
-                  setForgotEmail={setForgotEmail}
-                  forgotSent={forgotSent}
-                  forgotError={forgotError}
-                  forgotSubmitting={forgotSubmitting}
-                  onSubmit={handleForgotPassword}
-                  onBack={() => {
+                  Forgot password?
+                </p>
+                {!isSupabaseAuthEnabled() ? (
+                  <p className="text-xs text-amber-800">Password reset is unavailable on this site.</p>
+                ) : forgotSent ? (
+                  <p className="text-xs text-[#0f3d34]">Check your email for a reset link.</p>
+                ) : (
+                  <form onSubmit={handleForgotPassword} className="space-y-2">
+                    <input
+                      type="email"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      required
+                      placeholder="Email"
+                      className="login-book-field"
+                    />
+                    {forgotError && <p className="text-xs text-red-700">{forgotError}</p>}
+                    <button
+                      type="submit"
+                      disabled={forgotSubmitting}
+                      className="login-book-submit"
+                      style={{ backgroundColor: forgotSubmitting ? '#9CA3AF' : LOGIN_GREEN }}
+                    >
+                      {forgotSubmitting ? 'Sending…' : 'Send reset link'}
+                    </button>
+                  </form>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
                     setShowForgotPassword(false);
                     setForgotSent(false);
                     setForgotError('');
                   }}
-                  inputClassName={inputClassName}
+                  className="w-full text-center text-xs text-[#5a726a] hover:text-[#002D24]"
+                >
+                  Back to sign in
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-2 sm:space-y-2.5" noValidate>
+                <label className="sr-only" htmlFor="login-email">
+                  Email address
+                </label>
+                <input
+                  id="login-email"
+                  type="email"
+                  autoComplete="email"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  placeholder="Email"
+                  className="login-book-field"
                 />
-              ) : (
-                <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-                  <div>
-                    <label htmlFor="login-email" className="mb-1.5 block text-sm font-medium text-[#2f4a42]">
-                      Email address
-                    </label>
-                    <div className="relative">
-                      <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8aa099]" />
-                      <input
-                        id="login-email"
-                        type="email"
-                        autoComplete="email"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        required
-                        className={inputClassName}
-                        placeholder="you@school.org"
-                      />
-                    </div>
-                  </div>
 
-                  <div>
-                    <div className="mb-1.5 flex items-center justify-between">
-                      <label htmlFor="login-password" className="block text-sm font-medium text-[#2f4a42]">
-                        Password
-                      </label>
-                      {isSupabaseConfigured() && (
-                        <button
-                          type="button"
-                          onClick={() => setShowForgotPassword(true)}
-                          className="text-sm font-medium text-[#002D24] hover:underline"
-                        >
-                          Forgot password?
-                        </button>
-                      )}
-                    </div>
-                    <div className="relative">
-                      <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8aa099]" />
-                      <input
-                        id="login-password"
-                        type={showPassword ? 'text' : 'password'}
-                        autoComplete="current-password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        className={`${inputClassName} pr-10`}
-                        placeholder="Enter your password"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-[#8aa099] hover:text-[#002D24]"
-                        aria-label={showPassword ? 'Hide password' : 'Show password'}
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                  </div>
+                <div className="relative">
+                  <label className="sr-only" htmlFor="login-password">
+                    Password
+                  </label>
+                  <input
+                    id="login-password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    placeholder="Password"
+                    className="login-book-field pr-9"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-[#5a726a] hover:text-[#002D24]"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
 
-                  {isSupabaseAuthEnabled() && (
-                    <label className="flex cursor-pointer items-center gap-2 text-sm text-[#4a635c]">
+                <div className="flex items-center justify-between gap-2 px-0.5">
+                  {isSupabaseAuthEnabled() ? (
+                    <label className="flex cursor-pointer items-center gap-1.5 text-[0.65rem] text-[#3d5c54] sm:text-xs">
                       <input
                         type="checkbox"
                         checked={staySignedIn}
                         onChange={(e) => setStaySignedIn(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-[#002D24] focus:ring-[#002D24]"
+                        className="h-3 w-3 rounded border-[#002D24]/30 text-[#002D24]"
                       />
                       Remember me
                     </label>
+                  ) : (
+                    <span />
                   )}
-
-                  {error && (
-                    <div className="flex items-start gap-2 rounded-md bg-red-50 p-3 text-sm text-red-700">
-                      <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                      <div className="flex-1">
-                        <span>{error}</span>
-                        {error.includes('timed out') && (
-                          <button
-                            type="button"
-                            onClick={() => handleSubmit()}
-                            disabled={isSubmitting || !username.trim()}
-                            className="mt-1 flex items-center gap-1 text-sm font-medium text-[#002D24] hover:underline"
-                          >
-                            <RefreshCw className="h-3.5 w-3.5" />
-                            Try again
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {isSupabaseConfigured() && !isSupabaseAuthEnabled() && (
-                    <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                      Email/password sign-in is off. Set VITE_USE_SUPABASE_AUTH=true in your environment
-                      and redeploy to sign in and use password reset.
-                    </p>
-                  )}
-
-                  {isSupabaseAuthEnabled() && authStatus && authStatus !== 'ok' && (
-                    <div
-                      className={`rounded-md p-2 text-xs ${
-                        authStatus === 'fail' ? 'bg-amber-50 text-amber-800' : 'bg-[#002D24]/5 text-[#4a635c]'
-                      }`}
+                  {isSupabaseConfigured() && (
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotPassword(true)}
+                      className="text-[0.65rem] font-medium text-[#002D24] underline-offset-2 hover:underline sm:text-xs"
                     >
-                      {authStatus === 'checking' && 'Checking Supabase...'}
-                      {authStatus === 'fail' &&
-                        `Supabase Auth: ${authError || 'Not reachable'}. Check Supabase Dashboard.`}
-                    </div>
+                      Forgot password?
+                    </button>
                   )}
+                </div>
 
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="flex w-full items-center justify-center gap-2 rounded-md px-4 py-3.5 text-sm font-semibold text-white transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
-                    style={{ backgroundColor: isSubmitting ? '#6B7280' : LOGIN_GREEN }}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <LoadingSpinner size="sm" />
-                        <span>Signing in...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Sign in</span>
-                        <ArrowRight className="h-4 w-4" />
-                      </>
-                    )}
-                  </button>
-                </form>
-              )}
-
-              {!showForgotPassword && (
-                <>
-                  <div className="my-5">
-                    <FeatureWalkthroughGraphic onClick={() => setShowFeatureWalkthrough(true)} />
+                {error && (
+                  <div className="flex items-start gap-1.5 rounded-sm bg-red-50/95 p-2 text-[0.7rem] text-red-700">
+                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <div>
+                      <span>{error}</span>
+                      {error.includes('timed out') && (
+                        <button
+                          type="button"
+                          onClick={() => handleSubmit()}
+                          disabled={isSubmitting || !username.trim()}
+                          className="mt-1 flex items-center gap-1 font-medium text-[#002D24] hover:underline"
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          Try again
+                        </button>
+                      )}
+                    </div>
                   </div>
+                )}
 
-                  <div className="my-5 flex items-center gap-3">
-                    <div className="h-px flex-1 bg-[#002D24]/15" />
-                    <span
-                      className="text-base text-[#5a726a]"
-                      style={{ fontFamily: '"Caveat", cursive' }}
-                    >
-                      or
+                {isSupabaseAuthEnabled() && authStatus === 'fail' && (
+                  <p className="rounded-sm bg-amber-50/95 px-2 py-1 text-[0.65rem] text-amber-800">
+                    Supabase Auth: {authError || 'Not reachable'}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="login-book-submit"
+                  style={{ backgroundColor: isSubmitting ? '#6B7280' : LOGIN_GREEN }}
+                >
+                  {isSubmitting ? (
+                    <span className="inline-flex items-center gap-2">
+                      <LoadingSpinner size="sm" />
+                      Signing in…
                     </span>
-                    <div className="h-px flex-1 bg-[#002D24]/15" />
-                  </div>
+                  ) : (
+                    'Sign in'
+                  )}
+                </button>
 
-                  <button
-                    type="button"
-                    onClick={handleStartPreview}
-                    className="login-sketch-lift flex w-full items-center justify-center gap-2 rounded-md border border-[#002D24]/25 bg-[#fffdf8] px-4 py-3.5 text-sm font-semibold text-[#002D24] transition-colors hover:bg-white"
+                <button
+                  type="button"
+                  onClick={handleStartPreview}
+                  className="login-sketch-lift w-full text-center text-sm text-[#002D24] underline decoration-[#002D24]/35 underline-offset-4 hover:decoration-[#002D24]"
+                  style={{ fontFamily: '"Caveat", cursive', fontWeight: 600 }}
+                >
+                  Explore the working prototype
+                </button>
+
+                <div className="pt-1">
+                  <FeatureWalkthroughGraphic
+                    onClick={() => setShowFeatureWalkthrough(true)}
+                    className="max-w-none"
+                  />
+                </div>
+
+                <p className="pt-1 text-center text-[0.65rem] text-[#5a726a] sm:text-xs">
+                  Don&apos;t have an account?{' '}
+                  <a
+                    href={loginSubtitleUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-[#002D24] hover:underline"
                   >
-                    Explore the working prototype
-                    <ExternalLink className="h-4 w-4" />
-                  </button>
-
+                    Create one
+                  </a>
+                  {' · '}
                   <button
                     type="button"
                     onClick={() => setShowAboutPrototype(true)}
-                    className="mt-2 w-full text-center text-sm text-[#5a726a] transition-colors hover:text-[#002D24]"
+                    className="hover:text-[#002D24] hover:underline"
                   >
-                    About this prototype
+                    About
                   </button>
-
-                  <p className="mt-6 text-center text-sm text-[#5a726a]">
-                    Don&apos;t have an account?{' '}
-                    <a
-                      href={loginSubtitleUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-semibold text-[#002D24] hover:underline"
-                    >
-                      Create one
-                    </a>
-                  </p>
-                </>
-              )}
-            </div>
+                </p>
+              </form>
+            )}
           </div>
+
+          {canInstall && !isInstalled && (
+            <button
+              type="button"
+              onClick={async () => {
+                await install();
+              }}
+              className="absolute right-[2%] top-[3%] z-30 flex items-center gap-1 rounded-full bg-[#f7f1e6]/90 px-2.5 py-1.5 text-[0.65rem] font-medium text-[#002D24] shadow-sm backdrop-blur-sm hover:bg-white"
+            >
+              <Download className="h-3 w-3" />
+              Install
+            </button>
+          )}
         </div>
       </div>
 
@@ -470,71 +451,6 @@ export function LoginForm() {
   );
 }
 
-function ForgotPasswordPanel({
-  forgotEmail,
-  setForgotEmail,
-  forgotSent,
-  forgotError,
-  forgotSubmitting,
-  onSubmit,
-  onBack,
-  inputClassName,
-}: {
-  forgotEmail: string;
-  setForgotEmail: (v: string) => void;
-  forgotSent: boolean;
-  forgotError: string;
-  forgotSubmitting: boolean;
-  onSubmit: (e: React.FormEvent) => void;
-  onBack: () => void;
-  inputClassName: string;
-}) {
-  return (
-    <div className="space-y-5">
-      <h3 className="text-lg font-semibold text-gray-900">Forgot password?</h3>
-      {!isSupabaseAuthEnabled() ? (
-        <p className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
-          Password reset is not available because email sign-in is disabled for this site. Contact your
-          administrator or enable Supabase Auth to use reset.
-        </p>
-      ) : forgotSent ? (
-        <p className="rounded-lg bg-green-50 p-4 text-sm text-green-700">
-          Check your email. We sent a link to reset your password.
-        </p>
-      ) : (
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="forgot-email" className="mb-1.5 block text-sm font-medium text-gray-700">
-              Email
-            </label>
-            <input
-              id="forgot-email"
-              type="email"
-              value={forgotEmail}
-              onChange={(e) => setForgotEmail(e.target.value)}
-              required
-              className={inputClassName.replace('pl-10', 'pl-3')}
-              placeholder="Enter your email"
-            />
-          </div>
-          {forgotError && <p className="text-sm text-red-600">{forgotError}</p>}
-          <button
-            type="submit"
-            disabled={forgotSubmitting}
-            className="w-full rounded-lg px-4 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-60"
-            style={{ backgroundColor: forgotSubmitting ? '#9CA3AF' : LOGIN_GREEN }}
-          >
-            {forgotSubmitting ? 'Sending...' : 'Send reset link'}
-          </button>
-        </form>
-      )}
-      <button type="button" onClick={onBack} className="w-full text-sm text-gray-600 hover:text-gray-900">
-        Back to sign in
-      </button>
-    </div>
-  );
-}
-
 function InstallPromptModal({
   onInstall,
   onDismiss,
@@ -546,14 +462,9 @@ function InstallPromptModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="rounded-lg bg-[#002D24]/10 p-2">
-              <Download className="h-6 w-6 text-[#002D24]" />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-gray-900">Install App</h3>
-              <p className="text-sm text-gray-600">Get quick access and work offline</p>
-            </div>
+          <div>
+            <h3 className="text-xl font-bold text-gray-900">Install App</h3>
+            <p className="text-sm text-gray-600">Get quick access and work offline</p>
           </div>
           <button
             type="button"
@@ -564,35 +475,23 @@ function InstallPromptModal({
             <X className="h-5 w-5" />
           </button>
         </div>
-
-        <div className="space-y-4">
-          <div className="rounded-lg border border-[#002D24]/15 bg-[#002D24]/5 p-4">
-            <p className="mb-2 text-sm font-medium text-[#002D24]">Benefits of installing:</p>
-            <ul className="list-inside list-disc space-y-1 text-sm text-gray-700">
-              <li>Quick access from your desktop or home screen</li>
-              <li>Works offline with cached data</li>
-              <li>Faster loading times</li>
-            </ul>
-          </div>
-
-          <div className="flex space-x-3">
-            <button
-              type="button"
-              onClick={onInstall}
-              className="flex flex-1 items-center justify-center space-x-2 rounded-lg px-6 py-3 font-semibold text-white shadow-md transition-all hover:shadow-lg"
-              style={{ backgroundColor: LOGIN_GREEN }}
-            >
-              <Download className="h-5 w-5" />
-              <span>Install Now</span>
-            </button>
-            <button
-              type="button"
-              onClick={onDismiss}
-              className="px-6 py-3 font-medium text-gray-600 transition-colors hover:text-gray-800"
-            >
-              Later
-            </button>
-          </div>
+        <div className="flex space-x-3">
+          <button
+            type="button"
+            onClick={onInstall}
+            className="flex flex-1 items-center justify-center space-x-2 rounded-lg px-6 py-3 font-semibold text-white"
+            style={{ backgroundColor: LOGIN_GREEN }}
+          >
+            <Download className="h-5 w-5" />
+            <span>Install Now</span>
+          </button>
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="px-6 py-3 font-medium text-gray-600 hover:text-gray-800"
+          >
+            Later
+          </button>
         </div>
       </div>
     </div>

@@ -39,11 +39,11 @@ export function FeatureWalkthroughGraphic({ onClick, className = '' }: FeatureWa
             </svg>
           </span>
           <span className="min-w-0">
-            <span className="block text-[1.35rem] leading-tight font-semibold text-[#002D24]">
+            <span className="block text-[clamp(0.95rem,2.2vw,1.25rem)] leading-tight font-semibold text-[#002D24]">
               Watch the feature walkthrough
             </span>
             <span
-              className="mt-0.5 block text-[0.95rem] leading-snug text-[#3d5c54]"
+              className="mt-0.5 block text-[clamp(0.65rem,1.4vw,0.85rem)] leading-snug text-[#3d5c54]"
               style={{ fontFamily: '"Source Sans 3", system-ui, sans-serif' }}
             >
               Short tour of how CCD works — activities, lessons &amp; half-terms
