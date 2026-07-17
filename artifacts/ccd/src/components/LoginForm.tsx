@@ -31,8 +31,8 @@ import { LOGO_BG } from './Logo';
 
 const LOGIN_GREEN = LOGO_BG;
 
-/** Open-book artwork aspect (login-sketchbook-v6.jpg). */
-const BOOK_ASPECT = '1459 / 953';
+/** Open-book artwork aspect (login-sketchbook-v9.jpg). */
+const BOOK_ASPECT = '1612 / 1116';
 
 export function LoginForm() {
   const { login } = useAuth();
@@ -205,10 +205,10 @@ export function LoginForm() {
           <div
             className="login-book-form-zone absolute z-20"
             style={{
-              left: '51.5%',
-              top: '26%',
-              width: '34%',
-              transform: 'perspective(1400px) rotateY(-7deg) rotateZ(-1.4deg)',
+              left: '52.5%',
+              top: '20%',
+              width: '31%',
+              transform: 'perspective(1400px) rotateY(-5deg) rotateZ(-0.8deg)',
               transformOrigin: 'left center',
             }}
           >

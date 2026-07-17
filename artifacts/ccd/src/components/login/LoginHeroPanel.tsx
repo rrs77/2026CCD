@@ -2,7 +2,7 @@ interface LoginHeroPanelProps {
   compact?: boolean;
 }
 
-export const SKETCHBOOK_IMG = `${import.meta.env.BASE_URL}login-sketchbook-v6.jpg`;
+export const SKETCHBOOK_IMG = `${import.meta.env.BASE_URL}login-sketchbook-v9.jpg`;
 
 /**
  * Full-bleed sketchbook page art (used when a separate hero panel is needed).

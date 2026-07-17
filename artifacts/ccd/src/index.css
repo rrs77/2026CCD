@@ -797,10 +797,10 @@ button[data-state="active"] {
 /* Keep the whole book readable on phones — enlarge the right-page hit zone */
 @media (max-width: 1023px) {
   .login-book-form-zone {
-    left: 48% !important;
-    top: 22% !important;
-    width: 48% !important;
-    transform: perspective(900px) rotateY(-5deg) rotateZ(-1deg) !important;
+    left: 50% !important;
+    top: 18% !important;
+    width: 46% !important;
+    transform: perspective(900px) rotateY(-4deg) rotateZ(-0.6deg) !important;
   }
 
   .login-book-field {
@@ -811,9 +811,9 @@ button[data-state="active"] {
 
 @media (max-width: 640px) {
   .login-book-form-zone {
-    left: 46% !important;
-    top: 18% !important;
-    width: 52% !important;
+    left: 48% !important;
+    top: 16% !important;
+    width: 50% !important;
   }
 }
 
