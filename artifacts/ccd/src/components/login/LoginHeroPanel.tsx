@@ -2,24 +2,24 @@ interface LoginHeroPanelProps {
   compact?: boolean;
 }
 
-const SKETCHBOOK_IMG = `${import.meta.env.BASE_URL}login-sketchbook-v5.jpg`;
+export const SKETCHBOOK_IMG = `${import.meta.env.BASE_URL}login-sketchbook-v5.jpg`;
 
 /**
- * Sketchbook visual matching the approved open-notebook mockup.
- * Fills the panel edge-to-edge (minimal empty desk margin).
+ * Full-bleed sketchbook page art (used when a separate hero panel is needed).
+ * The main login screen now paints the book across the whole viewport.
  */
 export function LoginHeroPanel({ compact = false }: LoginHeroPanelProps) {
   return (
     <div
       className={`relative w-full overflow-hidden bg-[#f3eadc] ${
-        compact ? 'aspect-[5/4] min-h-[320px] sm:min-h-[380px]' : 'min-h-full lg:min-h-[calc(100vh-3rem)]'
+        compact ? 'min-h-[40vh]' : 'min-h-full'
       }`}
     >
       <img
         src={SKETCHBOOK_IMG}
-        alt="Creative Curriculum Designer sketchbook with Drama, Music and Dance sketches. Outstanding lessons start with a connection."
+        alt="Creative Curriculum Designer sketchbook with Drama, Music and Dance sketches."
         className="absolute inset-0 h-full w-full object-cover"
-        style={{ objectPosition: compact ? '8% 8%' : '18% center' }}
+        style={{ objectPosition: compact ? '12% 10%' : 'center center' }}
         decoding="async"
       />
     </div>
